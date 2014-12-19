@@ -1,0 +1,15 @@
+# OS X / Darwin
+.DS_Store*
+
+# Python
+*.pyc
+*.egg-info*
+build/*
+dist/*
+setup.cfg
+setuptools-*.egg
+
+# Other
+*.log
+*.trees
+var/
