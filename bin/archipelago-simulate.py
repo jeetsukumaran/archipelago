@@ -72,6 +72,20 @@ model_d["traits"] = generate_trait_definitions([
             ("color", 8),
             ])
 
+# def habitat_constrained_dispersal(lineage):
+#     """
+#     Constrains dispersal based on trait `habitat`.
+#     If lineage's "habitat" trait is '0': dispersal is allowed.
+#     If lineage's "habitat" trait is '1': dispersal is not allowed.
+#     """
+#     pass
+# model_d["dispersal_function"] = habitat_constrained_dispersal
+
+
+b = 0.01
+model_d["diversification_birth"] = lambda x: b
+model_d["diversification_birth"].__doc__ = "Fixed birth rate of {}".format(b)
+
 # import json
 # import pprint
 # px = pprint.PrettyPrinter()

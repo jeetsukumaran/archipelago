@@ -220,6 +220,12 @@ class Phylogeny(dendropy.Tree):
 
 class ArchipelagoSimulator(object):
 
+    @staticmethod
+    def get_fixed_value_function(v, description):
+        f = lambda x: v
+        f.__doc__ = description
+        return f
+
     def __init__(self,
             config_d=None,
             model_d=None,
@@ -336,9 +342,31 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("No traits defined")
 
+        # Diversification submodel
+        if "diversification_birth" in model_d:
+            self.diversification_birth = model_d.pop("diversification_birth")
+        else:
+            self.diversification_birth = ArchipelagoSimulator.get_fixed_value_function(0.01,
+                    "Fixed birth rate of {}".format(0.01))
+        if verbose:
+            desc = getattr(self.diversification_birth, "__doc__", None)
+            if desc is None:
+                desc = "(no description available)"
+            self.run_logger.info("[DIVERSIFICATION] Setting lineage birth rate function: {}".format( desc,))
+        if "diversification_death" in model_d:
+            self.diversification_death = model_d.pop("diversification_death")
+        else:
+            self.diversification_death = ArchipelagoSimulator.get_fixed_value_function(0.01,
+                    "Fixed death rate of {}".format(0.01))
+        if verbose:
+            desc = getattr(self.diversification_death, "__doc__", None)
+            if desc is None:
+                desc = "(no description available)"
+            self.run_logger.info("[DIVERSIFICATION] Setting lineage death rate function: {}".format( desc,))
+
+        # Dispersal submodel
+
+        # Trait evolution submodel
+
         if model_d:
             raise TypeError("Unsupported model keywords: {}".format(model_d))
-
-        # Diversification submodel
-
-        # Niche Shift/Evolution submodel
