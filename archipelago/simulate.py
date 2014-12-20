@@ -328,11 +328,20 @@ class ArchipelagoSimulator(object):
                 self.traits[label] = {}
                 self.traits[label]["index"] = trait_idx
                 self.traits[label]["nstates"] = trait_d.pop("nstates", 2)
+                self.traits[label]["transition_probability"] = trait_d.pop("nstates", None)
+                if self.traits[label]["transition_probability"] is None:
+                    self.traits[label]["transition_probability"] = ArchipelagoSimulator.get_fixed_value_function(
+                            0.0,
+                            "Fixed uniform transition probability: {}".format(0.01)
+                    )
+                if self.traits[label]["transition_probability"].__doc__ is None:
+                    self.traits[label]["transition_probability"].__doc__ = "undescribed transition probabilities"
                 if verbose:
-                    self.run_logger.info("[ECOLOGY] Configuring trait {idx}: '{label}' ({nstates} states)".format(
+                    self.run_logger.info("[ECOLOGY] Configuring trait {idx}: '{label}' ({nstates} states, {trans_prob})".format(
                         idx=trait_idx,
                         label=label,
                         nstates=self.traits[label]["nstates"],
+                        trans_prob=self.traits[label]["transition_probability"].__doc__,
                         ))
             if trait_d:
                 raise TypeError("Unsupported trait keywords: {}".format(trait_d))
@@ -343,26 +352,32 @@ class ArchipelagoSimulator(object):
                 self.run_logger.info("No traits defined")
 
         # Diversification submodel
-        if "diversification_birth" in model_d:
-            self.diversification_birth = model_d.pop("diversification_birth")
+        diversification_d = model_d.pop("diversification", {})
+        if "lineage_birth_probability" in diversification_d:
+            self.lineage_birth_probability = diversification_d.pop("lineage_birth_probability")
         else:
-            self.diversification_birth = ArchipelagoSimulator.get_fixed_value_function(0.01,
-                    "Fixed birth rate of {}".format(0.01))
+            self.lineage_birth_probability = ArchipelagoSimulator.get_fixed_value_function(
+                    0.01,
+                    "Fixed birth probability: {}".format(0.01)
+            )
         if verbose:
-            desc = getattr(self.diversification_birth, "__doc__", None)
+            desc = getattr(self.lineage_birth_probability, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DIVERSIFICATION] Setting lineage birth rate function: {}".format( desc,))
-        if "diversification_death" in model_d:
-            self.diversification_death = model_d.pop("diversification_death")
+            self.run_logger.info("[DIVERSIFICATION] Setting lineage birth probability function: {}".format(desc,))
+
+        if "lineage_death_probability" in diversification_d:
+            self.lineage_death_probability = diversification_d.pop("lineage_death_probability")
         else:
-            self.diversification_death = ArchipelagoSimulator.get_fixed_value_function(0.01,
-                    "Fixed death rate of {}".format(0.01))
+            self.lineage_death_probability = ArchipelagoSimulator.get_fixed_value_function(
+                    0.01,
+                    "Fixed death probability: {}".format(0.01)
+            )
         if verbose:
-            desc = getattr(self.diversification_death, "__doc__", None)
+            desc = getattr(self.lineage_death_probability, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DIVERSIFICATION] Setting lineage death rate function: {}".format( desc,))
+            self.run_logger.info("[DIVERSIFICATION] Setting lineage death probability function: {}".format( desc,))
 
         # Dispersal submodel
 

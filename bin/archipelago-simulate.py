@@ -83,8 +83,14 @@ model_d["traits"] = generate_trait_definitions([
 
 
 b = 0.01
-model_d["diversification_birth"] = lambda x: b
-model_d["diversification_birth"].__doc__ = "Fixed birth rate of {}".format(b)
+e = 0.00
+q = 0.01
+d = 0.01
+model_d["diversification"] = {}
+model_d["diversification"]["lineage_birth_probability"] = lambda x: b
+model_d["diversification"]["lineage_birth_probability"].__doc__ = "Fixed birth probability: {}".format(b)
+model_d["diversification"]["lineage_death_probability"] = lambda x: e
+model_d["diversification"]["lineage_death_probability"].__doc__ = "Fixed death probability: {}".format(e)
 
 # import json
 # import pprint
