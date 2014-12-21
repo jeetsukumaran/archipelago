@@ -126,11 +126,25 @@ class TraitDefinition(object):
         self.nstates = nstates
         self.transition_rate = transition_rate
         self.transition_weights = transition_weights
+        self.transition_rate_matrix = []
+
+    def compile_matrix(self):
+        self.transition_rate_matrix = []
+        for i, tw in enumerate(self.transition_weights):
+            self.transition_rate_matrix.append([])
+            for j, w in enumerate(tw):
+                self.transition_rate_matrix[i].append( w * self.transition_rate )
 
 class TraitsDefinitions(object):
 
     def __init__(self):
         self.normalize_transition_weights = True
+
+    def __iter__(self):
+        return iter(self.trait_definitions)
+
+    def __getitem__(self, idx):
+        return self.trait_definitions[idx]
 
     def parse_definition(self,
             trait_definitions,
@@ -173,7 +187,7 @@ class TraitsDefinitions(object):
                     trate=trait.transition_rate,
                     tweights=trait.transition_weights,
                     ))
-
+            trait.compile_matrix()
             if trait_d:
                 raise TypeError("Unsupported trait keywords: {}".format(trait_d))
         # if len(self.trait_definitions) < 1:
@@ -339,17 +353,36 @@ class Phylogeny(dendropy.Tree):
         self.tips = set([self.seed_node])
 
     def event(self):
+
+        # set up event phenomenology
         event_calls = []
         event_rates = []
         for lineage in self.tips:
+            # speciation
             event_calls.append( (self.split_lineage, lineage) )
             event_rates.append(self.system.lineage_speciation_probability_function(lineage))
+            # extinction
+            w = self.system.lineage_death_probability_function(lineage)
+            if w:
+                event_calls.append( (self.extinguish_lineage, lineage) )
+                event_rates.append(w)
+            # trait evolution
+            for trait_idx, trait_state in enumerate(lineage.trait_states):
+                for state_idx in range(self.system.trait_definitions[trait_idx].nstates):
+                    if state_idx == trait_idx:
+                        continue
+                    w = self.system.trait_definitions[trait_idx].transition_rate_matrix[trait_state][state_idx]
+                    event_calls.append( (self.evolve_trait, lineage, trait_idx, state_idx) )
+                    event_rates.append(w)
+            # dispersal
         sum_of_event_rates = sum(event_rates)
+
+        # execute event
         time_till_event = self.system.rng.expovariate(sum_of_event_rates)
         for lineage in self.tips:
             lineage.edge.length += time_till_event
         event_idx = weighted_index_choice(event_rates, self.system.rng)
-        event_calls[event_idx][0](*event_calls[0][1:])
+        event_calls[event_idx][0](*event_calls[event_idx][1:])
 
     def split_lineage(self, lineage):
         lineage.extant = False
@@ -368,6 +401,12 @@ class Phylogeny(dendropy.Tree):
         lineage.add_child(c2)
         self.tips.add(c1)
         self.tips.add(c2)
+
+    def extinguish_lineage(self, lineage):
+        pass
+
+    def evolve_trait(self, lineage, trait_idx, state_idx):
+        lineage.trait_states[trait_idx] = state_idx
 
 class ArchipelagoSimulator(object):
 
