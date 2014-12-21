@@ -67,9 +67,9 @@ model_d = {}
 model_d["areas"] = generate_area_definitions(4, 1)
 model_d["traits"] = generate_trait_definitions([
             ("habitat", 2),
-            # ("role", 6),
+            ("role", 6),
             ("guild", 4),
-            # ("color", 8),
+            ("color", 8),
             ])
 
 # def habitat_constrained_dispersal(lineage):
@@ -87,10 +87,10 @@ e = 0.00
 q = 0.01
 d = 0.01
 model_d["diversification"] = {}
-model_d["diversification"]["lineage_birth_probability"] = lambda x: b
-model_d["diversification"]["lineage_birth_probability"].__doc__ = "Fixed birth probability: {}".format(b)
-model_d["diversification"]["lineage_death_probability"] = lambda x: e
-model_d["diversification"]["lineage_death_probability"].__doc__ = "Fixed death probability: {}".format(e)
+model_d["diversification"]["lineage_birth_probability_function"] = lambda x: b
+model_d["diversification"]["lineage_birth_probability_function"].__doc__ = "Fixed birth probability: {}".format(b)
+model_d["diversification"]["lineage_death_probability_function"] = lambda x: e
+model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixed death probability: {}".format(e)
 
 # import json
 # import pprint

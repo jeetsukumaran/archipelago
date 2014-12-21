@@ -176,32 +176,6 @@ class Traits(object):
                 len(self.traits),
                 ", ".join("'{}'".format(a.label) for a in self.traits),
                 ))
-        # self.transition_probabilities = []
-        # total_transition_probabilities = 0.0
-        # for a1_idx, trait1 in enumerate(self.traits):
-        #     self.transition_probabilities.append([])
-        #     for a2_idx, trait2 in enumerate(self.traits):
-        #         if a1_idx == a2_idx:
-        #             self.transition_probabilities[a1_idx].append(0.0)
-        #         else:
-        #             d = float(trait1._transition_probabilities_d.pop(trait2.label, 1.0))
-        #             self.transition_probabilities[a1_idx].append(d)
-        #             total_transition_probabilities += d
-        #     if trait1._transition_probabilities_d:
-        #         raise ValueError("Undefined dispersal targets in '{}': '{}'".format(trait1.label, trait1._transition_probabilities_d))
-        #     del trait1._transition_probabilities_d
-        # if self.normalize_transition_probabilities and total_transition_probabilities:
-        #     for a1_idx, trait1 in enumerate(self.traits):
-        #         for a2_idx, trait2 in enumerate(self.traits):
-        #             self.transition_probabilities[a1_idx][a2_idx] /= total_transition_probabilities
-        # if verbose:
-        #     if self.normalize_transition_probabilities:
-        #         weight_type = "Normalized dispersal"
-        #     else:
-        #         weight_type = "Dispersal"
-        #     for a1, trait1 in enumerate(self.traits):
-        #         run_logger.info("[GEOGRAPHY] {} weights from trait '{}': {}".format(weight_type, trait1.label, self.transition_probabilities[a1]))
-
 
 class Area(object):
 
@@ -421,41 +395,51 @@ class ArchipelagoSimulator(object):
         # Ecology
         self.traits = Traits()
         self.traits.parse_definition(
-                model_d.pop("traits"),
+                model_d.pop("traits", {}),
                 run_logger=self.run_logger,
                 verbose=verbose)
 
         # Diversification submodel
         diversification_d = model_d.pop("diversification", {})
-        if "lineage_birth_probability" in diversification_d:
-            self.lineage_birth_probability = diversification_d.pop("lineage_birth_probability")
+        if "lineage_birth_probability_function" in diversification_d:
+            self.lineage_birth_probability_function = diversification_d.pop("lineage_birth_probability_function")
         else:
-            self.lineage_birth_probability = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_birth_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
                     "Fixed birth probability: {}".format(0.01)
             )
         if verbose:
-            desc = getattr(self.lineage_birth_probability, "__doc__", None)
+            desc = getattr(self.lineage_birth_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
             self.run_logger.info("[DIVERSIFICATION] Setting lineage birth probability function: {}".format(desc,))
 
-        if "lineage_death_probability" in diversification_d:
-            self.lineage_death_probability = diversification_d.pop("lineage_death_probability")
+        if "lineage_death_probability_function" in diversification_d:
+            self.lineage_death_probability_function = diversification_d.pop("lineage_death_probability_function")
         else:
-            self.lineage_death_probability = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_death_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
                     "Fixed death probability: {}".format(0.01)
             )
         if verbose:
-            desc = getattr(self.lineage_death_probability, "__doc__", None)
+            desc = getattr(self.lineage_death_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
             self.run_logger.info("[DIVERSIFICATION] Setting lineage death probability function: {}".format( desc,))
 
         # Dispersal submodel
-
-        # Trait evolution submodel
+        if "lineage_dispersal_probability_function" in model_d:
+            self.lineage_dispersal_probability_function = model_d.pop("lineage_dispersal_probability_function")
+        else:
+            self.lineage_dispersal_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+                    0.01,
+                    "Fixed dispersal probability: {}".format(0.01)
+            )
+        if verbose:
+            desc = getattr(self.lineage_dispersal_probability_function, "__doc__", None)
+            if desc is None:
+                desc = "(no description available)"
+            self.run_logger.info("[DISPERSAL] Setting lineage dispersal probability function: {}".format(desc,))
 
         if model_d:
             raise TypeError("Unsupported model keywords: {}".format(model_d))
