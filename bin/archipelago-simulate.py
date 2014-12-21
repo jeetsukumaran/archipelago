@@ -101,10 +101,12 @@ model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixe
 s = simulate.ArchipelagoSimulator(
         model_d=model_d,
         )
-for k in range(10):
+for k in range(10000):
     s.phylogeny.event()
 for nd in s.phylogeny.leaf_node_iter():
-    nd.taxon = s.phylogeny.taxon_namespace.new_taxon(label="s{}".format(nd.index))
+    areas = "".join(str(i) for i in nd.area_occurrences)
+    traits = "".join(str(i) for i in nd.trait_states)
+    nd.taxon = s.phylogeny.taxon_namespace.new_taxon(label="s{}.{}.{}".format(nd.index, areas, traits))
 print(s.phylogeny.as_string("newick"))
 
 # def main():
