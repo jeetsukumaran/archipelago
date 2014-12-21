@@ -101,6 +101,11 @@ model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixe
 s = simulate.ArchipelagoSimulator(
         model_d=model_d,
         )
+for k in range(10):
+    s.phylogeny.event()
+for nd in s.phylogeny.leaf_node_iter():
+    nd.taxon = s.phylogeny.taxon_namespace.new_taxon(label="s{}".format(nd.index))
+print(s.phylogeny.as_string("newick"))
 
 # def main():
 #     simulation_model_arg_parser = simulate.ArchipelagoSimulator.simulation_model_arg_parser()

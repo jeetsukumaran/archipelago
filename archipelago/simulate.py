@@ -63,6 +63,7 @@ class IndexGenerator(object):
         c = self.index
         self.index += 1
         return c
+    next = __next__
 
     def reset(self, start=None):
         if start is None:
@@ -96,8 +97,7 @@ class StatesVector(object):
             to binary (i.e., 2 states, 0 and 1). If specifed, must be a list of
             length `nchar`, with each element in the list being integer > 0.
         """
-        self._states = [0] * nchar
-        self._nchar = len(self.states)
+        self._states = [2] * nchar
 
     @property
     def nchar(self):
@@ -106,7 +106,13 @@ class StatesVector(object):
     def __len__(self):
         return self._nchar
 
-class Trait(object):
+    def __getitem__(self, trait_index):
+        return self._states[trait_index]
+
+    def __setitem__(self, trait_index, v):
+        self._states[trait_index] = v
+
+class TraitDefinition(object):
 
     def __init__(self,
             index=None,
@@ -121,7 +127,7 @@ class Trait(object):
         self.transition_rate = transition_rate
         self.transition_weights = transition_weights
 
-class Traits(object):
+class TraitsDefinitions(object):
 
     def __init__(self):
         self.normalize_transition_weights = True
@@ -130,16 +136,16 @@ class Traits(object):
             trait_definitions,
             run_logger,
             verbose=True):
-        self.traits = []
+        self.trait_definitions = []
         self.trait_label_index_map = collections.OrderedDict()
         for trait_idx, trait_d in enumerate(trait_definitions):
-            trait = Trait(
+            trait = TraitDefinition(
                 index=trait_idx,
                 label=str(trait_d.pop("label", trait_idx)),
                 nstates=trait_d.pop("nstates", 2),
                 transition_rate=trait_d.pop("transition_rate", 0.01),
             )
-            self.traits.append(trait)
+            self.trait_definitions.append(trait)
             transition_weights = trait_d.pop("transition_weights", None) # delay processing until all traits have been defined
             if not transition_weights:
                 trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
@@ -170,13 +176,27 @@ class Traits(object):
 
             if trait_d:
                 raise TypeError("Unsupported trait keywords: {}".format(trait_d))
-        # if len(self.traits) < 1:
+        # if len(self.trait_definitions) < 1:
         #     raise ValueError("No traits defined")
         if verbose:
             run_logger.info("[ECOLOGY] {} traits defined: {}".format(
-                len(self.traits),
-                ", ".join("'{}'".format(a.label) for a in self.traits),
+                len(self.trait_definitions),
+                ", ".join("'{}'".format(a.label) for a in self.trait_definitions),
                 ))
+        self.trait_nstates = [trait.nstates for trait in self.trait_definitions]
+
+    def new_traits_vector(self, values=None):
+        s = StatesVector(
+                nchar=len(self.trait_definitions),
+                nstates=self.trait_nstates)
+        if values is None:
+            values = [0] * len(self.trait_definitions)
+        for idx, v in enumerate(values):
+            if v is None:
+                v = 0
+            assert v >= 0 and v < self.trait_definitions[idx]
+            s[idx] = v
+        return s
 
 class Area(object):
 
@@ -260,18 +280,35 @@ class Geography(object):
                 weight_type = "Dispersal"
             for a1, area1 in enumerate(self.areas):
                 run_logger.info("[GEOGRAPHY] {} weights from area '{}': {}".format(weight_type, area1.label, self.dispersal_weights[a1]))
+        self.area_nstates = [2 for i in self.areas]
+
+    def new_incidence_vector(self, incidences=None):
+        s = StatesVector(
+                nchar=len(self.areas),
+                nstates=self.area_nstates,
+                )
+        if incidences is None:
+            incidences = [0] * len(self.areas)
+        for idx, v in enumerate(incidences):
+            if v is None:
+                v = 0
+            assert v >= 0 and v < 2
+            s[idx] = v
+        return s
 
 class Lineage(dendropy.Node):
 
     def __init__(self,
             index,
-            geography=None,
-            traits=None,
+            distribution=None,
+            trait_states=None,
             ):
         dendropy.Node.__init__(self)
         self.index = index
-        self.geography = geography
-        self.traits = traits
+        self.distribution = distribution
+        self.trait_states = trait_states
+        self.extant = True
+        self.edge.length = 0
 
 class Phylogeny(dendropy.Tree):
 
@@ -289,8 +326,48 @@ class Phylogeny(dendropy.Tree):
         return Lineage(**kwargs)
     node_factory = classmethod(node_factory)
 
-    def __init__(self):
+    def __init__(self, system):
+        self.system = system
         self.lineage_indexer = IndexGenerator(0)
+        seed_node = self.node_factory(
+                index=next(self.lineage_indexer),
+                distribution=self.system.geography.new_incidence_vector(),
+                trait_states=self.system.trait_definitions.new_traits_vector(),
+                )
+        seed_node.distribution[0] = 1
+        dendropy.Tree.__init__(self, seed_node=seed_node)
+        self.tips = set([self.seed_node])
+
+    def event(self):
+        event_calls = []
+        event_rates = []
+        for lineage in self.tips:
+            event_calls.append( (self.split_lineage, lineage) )
+            event_rates.append(self.system.lineage_speciation_probability_function(lineage))
+        sum_of_event_rates = sum(event_rates)
+        time_till_event = self.system.rng.expovariate(sum_of_event_rates)
+        for lineage in self.tips:
+            lineage.edge.length += time_till_event
+        event_idx = weighted_index_choice(event_rates, self.system.rng)
+        event_calls[event_idx][0](*event_calls[0][1:])
+
+    def split_lineage(self, lineage):
+        lineage.extant = False
+        self.tips.remove(lineage)
+        c1 = self.node_factory(
+                index=next(self.lineage_indexer),
+                distribution=self.system.geography.new_incidence_vector(),
+                trait_states=self.system.trait_definitions.new_traits_vector(),
+                )
+        c2 = self.node_factory(
+                index=next(self.lineage_indexer),
+                distribution=self.system.geography.new_incidence_vector(),
+                trait_states=self.system.trait_definitions.new_traits_vector(),
+                )
+        lineage.add_child(c1)
+        lineage.add_child(c2)
+        self.tips.add(c1)
+        self.tips.add(c2)
 
 class ArchipelagoSimulator(object):
 
@@ -329,6 +406,13 @@ class ArchipelagoSimulator(object):
         if model_d is None:
             model_d = {}
         self.set_model(model_d, verbose=verbose_setup)
+
+        # start
+        self.current_gen = 0
+        self.phylogeny = Phylogeny(self)
+
+        # begin logging generations
+        self.run_logger.system = self
 
     def configure_simulator(self, config_d, verbose=True):
 
@@ -394,8 +478,8 @@ class ArchipelagoSimulator(object):
                 verbose=verbose)
 
         # Ecology
-        self.traits = Traits()
-        self.traits.parse_definition(
+        self.trait_definitions = TraitsDefinitions()
+        self.trait_definitions.parse_definition(
                 model_d.pop("traits", {}),
                 run_logger=self.run_logger,
                 verbose=verbose)
