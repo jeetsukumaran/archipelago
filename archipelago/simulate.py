@@ -105,6 +105,103 @@ class StatesVector(object):
     def __len__(self):
         return self._nchar
 
+class Trait(object):
+
+    def __init__(self,
+            index=None,
+            label=None,
+            nstates=None,
+            transition_rate=None,
+            transition_weights=None,
+            ):
+        self.index = index
+        self.label = label
+        self.nstates = nstates
+        self.transition_rate = transition_rate
+        self.transition_weights = transition_weights
+
+class Traits(object):
+
+    def __init__(self):
+        self.normalize_transition_weights = True
+
+    def parse_definition(self,
+            trait_definitions,
+            run_logger,
+            verbose=True):
+        self.traits = []
+        self.trait_label_index_map = collections.OrderedDict()
+        for trait_idx, trait_d in enumerate(trait_definitions):
+            trait = Trait(
+                index=trait_idx,
+                label=str(trait_d.pop("label", trait_idx)),
+                nstates=trait_d.pop("nstates", 2),
+                transition_rate=trait_d.pop("transition_rate", 0.01),
+            )
+            self.traits.append(trait)
+            transition_weights = trait_d.pop("transition_weights", None) # delay processing until all traits have been defined
+            if not transition_weights:
+                trait.transition_weights = [[1.0] * trait.nstates] * trait.nstates
+            total_transition_weight = 0.0
+            for a1_idx, trait1 in enumerate(self.traits):
+                for a2_idx, trait2 in enumerate(self.traits):
+                    if a1_idx == a2_idx:
+                        trait.transition_weights[a1_idx][a2_idx] = 0.0
+                    else:
+                        trait.transition_weights[a1_idx][a2_idx] = float(trait.transition_weights[a1_idx][a2_idx])
+                        total_transition_weight += trait.transition_weights[a1_idx][a2_idx]
+            if self.normalize_transition_weights and total_transition_weight:
+                    for a1_idx, trait1 in enumerate(self.traits):
+                        for a2_idx, trait2 in enumerate(self.traits):
+                            if a1_idx == a2_idx:
+                                continue
+                            trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
+            self.trait_label_index_map[trait.label] = trait.index
+            if verbose:
+                tx = pprint.pformat(trait.transition_weights)
+                run_logger.info("[ECOLOGY] Configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with transition weights of {tweights})".format(
+                    idx=trait_idx,
+                    label=trait.label,
+                    nstates=trait.nstates,
+                    trate=trait.transition_rate,
+                    tweights=tx,
+                    ))
+            if trait_d:
+                raise TypeError("Unsupported trait keywords: {}".format(trait_d))
+        # if len(self.traits) < 1:
+        #     raise ValueError("No traits defined")
+        if verbose:
+            run_logger.info("[ECOLOGY] {} traits defined: {}".format(
+                len(self.traits),
+                ", ".join("'{}'".format(a.label) for a in self.traits),
+                ))
+        # self.transition_probabilities = []
+        # total_transition_probabilities = 0.0
+        # for a1_idx, trait1 in enumerate(self.traits):
+        #     self.transition_probabilities.append([])
+        #     for a2_idx, trait2 in enumerate(self.traits):
+        #         if a1_idx == a2_idx:
+        #             self.transition_probabilities[a1_idx].append(0.0)
+        #         else:
+        #             d = float(trait1._transition_probabilities_d.pop(trait2.label, 1.0))
+        #             self.transition_probabilities[a1_idx].append(d)
+        #             total_transition_probabilities += d
+        #     if trait1._transition_probabilities_d:
+        #         raise ValueError("Undefined dispersal targets in '{}': '{}'".format(trait1.label, trait1._transition_probabilities_d))
+        #     del trait1._transition_probabilities_d
+        # if self.normalize_transition_probabilities and total_transition_probabilities:
+        #     for a1_idx, trait1 in enumerate(self.traits):
+        #         for a2_idx, trait2 in enumerate(self.traits):
+        #             self.transition_probabilities[a1_idx][a2_idx] /= total_transition_probabilities
+        # if verbose:
+        #     if self.normalize_transition_probabilities:
+        #         weight_type = "Normalized dispersal"
+        #     else:
+        #         weight_type = "Dispersal"
+        #     for a1, trait1 in enumerate(self.traits):
+        #         run_logger.info("[GEOGRAPHY] {} weights from trait '{}': {}".format(weight_type, trait1.label, self.transition_probabilities[a1]))
+
+
 class Area(object):
 
     def __init__(self,
@@ -112,6 +209,7 @@ class Area(object):
             label=None,
             is_supplemental=False,
             relative_diversity=None,
+           transition_weights=None,
             ):
         self.index = index
         self.label = label
@@ -320,36 +418,11 @@ class ArchipelagoSimulator(object):
                 verbose=verbose)
 
         # Ecology
-        self.traits = collections.OrderedDict()
-        if "traits" in model_d:
-            trait_d_list = model_d.pop("traits")
-            for trait_idx, trait_d in enumerate(trait_d_list):
-                label = trait_d.pop("label", "trait{}".format(trait_idx))
-                self.traits[label] = {}
-                self.traits[label]["index"] = trait_idx
-                self.traits[label]["nstates"] = trait_d.pop("nstates", 2)
-                self.traits[label]["transition_probability"] = trait_d.pop("nstates", None)
-                if self.traits[label]["transition_probability"] is None:
-                    self.traits[label]["transition_probability"] = ArchipelagoSimulator.get_fixed_value_function(
-                            0.0,
-                            "Fixed uniform transition probability: {}".format(0.01)
-                    )
-                if self.traits[label]["transition_probability"].__doc__ is None:
-                    self.traits[label]["transition_probability"].__doc__ = "undescribed transition probabilities"
-                if verbose:
-                    self.run_logger.info("[ECOLOGY] Configuring trait {idx}: '{label}' ({nstates} states, {trans_prob})".format(
-                        idx=trait_idx,
-                        label=label,
-                        nstates=self.traits[label]["nstates"],
-                        trans_prob=self.traits[label]["transition_probability"].__doc__,
-                        ))
-            if trait_d:
-                raise TypeError("Unsupported trait keywords: {}".format(trait_d))
-            if verbose:
-                self.run_logger.info("[ECOLOGY] Total number of traits defined: {}".format(len(self.traits)))
-        else:
-            if verbose:
-                self.run_logger.info("No traits defined")
+        self.traits = Traits()
+        self.traits.parse_definition(
+                model_d.pop("traits"),
+                run_logger=self.run_logger,
+                verbose=verbose)
 
         # Diversification submodel
         diversification_d = model_d.pop("diversification", {})
