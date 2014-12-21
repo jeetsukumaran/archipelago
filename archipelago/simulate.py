@@ -9,6 +9,7 @@ import random
 import collections
 import argparse
 import pprint
+from distutils.util import strtobool
 
 import dendropy
 from dendropy.utility import textprocessing
@@ -399,7 +400,7 @@ class ArchipelagoSimulator(object):
                 run_logger=self.run_logger,
                 verbose=verbose)
 
-        # Diversification submodel
+        # Diversification: speciation
         diversification_d = model_d.pop("diversification", {})
         if "lineage_speciation_probability_function" in diversification_d:
             self.lineage_speciation_probability_function = diversification_d.pop("lineage_speciation_probability_function")
@@ -414,18 +415,23 @@ class ArchipelagoSimulator(object):
                 desc = "(no description available)"
             self.run_logger.info("[DIVERSIFICATION] Setting lineage speciation probability function: {}".format(desc,))
 
-        if "lineage_extirpation_probability_function" in diversification_d:
-            self.lineage_extirpation_probability_function = diversification_d.pop("lineage_extirpation_probability_function")
+        # Diversification: death/extinction/extirpation
+        if "lineage_death_probability_function" in diversification_d:
+            self.lineage_death_probability_function = diversification_d.pop("lineage_death_probability_function")
         else:
-            self.lineage_extirpation_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_death_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
-                    "Fixed extirpation probability: {}".format(0.01)
+                    "Fixed death probability: {}".format(0.01)
             )
+        self.is_lineage_death_global = strtobool(str(model_d.pop("is_lineage_death_global", 0)))
         if verbose:
-            desc = getattr(self.lineage_extirpation_probability_function, "__doc__", None)
+            desc = getattr(self.lineage_death_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DIVERSIFICATION] Setting lineage extirpation probability function: {}".format( desc,))
+            self.run_logger.info("[DIVERSIFICATION] Setting lineage death (= {is_global}) probability function: {desc}".format(
+                is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
+                desc=desc,
+                ))
 
         # Dispersal submodel
         if "lineage_dispersal_probability_function" in model_d:
