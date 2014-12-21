@@ -401,31 +401,31 @@ class ArchipelagoSimulator(object):
 
         # Diversification submodel
         diversification_d = model_d.pop("diversification", {})
-        if "lineage_birth_probability_function" in diversification_d:
-            self.lineage_birth_probability_function = diversification_d.pop("lineage_birth_probability_function")
+        if "lineage_speciation_probability_function" in diversification_d:
+            self.lineage_speciation_probability_function = diversification_d.pop("lineage_speciation_probability_function")
         else:
-            self.lineage_birth_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_speciation_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
-                    "Fixed birth probability: {}".format(0.01)
+                    "Fixed speciation probability: {}".format(0.01)
             )
         if verbose:
-            desc = getattr(self.lineage_birth_probability_function, "__doc__", None)
+            desc = getattr(self.lineage_speciation_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DIVERSIFICATION] Setting lineage birth probability function: {}".format(desc,))
+            self.run_logger.info("[DIVERSIFICATION] Setting lineage speciation probability function: {}".format(desc,))
 
-        if "lineage_death_probability_function" in diversification_d:
-            self.lineage_death_probability_function = diversification_d.pop("lineage_death_probability_function")
+        if "lineage_extirpation_probability_function" in diversification_d:
+            self.lineage_extirpation_probability_function = diversification_d.pop("lineage_extirpation_probability_function")
         else:
-            self.lineage_death_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_extirpation_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
-                    "Fixed death probability: {}".format(0.01)
+                    "Fixed extirpation probability: {}".format(0.01)
             )
         if verbose:
-            desc = getattr(self.lineage_death_probability_function, "__doc__", None)
+            desc = getattr(self.lineage_extirpation_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DIVERSIFICATION] Setting lineage death probability function: {}".format( desc,))
+            self.run_logger.info("[DIVERSIFICATION] Setting lineage extirpation probability function: {}".format( desc,))
 
         # Dispersal submodel
         if "lineage_dispersal_probability_function" in model_d:
