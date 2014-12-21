@@ -67,9 +67,9 @@ model_d = {}
 model_d["areas"] = generate_area_definitions(4, 1)
 model_d["traits"] = generate_trait_definitions([
             ("habitat", 2),
-            ("role", 6),
+            # ("role", 6),
             ("guild", 4),
-            ("color", 8),
+            # ("color", 8),
             ])
 
 # def habitat_constrained_dispersal(lineage):

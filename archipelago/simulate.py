@@ -141,31 +141,32 @@ class Traits(object):
             self.traits.append(trait)
             transition_weights = trait_d.pop("transition_weights", None) # delay processing until all traits have been defined
             if not transition_weights:
-                trait.transition_weights = [[1.0] * trait.nstates] * trait.nstates
+                trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
             total_transition_weight = 0.0
-            for a1_idx, trait1 in enumerate(self.traits):
-                for a2_idx, trait2 in enumerate(self.traits):
+            for a1_idx in range(trait.nstates):
+                for a2_idx in range(trait.nstates):
                     if a1_idx == a2_idx:
                         trait.transition_weights[a1_idx][a2_idx] = 0.0
                     else:
                         trait.transition_weights[a1_idx][a2_idx] = float(trait.transition_weights[a1_idx][a2_idx])
                         total_transition_weight += trait.transition_weights[a1_idx][a2_idx]
             if self.normalize_transition_weights and total_transition_weight:
-                    for a1_idx, trait1 in enumerate(self.traits):
-                        for a2_idx, trait2 in enumerate(self.traits):
-                            if a1_idx == a2_idx:
-                                continue
-                            trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
+                for a1_idx in range(trait.nstates):
+                    for a2_idx in range(trait.nstates):
+                        if a1_idx == a2_idx:
+                            continue
+                        trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
             self.trait_label_index_map[trait.label] = trait.index
             if verbose:
-                tx = pprint.pformat(trait.transition_weights)
-                run_logger.info("[ECOLOGY] Configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with transition weights of {tweights})".format(
-                    idx=trait_idx,
+                run_logger.info("[ECOLOGY] Configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
+                    idx=trait.index,
                     label=trait.label,
+                    normalized="normalized " if self.normalize_transition_weights else "",
                     nstates=trait.nstates,
                     trate=trait.transition_rate,
-                    tweights=tx,
+                    tweights=trait.transition_weights,
                     ))
+
             if trait_d:
                 raise TypeError("Unsupported trait keywords: {}".format(trait_d))
         # if len(self.traits) < 1:
