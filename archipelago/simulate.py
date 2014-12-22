@@ -9,6 +9,7 @@ import random
 import collections
 import argparse
 import pprint
+import copy
 from distutils.util import strtobool
 
 import dendropy
@@ -336,16 +337,6 @@ class Lineage(dendropy.Node):
 
 class Phylogeny(dendropy.Tree):
 
-    class TotalExtinctionException(Exception):
-        def __init__(self, *args, **kwargs):
-            Exception.__init__(self, *args, **kwargs)
-
-    class TargetNumberOfTipsException(Exception):
-        def __init__(self, num_extant_tips_exception_trigger, num_extant_tips, *args, **kwargs):
-            self.num_extant_tips = num_extant_tips
-            self.num_extant_tips_exception_trigger = num_extant_tips_exception_trigger
-            Exception.__init__(self, *args, **kwargs)
-
     def node_factory(cls, **kwargs):
         return Lineage(**kwargs)
     node_factory = classmethod(node_factory)
@@ -361,6 +352,13 @@ class Phylogeny(dendropy.Tree):
         seed_node.distribution_vector[0] = 1
         dendropy.Tree.__init__(self, seed_node=seed_node)
         self.current_lineages = set([self.seed_node])
+
+    def __deepcopy__(self, memo=None):
+        if memo is None:
+            memo = {}
+        memo[id(self.system)] = self.system
+        # memo[id(self.taxon_namespace)] = self.taxon_namespace
+        return dendropy.Tree.__deepcopy__(self, memo)
 
     def iterate_current_lineages(self):
         for lineage in self.current_lineages:
@@ -395,6 +393,15 @@ class Phylogeny(dendropy.Tree):
     def disperse_lineage(self, lineage, dest_area_idx):
         lineage.distribution_vector[dest_area_idx] = 1
 
+    def lineages_occurring_in_focal_areas(self):
+        lineages = []
+        for lineage in self.iterate_current_lineages():
+            for area_idx in self.system.geography.focal_area_indexes:
+                if lineage.distribution_vector[area_idx] == 1:
+                    lineages.append(lineage)
+                    break
+        return lineages
+
     def num_lineages_occurring_in_focal_areas(self):
         count = 0
         for lineage in self.iterate_current_lineages():
@@ -403,6 +410,17 @@ class Phylogeny(dendropy.Tree):
                     count += 1
                     break
         return count
+
+    def extract_focal_area_tree(self):
+        lineages_to_retain = self.lineages_occurring_in_focal_areas()
+        if len(lineages_to_retain) < 2:
+            raise ArchipelagoSimulator.InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination: {}".format(len(lineages_to_retain)))
+        tcopy = copy.deepcopy(self)
+        try:
+            tcopy.retain_taxa(lineages)
+        except AttributeError:
+            raise ArchipelagoSimulator.InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination: {}".format(len(lineages_to_retain)))
+        return tcopy
 
 class ArchipelagoSimulator(object):
 
@@ -468,11 +486,25 @@ class ArchipelagoSimulator(object):
         if verbose:
             self.run_logger.info("Configuring simulation '{}'".format(self.name))
 
-        self.tree_log = config_d.pop("tree_log", None)
-        if self.tree_log is None:
-            self.tree_log = open(self.output_prefix + ".trees", "w")
-        if verbose:
-            self.run_logger.info("Tree log filepath: {}".format(self.tree_log.name))
+        if config_d.pop("store_focal_area_trees", True):
+            self.focal_area_tree_log = open(self.output_prefix + ".focal.trees", "w")
+            self.run_logger.info("Focal area trees filepath: {}".format(self.tree_log.name))
+        else:
+            self.focal_area_tree_log = None
+            self.run_logger.info("Focal area trees will not be stored")
+
+        if config_d.pop("store_full_area_trees", True):
+            self.full_area_tree_log = open(self.output_prefix + ".full.trees", "w")
+            self.run_logger.info("Full area trees filepath: {}".format(self.tree_log.name))
+        else:
+            self.full_area_tree_log = None
+            self.run_logger.info("Full area trees will not be stored")
+
+        if not self.focal_area_tree_log and not self.full_area_tree_log:
+            self.run_logger.warning("No trees will be stored!")
+
+        self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False):
+        self.run_logger.info("Internal node labels will{} be written on trees".format(" not" if self.is_suppress_internal_node_labels else ""))
 
         self.rng = config_d.pop("rng", None)
         if self.rng is None:
@@ -487,13 +519,6 @@ class ArchipelagoSimulator(object):
                 raise TypeError("Cannot specify both 'rng' and 'random_seed'")
             if verbose:
                 self.run_logger.info("Using existing random number generator")
-
-        self.track_extinct_lineages = config_d.pop("track_extinct_lineages", False)
-        if verbose:
-            if self.track_extinct_lineages:
-                self.run_logger.info("Extinct lineages will be tracked: lineages will be retained in the tree even if they are extirpated from all habitats in all islands")
-            else:
-                self.run_logger.info("Extinct lineages will not be tracked: lineages will be pruned from the tree if they are extirpated from all habitats in all islands")
 
         self.debug_mode = config_d.pop("debug_mode", False)
         if verbose and self.debug_mode:
@@ -625,8 +650,7 @@ class ArchipelagoSimulator(object):
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
             if self.max_time and self.elapsed_time > max_time:
-                self.describe_phylogeny(self.tree_log)
-                break
+                raise NotImplementedError
             for lineage in self.phylogeny.iterate_current_lineages():
                 lineage.edge.length += time_till_event
             event_idx = weighted_index_choice(event_rates, self.rng)
@@ -638,7 +662,14 @@ class ArchipelagoSimulator(object):
             elif self.gsa_termination_num_tips and ntips_in_focal_areas == self.target_num_tips:
                 raise NotImplementedError
             elif self.target_num_tips and ntips_in_focal_areas >= self.target_num_tips:
-                self.describe_phylogeny(self.tree_log)
+                if self.focal_area_tree_log is not None:
+                    focal_area_tree = self.phylogeny.extract_focal_area_tree()
+                    n = len(focal_area_tree.seed_node._child_nodes)
+                    if n < 2:
+                        raise FailedSimulationException("Insufficient lineages in focal area: {}".format(n))
+                    self.write_tree(focal_area_tree, self.focal_area_tree_log)
+                if self.full_area_tree_log is not None:
+                    self.write_tree(self.phylogeny, self.full_area_tree_log)
                 break
 
     def schedule_events(self):
@@ -676,12 +707,13 @@ class ArchipelagoSimulator(object):
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 
-    def describe_phylogeny(self, out):
-        self.phylogeny.write_to_stream(
+    def write_tree(self, tree, out):
+        tree.write_to_stream(
                 out,
                 schema="newick",
                 suppress_annotations=False,
                 node_label_compose_func=utility.encode_lineage,
+                suppress_internal_node_labels=self.is_suppress_internal_node_labels,
                 )
 
 
