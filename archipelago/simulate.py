@@ -395,6 +395,15 @@ class Phylogeny(dendropy.Tree):
     def disperse_lineage(self, lineage, dest_area_idx):
         lineage.distribution_vector[dest_area_idx] = 1
 
+    def num_lineages_occurring_in_focal_areas(self):
+        count = 0
+        for lineage in self.iterate_current_lineages():
+            for area_idx in self.system.geography.focal_area_indexes:
+                if lineage.distribution_vector[area_idx] == 1:
+                    count += 1
+                    break
+        return count
+
 class ArchipelagoSimulator(object):
 
     @staticmethod
@@ -599,31 +608,36 @@ class ArchipelagoSimulator(object):
                 last_logged_num_tips = 0
             else:
                 last_logged_time = 0.0
+        ntips_in_focal_areas = self.phylogeny.num_lineages_occurring_in_focal_areas()
         ntips = len(self.phylogeny.current_lineages)
         while True:
             if self.log_frequency:
                 if self.target_num_tips:
-                    if ntips - last_logged_num_tips >= self.log_frequency:
-                        self.run_logger.info("{} tip lineages on phylogeny".format(ntips))
-                        last_logged_num_tips = ntips
+                    if ntips_in_focal_areas - last_logged_num_tips >= self.log_frequency:
+                        self.run_logger.info("{} tip lineages occurring in focal areas ({} tip lineages total on phylogeny)".format(ntips_in_focal_areas, ntips))
+                        last_logged_num_tips = ntips_in_focal_areas
                 else:
                     if self.elapsed_time - last_logged_time >= self.log_frequency:
-                        self.run_logger.info("{} tip lineages on phylogeny".format(ntips))
+                        self.run_logger.info("{} tip lineages occuring in focal areas ({} tip lineages total on phylogeny)".format(ntips_in_focal_areas, ntips))
                         last_logged_time = self.elapsed_time
                     last_logged_time = 0.0
             event_calls, event_rates, sum_of_event_rates = self.schedule_events()
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
             if self.max_time and self.elapsed_time > max_time:
-                raise NotImplementedError
+                self.describe_phylogeny(self.tree_log)
+                break
             for lineage in self.phylogeny.iterate_current_lineages():
                 lineage.edge.length += time_till_event
             event_idx = weighted_index_choice(event_rates, self.rng)
             event_calls[event_idx][0](*event_calls[event_idx][1:])
+            ntips_in_focal_areas = self.phylogeny.num_lineages_occurring_in_focal_areas()
             ntips = len(self.phylogeny.current_lineages)
-            if self.gsa_termination_num_tips and ntips >= self.gsa_termination_num_tips:
+            if self.gsa_termination_num_tips and ntips_in_focal_areas >= self.gsa_termination_num_tips:
                 raise NotImplementedError
-            elif self.target_num_tips and ntips >= self.target_num_tips:
+            elif self.gsa_termination_num_tips and ntips_in_focal_areas == self.target_num_tips:
+                raise NotImplementedError
+            elif self.target_num_tips and ntips_in_focal_areas >= self.target_num_tips:
                 self.describe_phylogeny(self.tree_log)
                 break
 
