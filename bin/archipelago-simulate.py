@@ -106,8 +106,8 @@ for k in range(1000):
         sys.stderr.write("Event {}: {}: {} tips\n".format(k, s.current_time, len(s.phylogeny.tips)))
     s.phylogeny.event()
 for nd in s.phylogeny.leaf_node_iter():
-    areas = "".join(str(i) for i in nd.area_occurrences)
-    traits = "".join(str(i) for i in nd.trait_suite)
+    areas = "".join(str(i) for i in nd.distribution_vector)
+    traits = "".join(str(i) for i in nd.traits_vector)
     nd.taxon = s.phylogeny.taxon_namespace.new_taxon(label="s{}.{}.{}".format(nd.index, areas, traits))
 print(s.phylogeny.as_string("newick"))
 

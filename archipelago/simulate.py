@@ -324,13 +324,13 @@ class Lineage(dendropy.Node):
 
     def __init__(self,
             index,
-            area_occurrences=None,
-            trait_suite=None,
+            distribution_vector=None,
+            traits_vector=None,
             ):
         dendropy.Node.__init__(self)
         self.index = index
-        self.area_occurrences = area_occurrences
-        self.trait_suite = trait_suite
+        self.distribution_vector = distribution_vector
+        self.traits_vector = traits_vector
         self.extant = True
         self.edge.length = 0
 
@@ -355,16 +355,16 @@ class Phylogeny(dendropy.Tree):
         self.lineage_indexer = IndexGenerator(0)
         seed_node = self.node_factory(
                 index=next(self.lineage_indexer),
-                area_occurrences=self.system.geography.new_occurrence_vector(),
-                trait_suite=self.system.trait_types.new_traits_vector(),
+                distribution_vector=self.system.geography.new_occurrence_vector(),
+                traits_vector=self.system.trait_types.new_traits_vector(),
                 )
-        seed_node.area_occurrences[0] = 1
+        seed_node.distribution_vector[0] = 1
         dendropy.Tree.__init__(self, seed_node=seed_node)
         self.tips = set([self.seed_node])
 
     def event(self):
 
-        # set up event phenomenology
+        # Schedule Event
         event_calls = []
         event_rates = []
         for lineage in self.tips:
@@ -377,7 +377,7 @@ class Phylogeny(dendropy.Tree):
                 event_calls.append( (self.extinguish_lineage, lineage) )
                 event_rates.append(extinction_prob)
             # trait evolution
-            for trait_idx, trait_state in enumerate(lineage.trait_suite):
+            for trait_idx, trait_state in enumerate(lineage.traits_vector):
                 for state_idx in range(self.system.trait_types[trait_idx].nstates):
                     if state_idx == trait_idx:
                         continue
@@ -386,7 +386,7 @@ class Phylogeny(dendropy.Tree):
                         event_calls.append( (self.evolve_trait, lineage, trait_idx, state_idx) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            for area_idx, occurrence in enumerate(lineage.area_occurrences):
+            for area_idx, occurrence in enumerate(lineage.distribution_vector):
                 for dest_idx in self.system.geography.area_indexes:
                     if dest_idx == area_idx:
                         continue
@@ -398,7 +398,7 @@ class Phylogeny(dendropy.Tree):
                         event_rates.append(dispersal_rate)
         sum_of_event_rates = sum(event_rates)
 
-        # execute event
+        # Select and Process Event
         time_till_event = self.system.rng.expovariate(sum_of_event_rates)
         self.system.current_time += time_till_event
         for lineage in self.tips:
@@ -411,13 +411,13 @@ class Phylogeny(dendropy.Tree):
         self.tips.remove(lineage)
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
-                area_occurrences=self.system.geography.new_occurrence_vector(),
-                trait_suite=self.system.trait_types.new_traits_vector(),
+                distribution_vector=self.system.geography.new_occurrence_vector(),
+                traits_vector=self.system.trait_types.new_traits_vector(),
                 )
         c2 = self.node_factory(
                 index=next(self.lineage_indexer),
-                area_occurrences=self.system.geography.new_occurrence_vector(),
-                trait_suite=self.system.trait_types.new_traits_vector(),
+                distribution_vector=self.system.geography.new_occurrence_vector(),
+                traits_vector=self.system.trait_types.new_traits_vector(),
                 )
         # to do:
         # - handle sympatrix, allopatric, para-allopatric speciation
@@ -430,10 +430,10 @@ class Phylogeny(dendropy.Tree):
         pass
 
     def evolve_trait(self, lineage, trait_idx, state_idx):
-        lineage.trait_suite[trait_idx] = state_idx
+        lineage.traits_vector[trait_idx] = state_idx
 
     def disperse_lineage(self, lineage, dest_area_idx):
-        lineage.area_occurrences[dest_area_idx] = 1
+        lineage.distribution_vector[dest_area_idx] = 1
 
 class ArchipelagoSimulator(object):
 
