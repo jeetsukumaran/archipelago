@@ -360,55 +360,15 @@ class Phylogeny(dendropy.Tree):
                 )
         seed_node.distribution_vector[0] = 1
         dendropy.Tree.__init__(self, seed_node=seed_node)
-        self.tips = set([self.seed_node])
+        self.current_lineages = set([self.seed_node])
 
-    def event(self):
-
-        # Schedule Event
-        event_calls = []
-        event_rates = []
-        for lineage in self.tips:
-            # speciation
-            event_calls.append( (self.split_lineage, lineage) )
-            event_rates.append(self.system.lineage_speciation_probability_function(lineage))
-            # extinction
-            extinction_prob = self.system.lineage_death_probability_function(lineage)
-            if extinction_prob:
-                event_calls.append( (self.extinguish_lineage, lineage) )
-                event_rates.append(extinction_prob)
-            # trait evolution
-            for trait_idx, trait_state in enumerate(lineage.traits_vector):
-                for state_idx in range(self.system.trait_types[trait_idx].nstates):
-                    if state_idx == trait_idx:
-                        continue
-                    trait_transition_rate = self.system.trait_types[trait_idx].transition_rate_matrix[trait_state][state_idx]
-                    if trait_transition_rate:
-                        event_calls.append( (self.evolve_trait, lineage, trait_idx, state_idx) )
-                        event_rates.append(trait_transition_rate)
-            # dispersal
-            for area_idx, occurrence in enumerate(lineage.distribution_vector):
-                for dest_idx in self.system.geography.area_indexes:
-                    if dest_idx == area_idx:
-                        continue
-                    dispersal_weight = self.system.geography.dispersal_weights[area_idx][dest_idx]
-                    dispersal_prob = self.system.lineage_dispersal_probability_function(lineage)
-                    dispersal_rate = dispersal_weight * dispersal_prob
-                    if dispersal_rate:
-                        event_calls.append( (self.disperse_lineage, lineage, dest_idx) )
-                        event_rates.append(dispersal_rate)
-        sum_of_event_rates = sum(event_rates)
-
-        # Select and Process Event
-        time_till_event = self.system.rng.expovariate(sum_of_event_rates)
-        self.system.current_time += time_till_event
-        for lineage in self.tips:
-            lineage.edge.length += time_till_event
-        event_idx = weighted_index_choice(event_rates, self.system.rng)
-        event_calls[event_idx][0](*event_calls[event_idx][1:])
+    def iterate_current_lineages(self):
+        for lineage in self.current_lineages:
+            yield lineage
 
     def split_lineage(self, lineage):
         lineage.extant = False
-        self.tips.remove(lineage)
+        self.current_lineages.remove(lineage)
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
                 distribution_vector=self.system.geography.new_occurrence_vector(),
@@ -423,8 +383,8 @@ class Phylogeny(dendropy.Tree):
         # - handle sympatrix, allopatric, para-allopatric speciation
         lineage.add_child(c1)
         lineage.add_child(c2)
-        self.tips.add(c1)
-        self.tips.add(c2)
+        self.current_lineages.add(c1)
+        self.current_lineages.add(c2)
 
     def extinguish_lineage(self, lineage):
         pass
@@ -624,3 +584,57 @@ class ArchipelagoSimulator(object):
 
         if model_d:
             raise TypeError("Unsupported model keywords: {}".format(model_d))
+
+    def run(self):
+        self.current_time = 0.0
+        while True:
+            event_calls, event_rates, sum_of_event_rates = self.schedule_events()
+            time_till_event = self.rng.expovariate(sum_of_event_rates)
+            self.current_time += time_till_event
+            if self.max_time and self.current_time > max_time:
+                raise NotImplementedError
+            for lineage in self.phylogeny.iterate_current_lineages():
+                lineage.edge.length += time_till_event
+            event_idx = weighted_index_choice(event_rates, self.rng)
+            event_calls[event_idx][0](*event_calls[event_idx][1:])
+            ntips = len(self.phylogeny.current_lineages)
+            if self.gsa_termination_num_tips and ntips >= self.gsa_termination_num_tips:
+                raise NotImplementedError
+            elif self.target_num_tips and ntips >= self.target_num_tips:
+                raise NotImplementedError
+
+    def schedule_events(self):
+        event_calls = []
+        event_rates = []
+        for lineage in self.phylogeny.iterate_current_lineages():
+            # speciation
+            event_calls.append( (self.phylogeny.split_lineage, lineage) )
+            event_rates.append(self.lineage_speciation_probability_function(lineage))
+            # extinction
+            extinction_prob = self.lineage_death_probability_function(lineage)
+            if extinction_prob:
+                event_calls.append( (self.phylogeny.extinguish_lineage, lineage) )
+                event_rates.append(extinction_prob)
+            # trait evolution
+            for trait_idx, trait_state in enumerate(lineage.traits_vector):
+                for state_idx in range(self.trait_types[trait_idx].nstates):
+                    if state_idx == trait_idx:
+                        continue
+                    trait_transition_rate = self.trait_types[trait_idx].transition_rate_matrix[trait_state][state_idx]
+                    if trait_transition_rate:
+                        event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, state_idx) )
+                        event_rates.append(trait_transition_rate)
+            # dispersal
+            for area_idx, occurrence in enumerate(lineage.distribution_vector):
+                for dest_idx in self.geography.area_indexes:
+                    if dest_idx == area_idx:
+                        continue
+                    dispersal_weight = self.geography.dispersal_weights[area_idx][dest_idx]
+                    dispersal_prob = self.lineage_dispersal_probability_function(lineage)
+                    dispersal_rate = dispersal_weight * dispersal_prob
+                    if dispersal_rate:
+                        event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_idx) )
+                        event_rates.append(dispersal_rate)
+        sum_of_event_rates = sum(event_rates)
+        return event_calls, event_rates, sum_of_event_rates
+

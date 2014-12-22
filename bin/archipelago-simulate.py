@@ -101,10 +101,11 @@ model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixe
 s = simulate.ArchipelagoSimulator(
         model_d=model_d,
         )
-for k in range(100):
-    if k % 10 == 0:
-        sys.stderr.write("Event {}: {}: {} tips\n".format(k, s.current_time, len(s.phylogeny.tips)))
-    s.phylogeny.event()
+s.run()
+# for k in range(100):
+#     if k % 10 == 0:
+#         sys.stderr.write("Event {}: {}: {} tips\n".format(k, s.current_time, len(s.phylogeny.current_lineages)))
+#     s.phylogeny.event()
 for nd in s.phylogeny.leaf_node_iter():
     areas = "".join(str(i) for i in nd.distribution_vector)
     traits = "".join(str(i) for i in nd.traits_vector)
