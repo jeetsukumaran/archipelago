@@ -523,9 +523,34 @@ class ArchipelagoSimulator(object):
                 self.run_logger.info("Extinct lineages will be tracked: lineages will be retained in the tree even if they are extirpated from all habitats in all islands")
             else:
                 self.run_logger.info("Extinct lineages will not be tracked: lineages will be pruned from the tree if they are extirpated from all habitats in all islands")
+
         self.debug_mode = config_d.pop("debug_mode", False)
         if verbose and self.debug_mode:
             self.run_logger.info("Running in DEBUG mode")
+
+        termination_conditions_d = config_d.pop("termination_conditions", {})
+        self.target_num_tips = termination_conditions_d.pop("target_num_tips", 50)
+        # self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 500)
+        self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 0)
+        self.max_time = termination_conditions_d.pop("max_time", 0)
+        if termination_conditions_d:
+            raise TypeError("Unsupported configuration keywords: {}".format(termination_conditions_d))
+        if self.gsa_termination_num_tips and not self.target_num_tips:
+            raise ValueError("Cannot specify 'gsa_termination_num_tips' without specifying 'target_num_tips'")
+        if not self.target_num_tips and self.max_time:
+            desc = "Simulation will terminate after {} time units".format(self.max_time)
+        elif self.target_num_tips and not self.gsa_termination_num_tips and not self.max_time:
+            desc = "Simulation will terminate when {} tips are generated (no time limit)".format(self.target_num_tips)
+        elif self.target_num_tips and not self.gsa_termination_num_tips and self.max_time:
+            desc = "Simulation will terminate when {} tips are generated or after {} time units".format(self.target_num_tips, self.max_time)
+        elif self.target_num_tips and self.gsa_termination_num_tips and not self.max_time:
+            desc = "Simulation will terminate when {} tips are generated, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.gsa_termination_num_tips)
+        elif self.target_num_tips and self.gsa_termination_num_tips and self.max_time:
+            desc = "Simulation will terminate when {} tips are generated or after {} time units, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.max_time, self.gsa_termination_num_tips)
+        else:
+            raise ValueError("Unsupported termination conditions")
+        if verbose:
+            self.run_logger.info(desc)
 
         self.log_frequency = config_d.pop("log_frequency", 1000)
         self.report_frequency = config_d.pop("report_frequency", None)
