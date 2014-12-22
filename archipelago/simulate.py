@@ -409,10 +409,6 @@ class ArchipelagoSimulator(object):
             verbose_setup=True
             ):
 
-        # system globals
-        self.current_gen = 0
-        self.phylogeny = None
-
         # run configuration
         self.output_prefix = None
         self.run_logger = None
@@ -424,6 +420,7 @@ class ArchipelagoSimulator(object):
         self.debug_mode = None
         self.log_frequency = None
         self.report_frequency = None
+        self.elapsed_time = 0.0
 
         # configure
         if config_d is None:
@@ -440,7 +437,6 @@ class ArchipelagoSimulator(object):
         self.set_model(model_d, verbose=verbose_setup)
 
         # start
-        self.current_time = 0.0
         self.phylogeny = Phylogeny(self)
 
         # begin logging generations
@@ -513,13 +509,18 @@ class ArchipelagoSimulator(object):
             desc = "Simulation will terminate when {} tips are generated, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.gsa_termination_num_tips)
         elif self.target_num_tips and self.gsa_termination_num_tips and self.max_time:
             desc = "Simulation will terminate when {} tips are generated or after {} time units, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.max_time, self.gsa_termination_num_tips)
+        elif not self.target_num_tips and not self.max_time:
+            raise ValueError("Unspecified termination condition")
         else:
-            raise ValueError("Unsupported termination conditions")
+            raise ValueError("Unsupported termination condition(s)")
         if verbose:
             self.run_logger.info(desc)
 
-        self.log_frequency = config_d.pop("log_frequency", 1000)
-        self.report_frequency = config_d.pop("report_frequency", None)
+        if self.target_num_tips:
+            default_log_frequency = 1
+        else:
+            default_log_frequency = self.max_time/100
+        self.log_frequency = config_d.pop("log_frequency", default_log_frequency)
         if config_d:
             raise TypeError("Unsupported configuration keywords: {}".format(config_d))
 
@@ -592,12 +593,28 @@ class ArchipelagoSimulator(object):
             raise TypeError("Unsupported model keywords: {}".format(model_d))
 
     def run(self):
-        self.current_time = 0.0
+        self.elapsed_time = 0.0
+        if self.log_frequency:
+            if self.target_num_tips:
+                last_logged_num_tips = 0
+            else:
+                last_logged_time = 0.0
+        ntips = len(self.phylogeny.current_lineages)
         while True:
+            if self.log_frequency:
+                if self.target_num_tips:
+                    if ntips - last_logged_num_tips >= self.log_frequency:
+                        self.run_logger.info("{} tip lineages on phylogeny".format(ntips))
+                        last_logged_num_tips = ntips
+                else:
+                    if self.elapsed_time - last_logged_time >= self.log_frequency:
+                        self.run_logger.info("{} tip lineages on phylogeny".format(ntips))
+                        last_logged_time = self.elapsed_time
+                    last_logged_time = 0.0
             event_calls, event_rates, sum_of_event_rates = self.schedule_events()
             time_till_event = self.rng.expovariate(sum_of_event_rates)
-            self.current_time += time_till_event
-            if self.max_time and self.current_time > max_time:
+            self.elapsed_time += time_till_event
+            if self.max_time and self.elapsed_time > max_time:
                 raise NotImplementedError
             for lineage in self.phylogeny.iterate_current_lineages():
                 lineage.edge.length += time_till_event

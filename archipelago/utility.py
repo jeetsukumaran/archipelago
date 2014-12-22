@@ -287,7 +287,8 @@ class RunLogger(object):
         return f
 
     def get_simulation_generation_formatter(self):
-        f = logging.Formatter("[%(asctime)s] Generation %(current_generation)s: %(message)s")
+        # f = logging.Formatter("[%(asctime)s] t = %(elapsed_time)10.6f: %(message)s")
+        f = logging.Formatter("[%(asctime)s] %(simulation_time)s: %(message)s")
         f.datefmt='%Y-%m-%d %H:%M:%S'
         return f
 
@@ -320,9 +321,17 @@ class RunLogger(object):
 
     def supplemental_info_d(self):
         if self._system is not None:
-            return {
-                    "current_generation" : self._system.current_gen,
-                    }
+            # return {
+            #   "simulation_time" : "t = {:10.6f}".format(self._system.elapsed_time),
+            # }
+            if self._system.elapsed_time == 0:
+                return {
+                        "simulation_time" : "INITIALIZATION",
+                        }
+            else:
+                return {
+                        "simulation_time" : "t = {:10.6f}".format(self._system.elapsed_time),
+                        }
         else:
             return None
 
