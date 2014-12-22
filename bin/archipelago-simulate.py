@@ -100,6 +100,8 @@ model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixe
 
 config_d = {}
 config_d["output_prefix"] = "arch1"
+config_d["termination_conditions"] = {}
+config_d["termination_conditions"]["target_num_tips"] = 10
 s = simulate.ArchipelagoSimulator(
         config_d=config_d,
         model_d=model_d,
