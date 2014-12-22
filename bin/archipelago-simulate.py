@@ -103,7 +103,7 @@ s = simulate.ArchipelagoSimulator(
         )
 for k in range(1000):
     if k % 100 == 0:
-        sys.stderr.write("Event {}: {} tips\n".format(k, len(s.phylogeny.tips)))
+        sys.stderr.write("Event {}: {}: {} tips\n".format(k, s.current_time, len(s.phylogeny.tips)))
     s.phylogeny.event()
 for nd in s.phylogeny.leaf_node_iter():
     areas = "".join(str(i) for i in nd.area_occurrences)

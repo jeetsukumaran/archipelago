@@ -419,6 +419,8 @@ class Phylogeny(dendropy.Tree):
                 area_occurrences=self.system.area_definitions.new_occurrence_vector(),
                 trait_states=self.system.trait_definitions.new_traits_vector(),
                 )
+        # to do:
+        # - handle sympatrix, allopatric, para-allopatric speciation
         lineage.add_child(c1)
         lineage.add_child(c2)
         self.tips.add(c1)
