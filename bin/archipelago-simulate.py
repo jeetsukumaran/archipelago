@@ -98,7 +98,10 @@ model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixe
 # px.pprint(model_d)
 # sys.exit(0)
 
+config_d = {}
+config_d["output_prefix"] = "arch1"
 s = simulate.ArchipelagoSimulator(
+        config_d=config_d,
         model_d=model_d,
         )
 s.run()
@@ -106,11 +109,11 @@ s.run()
 #     if k % 10 == 0:
 #         sys.stderr.write("Event {}: {}: {} tips\n".format(k, s.current_time, len(s.phylogeny.current_lineages)))
 #     s.phylogeny.event()
-for nd in s.phylogeny.leaf_node_iter():
-    areas = "".join(str(i) for i in nd.distribution_vector)
-    traits = "".join(str(i) for i in nd.traits_vector)
-    nd.taxon = s.phylogeny.taxon_namespace.new_taxon(label="s{}.{}.{}".format(nd.index, areas, traits))
-print(s.phylogeny.as_string("newick"))
+# for nd in s.phylogeny.leaf_node_iter():
+#     areas = "".join(str(i) for i in nd.distribution_vector)
+#     traits = "".join(str(i) for i in nd.traits_vector)
+#     nd.taxon = s.phylogeny.taxon_namespace.new_taxon(label="s{}.{}.{}".format(nd.index, areas, traits))
+# print(s.phylogeny.as_string("newick"))
 
 # def main():
 #     simulation_model_arg_parser = simulate.ArchipelagoSimulator.simulation_model_arg_parser()

@@ -428,9 +428,15 @@ class ArchipelagoSimulator(object):
         # configure
         if config_d is None:
             config_d = {}
+        else:
+            config_d = dict(config_d)
         self.configure_simulator(config_d, verbose=verbose_setup)
+
+        # set up model
         if model_d is None:
             model_d = {}
+        else:
+            model_d = dict(model_d)
         self.set_model(model_d, verbose=verbose_setup)
 
         # start
@@ -601,7 +607,8 @@ class ArchipelagoSimulator(object):
             if self.gsa_termination_num_tips and ntips >= self.gsa_termination_num_tips:
                 raise NotImplementedError
             elif self.target_num_tips and ntips >= self.target_num_tips:
-                raise NotImplementedError
+                self.describe_phylogeny(self.tree_log)
+                break
 
     def schedule_events(self):
         event_calls = []
@@ -637,4 +644,14 @@ class ArchipelagoSimulator(object):
                         event_rates.append(dispersal_rate)
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
+
+    def describe_phylogeny(self, out):
+        self.phylogeny.write_to_stream(
+                out,
+                schema="newick",
+                suppress_annotations=False,
+                node_label_compose_func=utility.encode_lineage,
+                )
+
+
 
