@@ -400,6 +400,7 @@ class Phylogeny(dendropy.Tree):
 
         # execute event
         time_till_event = self.system.rng.expovariate(sum_of_event_rates)
+        self.system.current_time += time_till_event
         for lineage in self.tips:
             lineage.edge.length += time_till_event
         event_idx = weighted_index_choice(event_rates, self.system.rng)
@@ -471,7 +472,7 @@ class ArchipelagoSimulator(object):
         self.set_model(model_d, verbose=verbose_setup)
 
         # start
-        self.current_gen = 0
+        self.current_time = 0.0
         self.phylogeny = Phylogeny(self)
 
         # begin logging generations
