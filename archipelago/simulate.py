@@ -73,13 +73,13 @@ class IndexGenerator(object):
 class StatesVector(object):
     """
     A vector in which each element is an integer represents the state of a
-    character.
+    trait.
 
     E.g.,
 
         [1,0,1,2]
 
-    is a 4-character vector, where character 0 is in state 1, character 1 is in
+    is a 4-trait vector, where trait 0 is in state 1, trait 1 is in
     state 0, and so on.
     """
 
@@ -91,9 +91,9 @@ class StatesVector(object):
         Parameters
         ----------
         nchar : integer
-            The number of characters to be tracked.
+            The number of traits to be tracked.
         nstates : list of integers
-            The number of states for each character. If not specified, defaults
+            The number of states for each trait. If not specified, defaults
             to binary (i.e., 2 states, 0 and 1). If specifed, must be a list of
             length `nchar`, with each element in the list being integer > 0.
         """
@@ -112,7 +112,7 @@ class StatesVector(object):
     def __setitem__(self, trait_index, v):
         self._states[trait_index] = v
 
-class TraitDefinition(object):
+class TraitType(object):
 
     def __init__(self,
             index=None,
@@ -135,31 +135,31 @@ class TraitDefinition(object):
             for j, w in enumerate(tw):
                 self.transition_rate_matrix[i].append( w * self.transition_rate )
 
-class TraitsDefinitions(object):
+class TraitTypes(object):
 
     def __init__(self):
         self.normalize_transition_weights = True
 
     def __iter__(self):
-        return iter(self.trait_definitions)
+        return iter(self.trait_types)
 
     def __getitem__(self, idx):
-        return self.trait_definitions[idx]
+        return self.trait_types[idx]
 
     def parse_definition(self,
-            trait_definitions,
+            trait_types,
             run_logger,
             verbose=True):
-        self.trait_definitions = []
+        self.trait_types = []
         self.trait_label_index_map = collections.OrderedDict()
-        for trait_idx, trait_d in enumerate(trait_definitions):
-            trait = TraitDefinition(
+        for trait_idx, trait_d in enumerate(trait_types):
+            trait = TraitType(
                 index=trait_idx,
                 label=str(trait_d.pop("label", trait_idx)),
                 nstates=trait_d.pop("nstates", 2),
                 transition_rate=trait_d.pop("transition_rate", 0.01),
             )
-            self.trait_definitions.append(trait)
+            self.trait_types.append(trait)
             transition_weights = trait_d.pop("transition_weights", None) # delay processing until all traits have been defined
             if not transition_weights:
                 trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
@@ -190,25 +190,25 @@ class TraitsDefinitions(object):
             trait.compile_matrix()
             if trait_d:
                 raise TypeError("Unsupported trait keywords: {}".format(trait_d))
-        # if len(self.trait_definitions) < 1:
+        # if len(self.trait_types) < 1:
         #     raise ValueError("No traits defined")
         if verbose:
             run_logger.info("[ECOLOGY] {} traits defined: {}".format(
-                len(self.trait_definitions),
-                ", ".join("'{}'".format(a.label) for a in self.trait_definitions),
+                len(self.trait_types),
+                ", ".join("'{}'".format(a.label) for a in self.trait_types),
                 ))
-        self.trait_nstates = [trait.nstates for trait in self.trait_definitions]
+        self.trait_nstates = [trait.nstates for trait in self.trait_types]
 
     def new_traits_vector(self, values=None):
         s = StatesVector(
-                nchar=len(self.trait_definitions),
+                nchar=len(self.trait_types),
                 nstates=self.trait_nstates)
         if values is None:
-            values = [0] * len(self.trait_definitions)
+            values = [0] * len(self.trait_types)
         for idx, v in enumerate(values):
             if v is None:
                 v = 0
-            assert v >= 0 and v < self.trait_definitions[idx]
+            assert v >= 0 and v < self.trait_types[idx]
             s[idx] = v
         return s
 
@@ -226,27 +226,27 @@ class Area(object):
         self.is_supplemental = is_supplemental
         self.relative_diversity = relative_diversity
 
-class AreaDefinitions(object):
+class Geography(object):
 
     def __init__(self):
         self.normalize_dispersal_weights = True
 
     def __iter__(self):
-        return iter(self.area_definitions)
+        return iter(self.geography)
 
     def __getitem__(self, idx):
-        return self.area_definitions[idx]
+        return self.geography[idx]
 
     def parse_definition(self,
-            area_definitions,
+            areas,
             run_logger,
             verbose=True):
-        self.area_definitions = []
+        self.geography = []
         self.area_label_index_map = collections.OrderedDict()
         self.area_indexes = []
         self.focal_area_indexes = []
         self.supplemental_area_indexes = []
-        for area_idx, area_d in enumerate(area_definitions):
+        for area_idx, area_d in enumerate(areas):
             area = Area(
                 index=area_idx,
                 label=str(area_d.pop("label", area_idx)),
@@ -254,7 +254,7 @@ class AreaDefinitions(object):
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
             area._dispersal_weights_d = area_d.pop("dispersal_weights", {}) # delay processing until all areas have been defined
-            self.area_definitions.append(area)
+            self.geography.append(area)
             self.area_label_index_map[area.label] = area.index
             self.area_indexes.append(area.index)
             if area.is_supplemental:
@@ -270,18 +270,18 @@ class AreaDefinitions(object):
                     ))
             if area_d:
                 raise TypeError("Unsupported area keywords: {}".format(area_d))
-        if len(self.area_definitions) < 1:
+        if len(self.geography) < 1:
             raise ValueError("No areas defined")
         if verbose:
             run_logger.info("[GEOGRAPHY] {} areas defined: {}".format(
-                len(self.area_definitions),
-                ", ".join("'{}'".format(a.label) for a in self.area_definitions),
+                len(self.geography),
+                ", ".join("'{}'".format(a.label) for a in self.geography),
                 ))
         self.dispersal_weights = []
         total_dispersal_weight = 0.0
-        for a1_idx, area1 in enumerate(self.area_definitions):
+        for a1_idx, area1 in enumerate(self.geography):
             self.dispersal_weights.append([])
-            for a2_idx, area2 in enumerate(self.area_definitions):
+            for a2_idx, area2 in enumerate(self.geography):
                 if a1_idx == a2_idx:
                     self.dispersal_weights[a1_idx].append(0.0)
                 else:
@@ -292,27 +292,27 @@ class AreaDefinitions(object):
                 raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
             del area1._dispersal_weights_d
         if self.normalize_dispersal_weights and total_dispersal_weight:
-            for a1_idx, area1 in enumerate(self.area_definitions):
-                for a2_idx, area2 in enumerate(self.area_definitions):
+            for a1_idx, area1 in enumerate(self.geography):
+                for a2_idx, area2 in enumerate(self.geography):
                     self.dispersal_weights[a1_idx][a2_idx] /= total_dispersal_weight
         if verbose:
             if self.normalize_dispersal_weights:
                 weight_type = "Normalized dispersal"
             else:
                 weight_type = "Dispersal"
-            for a1, area1 in enumerate(self.area_definitions):
+            for a1, area1 in enumerate(self.geography):
                 run_logger.info("[GEOGRAPHY] {} weights from area '{}': {}".format(weight_type, area1.label, self.dispersal_weights[a1]))
 
         # instead of recalculating every time
-        self.area_nstates = [2 for i in self.area_definitions]
+        self.area_nstates = [2 for i in self.geography]
 
     def new_occurrence_vector(self, incidences=None):
         s = StatesVector(
-                nchar=len(self.area_definitions),
+                nchar=len(self.geography),
                 nstates=self.area_nstates,
                 )
         if incidences is None:
-            incidences = [0] * len(self.area_definitions)
+            incidences = [0] * len(self.geography)
         for idx, v in enumerate(incidences):
             if v is None:
                 v = 0
@@ -325,12 +325,12 @@ class Lineage(dendropy.Node):
     def __init__(self,
             index,
             area_occurrences=None,
-            trait_states=None,
+            trait_suite=None,
             ):
         dendropy.Node.__init__(self)
         self.index = index
         self.area_occurrences = area_occurrences
-        self.trait_states = trait_states
+        self.trait_suite = trait_suite
         self.extant = True
         self.edge.length = 0
 
@@ -355,8 +355,8 @@ class Phylogeny(dendropy.Tree):
         self.lineage_indexer = IndexGenerator(0)
         seed_node = self.node_factory(
                 index=next(self.lineage_indexer),
-                area_occurrences=self.system.area_definitions.new_occurrence_vector(),
-                trait_states=self.system.trait_definitions.new_traits_vector(),
+                area_occurrences=self.system.geography.new_occurrence_vector(),
+                trait_suite=self.system.trait_types.new_traits_vector(),
                 )
         seed_node.area_occurrences[0] = 1
         dendropy.Tree.__init__(self, seed_node=seed_node)
@@ -377,20 +377,20 @@ class Phylogeny(dendropy.Tree):
                 event_calls.append( (self.extinguish_lineage, lineage) )
                 event_rates.append(extinction_prob)
             # trait evolution
-            for trait_idx, trait_state in enumerate(lineage.trait_states):
-                for state_idx in range(self.system.trait_definitions[trait_idx].nstates):
+            for trait_idx, trait_state in enumerate(lineage.trait_suite):
+                for state_idx in range(self.system.trait_types[trait_idx].nstates):
                     if state_idx == trait_idx:
                         continue
-                    trait_transition_rate = self.system.trait_definitions[trait_idx].transition_rate_matrix[trait_state][state_idx]
+                    trait_transition_rate = self.system.trait_types[trait_idx].transition_rate_matrix[trait_state][state_idx]
                     if trait_transition_rate:
                         event_calls.append( (self.evolve_trait, lineage, trait_idx, state_idx) )
                         event_rates.append(trait_transition_rate)
             # dispersal
             for area_idx, occurrence in enumerate(lineage.area_occurrences):
-                for dest_idx in self.system.area_definitions.area_indexes:
+                for dest_idx in self.system.geography.area_indexes:
                     if dest_idx == area_idx:
                         continue
-                    dispersal_weight = self.system.area_definitions.dispersal_weights[area_idx][dest_idx]
+                    dispersal_weight = self.system.geography.dispersal_weights[area_idx][dest_idx]
                     dispersal_prob = self.system.lineage_dispersal_probability_function(lineage)
                     dispersal_rate = dispersal_weight * dispersal_prob
                     if dispersal_rate:
@@ -411,13 +411,13 @@ class Phylogeny(dendropy.Tree):
         self.tips.remove(lineage)
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
-                area_occurrences=self.system.area_definitions.new_occurrence_vector(),
-                trait_states=self.system.trait_definitions.new_traits_vector(),
+                area_occurrences=self.system.geography.new_occurrence_vector(),
+                trait_suite=self.system.trait_types.new_traits_vector(),
                 )
         c2 = self.node_factory(
                 index=next(self.lineage_indexer),
-                area_occurrences=self.system.area_definitions.new_occurrence_vector(),
-                trait_states=self.system.trait_definitions.new_traits_vector(),
+                area_occurrences=self.system.geography.new_occurrence_vector(),
+                trait_suite=self.system.trait_types.new_traits_vector(),
                 )
         # to do:
         # - handle sympatrix, allopatric, para-allopatric speciation
@@ -430,7 +430,7 @@ class Phylogeny(dendropy.Tree):
         pass
 
     def evolve_trait(self, lineage, trait_idx, state_idx):
-        lineage.trait_states[trait_idx] = state_idx
+        lineage.trait_suite[trait_idx] = state_idx
 
     def disperse_lineage(self, lineage, dest_area_idx):
         lineage.area_occurrences[dest_area_idx] = 1
@@ -537,15 +537,15 @@ class ArchipelagoSimulator(object):
         # Geography
         if "areas" not in model_d:
             raise ValueError("No areas defined")
-        self.area_definitions = AreaDefinitions()
-        self.area_definitions.parse_definition(
+        self.geography = Geography()
+        self.geography.parse_definition(
                 model_d.pop("areas"),
                 run_logger=self.run_logger,
                 verbose=verbose)
 
         # Ecology
-        self.trait_definitions = TraitsDefinitions()
-        self.trait_definitions.parse_definition(
+        self.trait_types = TraitTypes()
+        self.trait_types.parse_definition(
                 model_d.pop("traits", {}),
                 run_logger=self.run_logger,
                 verbose=verbose)
