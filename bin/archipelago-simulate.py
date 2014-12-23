@@ -84,7 +84,7 @@ model_d["traits"] = generate_trait_definitions([
 
 
 b = 0.01
-e = 0.00
+e = 0.01
 q = 0.01
 d = 0.01
 model_d["diversification"] = {}
