@@ -15,6 +15,7 @@ from distutils.util import strtobool
 import dendropy
 from dendropy.utility import textprocessing
 
+import archipelago
 from archipelago import utility
 
 def weighted_choice(seq, weights, rng=None):
@@ -553,8 +554,8 @@ class ArchipelagoSimulator(object):
         return f
 
     def __init__(self,
-            config_d=None,
             model_d=None,
+            config_d=None,
             verbose_setup=True
             ):
 
@@ -602,23 +603,28 @@ class ArchipelagoSimulator(object):
 
         if config_d.pop("store_focal_area_trees", True):
             self.focal_areas_tree_log = open(self.output_prefix + ".focal-areas.trees", "w")
-            self.run_logger.info("Focal area trees filepath: {}".format(self.focal_areas_tree_log.name))
+            if verbose:
+                self.run_logger.info("Focal area trees filepath: {}".format(self.focal_areas_tree_log.name))
         else:
             self.focal_areas_tree_log = None
-            self.run_logger.info("Focal area trees will not be stored")
+            if verbose:
+                self.run_logger.info("Focal area trees will not be stored")
 
         if config_d.pop("store_full_area_trees", True):
             self.all_areas_tree_log = open(self.output_prefix + ".all-areas.trees", "w")
-            self.run_logger.info("Full area trees filepath: {}".format(self.all_areas_tree_log.name))
+            if verbose:
+                self.run_logger.info("Full area trees filepath: {}".format(self.all_areas_tree_log.name))
         else:
             self.all_areas_tree_log = None
-            self.run_logger.info("Full area trees will not be stored")
+            if verbose:
+                self.run_logger.info("Full area trees will not be stored")
 
         if not self.focal_areas_tree_log and not self.all_areas_tree_log:
             self.run_logger.warning("No trees will be stored!")
 
         self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False)
-        self.run_logger.info("Internal node labels will{} be written on trees".format(" not" if self.is_suppress_internal_node_labels else ""))
+        if verbose:
+            self.run_logger.info("Internal node labels will{} be written on trees".format(" not" if self.is_suppress_internal_node_labels else ""))
 
         self.rng = config_d.pop("rng", None)
         if self.rng is None:
@@ -742,20 +748,28 @@ class ArchipelagoSimulator(object):
             raise TypeError("Unsupported model keywords: {}".format(model_d))
 
     def run(self):
+
+        ### Initialize time
         self.elapsed_time = 0.0
         if self.log_frequency:
             if self.target_num_tips:
                 last_logged_num_tips = 0
             else:
                 last_logged_time = 0.0
+
+        ### Initialize debugging
+        if self.debug_mode:
+            num_events = 0
+
+        ### Initialize termination conditiong checking
         ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
         ntips = len(self.phylogeny.current_lineages)
-        num_events = 0
+
         while True:
-            num_events += 1
 
             ### DEBUG
             if self.debug_mode:
+                num_events += 1
                 self.run_logger.debug("Pre-event {}: debug check: {}".format(num_events, self.debug_compose_tree(self.phylogeny)))
                 self.phylogeny._debug_check_tree()
                 for lineage in self.phylogeny.current_lineages:
@@ -898,5 +912,100 @@ class ArchipelagoSimulator(object):
                 suppress_edge_lengths=True)
         return s.replace("\n", "")
 
+def repeat_run(
+        nreps,
+        model_d,
+        config_d,
+        random_seed=None,
+        output_prefix=None,
+        stderr_logging_level="info",
+        file_logging_level="debug",
+        maximum_num_reruns_per_replicates=1000):
+    """
+    Executes multiple runs of the Archipelago simulator under identical
+    parameters to produce the specified number of replicates, discarding failed
+    runs.
 
-
+    Parameters
+    ----------
+    nreps : integer
+        Number of replicates to produce.
+    config_d : dict
+        Simulator configuration parameters as keyword-value pairs. To be
+        re-used for each replicate.
+    model_d : dict
+        Simulator model parameters as keyword-value pairs. To be re-used for
+        each replicate.
+    random_seed : integer
+        Random seed to be used (for single random number generator across all
+        replicates).
+    stderr_logging_level : string or None
+        Message level threshold for screen logs; if 'none' or `None`, screen
+        logs will be supprsed.
+    file_logging_level : string or None
+        Message level threshold for file logs; if 'none' or `None`, file
+        logs will be supprsed.
+    maximum_num_reruns_per_replicates : int
+        A failed replicate (due to e.g., total extinction of all taxa) will be
+        re-run. This limits the number of re-runs.
+    """
+    if output_prefix is None:
+        output_prefix = config_d.pop("output_prefix", "archipelago")
+    config_d["output_prefix"] = output_prefix
+    if stderr_logging_level is None or stderr_logging_level.lower() == "none":
+        log_to_stderr = False
+    else:
+        log_to_stderr = True
+    if file_logging_level is None or file_logging_level.lower() == "none":
+        log_to_file = False
+    else:
+        log_to_file = True
+    if "run_logger" not in config_d:
+        config_d["run_logger"] = utility.RunLogger(
+                name="archipelago",
+                log_to_stderr=log_to_stderr,
+                stderr_logging_level=stderr_logging_level,
+                log_to_file=log_to_file,
+                log_path=output_prefix + ".log",
+                file_logging_level=file_logging_level,
+                )
+    run_logger = config_d["run_logger"]
+    run_logger.info("||ARCHIPELAGO-META|| Starting: {}".format(archipelago.description()))
+    if "rng" not in config_d:
+        if random_seed is None:
+            random_seed = config_d.pop("random_seed", None)
+            if random_seed is None:
+                random_seed = random.randint(0, sys.maxsize)
+        run_logger.info("||ARCHIPELAGO-META|| Initializing with random seed: {}".format(random_seed))
+        config_d["rng"] = random.Random(random_seed)
+    else:
+        run_logger.info("||ARCHIPELAGO-META|| Using existing RNG: {}".format(config_d["rng"]))
+    header_written = False
+    current_rep = 0
+    while current_rep < nreps:
+        simulation_name="Run{}".format((current_rep+1))
+        run_output_prefix = "{}.R{:04d}".format(output_prefix, current_rep+1)
+        run_logger.info("||ARCHIPELAGO-META|| Run {} of {}: starting".format(current_rep+1, nreps))
+        num_reruns = 0
+        while True:
+            archipelago_simulator = ArchipelagoSimulator(
+                model_d=model_d,
+                config_d=config_d,
+                verbose_setup=num_reruns == 0)
+            try:
+                archipelago_simulator.run()
+                run_logger.system = None
+            except TotalExtinctionException as e:
+                run_logger.system = None
+                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: total extinction of all lineages before termination condition".format(current_rep+1, nreps, num_reruns))
+                num_reruns += 1
+                if num_reruns > maximum_num_reruns_per_replicates:
+                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: maximum number of re-runs exceeded: aborting".format(current_rep+1, nreps, num_reruns))
+                else:
+                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: re-running replicate (number of re-runs: {})".format(current_rep+1, nreps, num_reruns))
+            else:
+                run_logger.system = None
+                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: completed to termination condition".format(current_rep+1, nreps, num_reruns))
+                num_reruns = 0
+                break
+        current_rep += 1
