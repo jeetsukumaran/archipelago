@@ -456,16 +456,6 @@ class Phylogeny(dendropy.Tree):
         else:
             raise ValueError(speciation_mode)
 
-        if self.system.debug_mode:
-            self.system.run_logger.debug("Splitting {} with distribution {} under speciation mode {} to: {} and {}".format(
-                lineage,
-                lineage.distribution_vector.presences(),
-                speciation_mode,
-                dist1.presences(),
-                dist2.presences(),
-                ))
-            assert len(dist1.presences()) > 0
-            assert len(dist2.presences()) > 0
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
                 distribution_vector=dist1,
@@ -476,6 +466,18 @@ class Phylogeny(dendropy.Tree):
                 distribution_vector=dist2,
                 traits_vector=lineage.traits_vector.clone(),
                 )
+        if self.system.debug_mode:
+            self.system.run_logger.debug("Splitting {} with distribution {} under speciation mode {} to: {} (distribution: {}) and {} (distribution: {})".format(
+                lineage,
+                lineage.distribution_vector.presences(),
+                speciation_mode,
+                c1,
+                dist1.presences(),
+                c2,
+                dist2.presences(),
+                ))
+            assert len(dist1.presences()) > 0
+            assert len(dist2.presences()) > 0
 
         lineage.is_extant = False
         self.current_lineages.remove(lineage)
@@ -484,7 +486,7 @@ class Phylogeny(dendropy.Tree):
         self.current_lineages.add(c1)
         self.current_lineages.add(c2)
 
-    def extinguish_lineage(self, lineage):
+    def extirpate_lineage(self, lineage):
         if self.system.is_lineage_death_global:
             self._make_lineage_extinct_on_phylogeny(lineage)
         else:
@@ -496,25 +498,11 @@ class Phylogeny(dendropy.Tree):
                 lineage.distribution_vector[ self.system.rng.choice(presences) ] = 0
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
+        if len(self.current_lineages) == 1:
+            self.total_extinction_exception("No extant lineages remaining")
         lineage.is_extant = False
         self.current_lineages.remove(lineage)
-        if lineage is self.seed_node:
-            self.total_extinction_exception("Death cycle (pruning): seed node has been extirpated from all habitats on all islands")
-        # print(self.as_string("newick", node_label_compose_func=utility.encode_lineage).replace("\n", ""))
-        # for nd in self:
-        #     print("{}: {}".format(
-        #         utility.encode_lineage(nd),
-        #         ", ".join(utility.encode_lineage(ch) for ch in nd._child_nodes),
-        #         ))
-        # print("To delete: {} ({})".format(utility.encode_lineage(lineage), lineage is self.seed_node))
-        if self.seed_node.num_child_nodes() == 0 and not self.seed_node.is_extant:
-            self.total_extinction_exception("Death cycle (post-pruning): no extant lineages on tree")
-        # if self.debug_mode:
-        #     try:
-        #         self._debug_check_tree()
-        #     except AttributeError:
-        #         self.debug_check_tree()
-        #     self.run_logger.debug("DEBUG MODE: phylogeny structure is valid after lineage pruning")
+        self.prune_subtree(lineage)
 
     def total_extinction_exception(self, msg):
         # self.run_logger.info("Total extinction: {}".format(msg))
@@ -768,7 +756,7 @@ class ArchipelagoSimulator(object):
 
             ### DEBUG
             if self.debug_mode:
-                self.run_logger.debug("Pre-event {}: debug check".format(num_events))
+                self.run_logger.debug("Pre-event {}: debug check: {}".format(num_events, self.debug_compose_tree(self.phylogeny)))
                 self.phylogeny._debug_check_tree()
                 for lineage in self.phylogeny.current_lineages:
                     assert lineage.is_extant
@@ -787,6 +775,11 @@ class ArchipelagoSimulator(object):
 
             ### EVENT SCHEDULING
             event_calls, event_rates, sum_of_event_rates = self.schedule_events()
+
+            if self.debug_mode:
+                if sum_of_event_rates == 0:
+                    self.run_logger.debug("Sum of event rates is 0: {}".format(event_rates))
+
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
             if self.max_time and self.elapsed_time > max_time:
@@ -802,7 +795,7 @@ class ArchipelagoSimulator(object):
 
             ### DEBUG
             if self.debug_mode:
-                self.run_logger.debug("Post-event {}: debug check".format(num_events))
+                self.run_logger.debug("Post-event {}: debug check: {}".format(num_events, self.debug_compose_tree(self.phylogeny)))
                 self.phylogeny._debug_check_tree()
                 for lineage in self.phylogeny.current_lineages:
                     assert lineage.is_extant
@@ -837,14 +830,24 @@ class ArchipelagoSimulator(object):
     def schedule_events(self):
         event_calls = []
         event_rates = []
+
+        # if self.debug_mode:
+        #     num_current_lineages = len(self.phylogeny.current_lineages)
+        #     self.run_logger.debug("Scheduling events for {} current lineages".format(
+        #         num_current_lineages))
+
         for lineage in self.phylogeny.iterate_current_lineages():
+
+            # if self.debug_mode:
+            #     self.run_logger.debug("Scheduling events for lineage {}".format(lineage))
+
             # speciation
             event_calls.append( (self.phylogeny.split_lineage, lineage) )
             event_rates.append(self.lineage_birth_probability_function(lineage))
             # extinction
             extinction_prob = self.lineage_death_probability_function(lineage)
             if extinction_prob:
-                event_calls.append( (self.phylogeny.extinguish_lineage, lineage) )
+                event_calls.append( (self.phylogeny.extirpate_lineage, lineage) )
                 event_rates.append(extinction_prob)
             # trait evolution
             for trait_idx, trait_state in enumerate(lineage.traits_vector):
@@ -887,6 +890,13 @@ class ArchipelagoSimulator(object):
                 node_label_compose_func=labelf,
                 suppress_internal_node_labels=self.is_suppress_internal_node_labels,
                 )
+
+    def debug_compose_tree(self, tree):
+        s = tree.as_string(
+                "newick",
+                node_label_compose_func=utility.encode_lineage,
+                suppress_edge_lengths=True)
+        return s.replace("\n", "")
 
 
 
