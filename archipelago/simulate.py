@@ -57,6 +57,10 @@ def weighted_index_choice(weights, rng=None):
 class InsufficientFocalAreaLineagesSimulationException(Exception):
     pass
 
+class TotalExtinctionException(Exception):
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+
 class IndexGenerator(object):
 
     def __init__(self, start=0):
@@ -116,7 +120,7 @@ class StatesVector(object):
             self._states = list(values)
 
     def clone(self):
-        s = StatesVector(
+        s = self.__class__(
                 nchar=self._nchar,
                 nstates=self._nstates,
             )
@@ -135,6 +139,25 @@ class StatesVector(object):
 
     def __setitem__(self, trait_index, v):
         self._states[trait_index] = v
+
+class DistributionVector(StatesVector):
+
+    def __init__(self, num_areas):
+        StatesVector.__init__(self,
+                nchar=num_areas,
+                nstates=[2] * num_areas,
+                )
+
+    def presences(self):
+        """
+        Returns list of indexes in which lineage is present.
+        """
+        return [idx for idx, s in enumerate(self._states) if s == 1]
+
+    def clone(self):
+        s = self.__class__(num_areas=self._nchar)
+        s._states = list(self._states)
+        return s
 
 class TraitType(object):
 
@@ -249,16 +272,16 @@ class Geography(object):
         self.normalize_dispersal_weights = True
 
     def __iter__(self):
-        return iter(self.geography)
+        return iter(self.areas)
 
     def __getitem__(self, idx):
-        return self.geography[idx]
+        return self.areas[idx]
 
     def parse_definition(self,
             areas,
             run_logger,
             verbose=True):
-        self.geography = []
+        self.areas = []
         self.area_label_index_map = collections.OrderedDict()
         self.area_indexes = []
         self.focal_area_indexes = []
@@ -271,7 +294,7 @@ class Geography(object):
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
             area._dispersal_weights_d = area_d.pop("dispersal_weights", {}) # delay processing until all areas have been defined
-            self.geography.append(area)
+            self.areas.append(area)
             self.area_label_index_map[area.label] = area.index
             self.area_indexes.append(area.index)
             if area.is_supplemental:
@@ -287,18 +310,18 @@ class Geography(object):
                     ))
             if area_d:
                 raise TypeError("Unsupported area keywords: {}".format(area_d))
-        if len(self.geography) < 1:
+        if len(self.areas) < 1:
             raise ValueError("No areas defined")
         if verbose:
             run_logger.info("[GEOGRAPHY] {} areas defined: {}".format(
-                len(self.geography),
-                ", ".join("'{}'".format(a.label) for a in self.geography),
+                len(self.areas),
+                ", ".join("'{}'".format(a.label) for a in self.areas),
                 ))
         self.dispersal_weights = []
         total_dispersal_weight = 0.0
-        for a1_idx, area1 in enumerate(self.geography):
+        for a1_idx, area1 in enumerate(self.areas):
             self.dispersal_weights.append([])
-            for a2_idx, area2 in enumerate(self.geography):
+            for a2_idx, area2 in enumerate(self.areas):
                 if a1_idx == a2_idx:
                     self.dispersal_weights[a1_idx].append(0.0)
                 else:
@@ -309,39 +332,36 @@ class Geography(object):
                 raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
             del area1._dispersal_weights_d
         if self.normalize_dispersal_weights and total_dispersal_weight:
-            for a1_idx, area1 in enumerate(self.geography):
-                for a2_idx, area2 in enumerate(self.geography):
+            for a1_idx, area1 in enumerate(self.areas):
+                for a2_idx, area2 in enumerate(self.areas):
                     self.dispersal_weights[a1_idx][a2_idx] /= total_dispersal_weight
         if verbose:
             if self.normalize_dispersal_weights:
                 weight_type = "Normalized dispersal"
             else:
                 weight_type = "Dispersal"
-            for a1, area1 in enumerate(self.geography):
+            for a1, area1 in enumerate(self.areas):
                 run_logger.info("[GEOGRAPHY] {} weights from area '{}': {}".format(weight_type, area1.label, self.dispersal_weights[a1]))
 
         # instead of recalculating every time
-        self.area_nstates = [2 for i in self.geography]
+        self.area_nstates = [2 for i in self.areas]
 
-    def new_occurrences_vector(self):
-        s = StatesVector(
-                nchar=len(self.geography),
-                nstates=self.area_nstates,
-                )
+    def new_distribution_vector(self):
+        s = DistributionVector(num_areas=len(self.areas))
         return s
 
 class Lineage(dendropy.Node):
 
     def __init__(self,
             index,
-            occurrences_vector=None,
+            distribution_vector=None,
             traits_vector=None,
             ):
         dendropy.Node.__init__(self)
         self.index = index
-        self.occurrences_vector = occurrences_vector
+        self.distribution_vector = distribution_vector
         self.traits_vector = traits_vector
-        self.extant = True
+        self.is_extant = True
         self.edge.length = 0
 
 class Phylogeny(dendropy.Tree):
@@ -357,10 +377,10 @@ class Phylogeny(dendropy.Tree):
             if "seed_node" not in kwargs:
                 seed_node = self.node_factory(
                         index=next(self.lineage_indexer),
-                        occurrences_vector=self.system.geography.new_occurrences_vector(),
+                        distribution_vector=self.system.geography.new_distribution_vector(),
                         traits_vector=self.system.trait_types.new_traits_vector(),
                         )
-                seed_node.occurrences_vector[0] = 1
+                seed_node.distribution_vector[0] = 1
                 kwargs["seed_node"] = seed_node
             dendropy.Tree.__init__(self, *args, **kwargs)
             self.current_lineages = set([self.seed_node])
@@ -379,7 +399,7 @@ class Phylogeny(dendropy.Tree):
             yield lineage
 
     def split_lineage(self, lineage):
-        lineage.extant = False
+        lineage.is_extant = False
         self.current_lineages.remove(lineage)
 
         # speciation modes
@@ -392,7 +412,7 @@ class Phylogeny(dendropy.Tree):
         #     -   ancestral range divided up between two daughter species
         # -   jump dispersal
         #     -   single
-        presences = [idx for idx, s in enumerate(lineage.occurrences_vector) if s == 1]
+        presences = lineage.distribution_vector.presences()
         num_presences = len(presences)
         num_areas = len(self.system.geography.area_indexes)
         if num_presences <= 1:
@@ -402,15 +422,15 @@ class Phylogeny(dendropy.Tree):
         else:
             speciation_mode = self.system.rng.randint(0, 3)
         if speciation_mode == 0:
-            dist1 = lineage.occurrences_vector.clone()
-            dist2 = lineage.occurrences_vector.clone()
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = lineage.distribution_vector.clone()
         elif speciation_mode == 1:
-            dist1 = lineage.occurrences_vector.clone()
-            dist2 = self.system.geography.new_occurrences_vector()
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = self.system.geography.new_distribution_vector()
             dist2[ self.system.rng.choice(presences) ] = 1
         elif speciation_mode == 2:
-            dist1 = self.system.geography.new_occurrences_vector()
-            dist2 = self.system.geography.new_occurrences_vector()
+            dist1 = self.system.geography.new_distribution_vector()
+            dist2 = self.system.geography.new_distribution_vector()
             if num_presences == 2:
                 dist1[presences[0]] = 1
                 dist1[presences[1]] = 1
@@ -427,8 +447,8 @@ class Phylogeny(dendropy.Tree):
                     else:
                         dist2[idx] = 1
         elif speciation_mode == 3:
-            dist1 = lineage.occurrences_vector.clone()
-            dist2 = self.system.geography.new_occurrences_vector()
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = self.system.geography.new_distribution_vector()
             absences = [idx for idx in self.system.geography.area_indexes if idx not in presences]
             dist2[ self.system.rng.choice(absences) ] = 1
         else:
@@ -437,12 +457,12 @@ class Phylogeny(dendropy.Tree):
 
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
-                occurrences_vector=dist1,
+                distribution_vector=dist1,
                 traits_vector=lineage.traits_vector.clone(),
                 )
         c2 = self.node_factory(
                 index=next(self.lineage_indexer),
-                occurrences_vector=dist2,
+                distribution_vector=dist2,
                 traits_vector=lineage.traits_vector.clone(),
                 )
         # to do:
@@ -453,19 +473,44 @@ class Phylogeny(dendropy.Tree):
         self.current_lineages.add(c2)
 
     def extinguish_lineage(self, lineage):
-        pass
+        if self.system.is_lineage_death_global:
+            self._make_lineage_extinct_on_phylogeny(lineage)
+        else:
+            presences = lineage.distribution_vector.presences()
+            if len(presences) == 1:
+                self._make_lineage_extinct_on_phylogeny(lineage)
+            else:
+                lineage.distribution_vector[ self.system.rng.choice(presences) ] = 0
+
+    def _make_lineage_extinct_on_phylogeny(self, lineage):
+        lineage.is_extant = False
+        if lineage is self.seed_node:
+            self.total_extinction_exception("Death cycle (pruning): seed node has been extirpated from all habitats on all islands")
+        self.prune_subtree(node=lineage)
+        if self.seed_node.num_child_nodes() == 0 and not self.seed_node.is_extant:
+            self.total_extinction_exception("Death cycle (post-pruning): no extant lineages on tree")
+        # if self.debug_mode:
+        #     try:
+        #         self._debug_check_tree()
+        #     except AttributeError:
+        #         self.debug_check_tree()
+        #     self.run_logger.debug("DEBUG MODE: phylogeny structure is valid after lineage pruning")
+
+    def total_extinction_exception(self, msg):
+        # self.run_logger.info("Total extinction: {}".format(msg))
+        raise TotalExtinctionException(msg)
 
     def evolve_trait(self, lineage, trait_idx, state_idx):
         lineage.traits_vector[trait_idx] = state_idx
 
     def disperse_lineage(self, lineage, dest_area_idx):
-        lineage.occurrences_vector[dest_area_idx] = 1
+        lineage.distribution_vector[dest_area_idx] = 1
 
     def focal_area_lineages(self):
         focal_area_lineages = set()
         for lineage in self.iterate_current_lineages():
             for area_idx in self.system.geography.focal_area_indexes:
-                if lineage.occurrences_vector[area_idx] == 1:
+                if lineage.distribution_vector[area_idx] == 1:
                     focal_area_lineages.add(lineage)
                     break
         return focal_area_lineages
@@ -474,7 +519,7 @@ class Phylogeny(dendropy.Tree):
         count = 0
         for lineage in self.iterate_current_lineages():
             for area_idx in self.system.geography.focal_area_indexes:
-                if lineage.occurrences_vector[area_idx] == 1:
+                if lineage.distribution_vector[area_idx] == 1:
                     count += 1
                     break
         return count
@@ -758,7 +803,7 @@ class ArchipelagoSimulator(object):
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, state_idx) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            for area_idx, occurs in enumerate(lineage.occurrences_vector):
+            for area_idx, occurs in enumerate(lineage.distribution_vector):
                 if not occurs:
                     continue
                 for dest_idx in self.geography.area_indexes:

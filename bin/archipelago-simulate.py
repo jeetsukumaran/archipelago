@@ -107,7 +107,12 @@ s = simulate.ArchipelagoSimulator(
         config_d=config_d,
         model_d=model_d,
         )
-s.run()
+while True:
+    try:
+        s.run()
+        break
+    except simulate.TotalExtinctionException:
+        pass
 # for k in range(100):
 #     if k % 10 == 0:
 #         sys.stderr.write("Event {}: {}: {} tips\n".format(k, s.current_time, len(s.phylogeny.current_lineages)))
