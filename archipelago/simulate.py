@@ -208,7 +208,7 @@ class TraitTypes(object):
                 transition_rate=trait_d.pop("transition_rate", 0.01),
             )
             self.trait_types.append(trait)
-            transition_weights = trait_d.pop("transition_weights", None) # delay processing until all traits have been defined
+            transition_weights = dict(trait_d.pop("transition_weights", {})) # delay processing until all traits have been defined
             if not transition_weights:
                 trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
             total_transition_weight = 0.0
@@ -294,7 +294,7 @@ class Geography(object):
                 relative_diversity=area_d.pop("relative_diversity", 1.0),
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
-            area._dispersal_weights_d = area_d.pop("dispersal_weights", {}) # delay processing until all areas have been defined
+            area._dispersal_weights_d = dict(area_d.pop("dispersal_weights", {})) # delay processing until all areas have been defined
             self.areas.append(area)
             self.area_label_index_map[area.label] = area.index
             self.area_indexes.append(area.index)
@@ -640,7 +640,7 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("Using existing random number generator")
 
-        termination_conditions_d = config_d.pop("termination_conditions", {})
+        termination_conditions_d = dict(config_d.pop("termination_conditions", {}))
         self.target_num_tips = termination_conditions_d.pop("target_num_tips", 50)
         # self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 500)
         self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 0)
@@ -681,24 +681,26 @@ class ArchipelagoSimulator(object):
 
     def set_model(self, model_d, verbose=True):
 
+        print("########### {}".format(model_d))
+
         # Geography
         if "areas" not in model_d:
             raise ValueError("No areas defined")
         self.geography = Geography()
         self.geography.parse_definition(
-                model_d.pop("areas"),
+                copy.deepcopy(model_d.pop("areas", [])),
                 run_logger=self.run_logger,
                 verbose=verbose)
 
         # Ecology
         self.trait_types = TraitTypes()
         self.trait_types.parse_definition(
-                model_d.pop("traits", {}),
+                copy.deepcopy(model_d.pop("traits", [])),
                 run_logger=self.run_logger,
                 verbose=verbose)
 
         # Diversification: speciation
-        diversification_d = model_d.pop("diversification", {})
+        diversification_d = dict(model_d.pop("diversification", {}))
         if "lineage_birth_probability_function" in diversification_d:
             self.lineage_birth_probability_function = diversification_d.pop("lineage_birth_probability_function")
         else:
@@ -856,8 +858,10 @@ class ArchipelagoSimulator(object):
             #     self.run_logger.debug("Scheduling events for lineage {}".format(lineage))
 
             # speciation
-            event_calls.append( (self.phylogeny.split_lineage, lineage) )
-            event_rates.append(self.lineage_birth_probability_function(lineage))
+            speciation_prob = self.lineage_birth_probability_function(lineage)
+            if speciation_prob:
+                event_calls.append( (self.phylogeny.split_lineage, lineage) )
+                event_rates.append(speciation_prob)
             # extinction
             extinction_prob = self.lineage_death_probability_function(lineage)
             if extinction_prob:
@@ -1001,6 +1005,7 @@ def repeat_run(
                 num_reruns += 1
                 if num_reruns > maximum_num_reruns_per_replicates:
                     run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: maximum number of re-runs exceeded: aborting".format(current_rep+1, nreps, num_reruns))
+                    break
                 else:
                     run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: re-running replicate (number of re-runs: {})".format(current_rep+1, nreps, num_reruns))
             else:
