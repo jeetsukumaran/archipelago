@@ -344,23 +344,28 @@ class Phylogeny(dendropy.Tree):
         return Lineage(**kwargs)
     node_factory = classmethod(node_factory)
 
-    def __init__(self, system):
-        self.system = system
-        self.lineage_indexer = IndexGenerator(0)
-        seed_node = self.node_factory(
-                index=next(self.lineage_indexer),
-                distribution_vector=self.system.geography.new_occurrence_vector(),
-                traits_vector=self.system.trait_types.new_traits_vector(),
-                )
-        seed_node.distribution_vector[0] = 1
-        dendropy.Tree.__init__(self, seed_node=seed_node)
-        self.current_lineages = set([self.seed_node])
+    def __init__(self, *args, **kwargs):
+        if "system" in kwargs:
+            self.system = kwargs.pop("system")
+            self.lineage_indexer = IndexGenerator(0)
+            if "seed_node" not in kwargs:
+                seed_node = self.node_factory(
+                        index=next(self.lineage_indexer),
+                        distribution_vector=self.system.geography.new_occurrence_vector(),
+                        traits_vector=self.system.trait_types.new_traits_vector(),
+                        )
+                seed_node.distribution_vector[0] = 1
+                kwargs["seed_node"] = seed_node
+            dendropy.Tree.__init__(self, *args, **kwargs)
+            self.current_lineages = set([self.seed_node])
+        else:
+            dendropy.Tree.__init__(self, *args, **kwargs)
 
     def __deepcopy__(self, memo=None):
         if memo is None:
             memo = {}
         memo[id(self.system)] = self.system
-        # memo[id(self.taxon_namespace)] = self.taxon_namespace
+        memo[id(self.taxon_namespace)] = self.taxon_namespace
         return dendropy.Tree.__deepcopy__(self, memo)
 
     def iterate_current_lineages(self):
@@ -415,14 +420,14 @@ class Phylogeny(dendropy.Tree):
         return count
 
     def extract_focal_area_tree(self):
-        focal_area_lineages = self.focal_area_lineages()
-        supplemental_area_only_lineages = [lineage for lineage in self.current_lineages if lineage not in focal_area_lineages]
+        # tcopy = Phylogeny(self)
+        tcopy = copy.deepcopy(self)
+        focal_area_lineages = tcopy.focal_area_lineages()
         if len(focal_area_lineages) < 2:
             raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination: {}".format(len(focal_area_lineages)))
-        tcopy = copy.deepcopy(self)
         try:
-            tcopy.prune_nodes(supplemental_area_only_lineages)
-        except AttributeError:
+            tcopy.filter_leaf_nodes(filter_fn=lambda x: x in focal_area_lineages)
+        except dendropy.SeedNodeDeletionException:
             raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination: {}".format(len(focal_area_lineages)))
         return tcopy
 
@@ -456,7 +461,7 @@ class ArchipelagoSimulator(object):
         self.set_model(model_d, verbose=verbose_setup)
 
         # start
-        self.phylogeny = Phylogeny(self)
+        self.phylogeny = Phylogeny(system=self)
 
         # begin logging generations
         self.run_logger.system = self
