@@ -65,7 +65,7 @@ def generate_trait_definitions(trait_descs):
 
 model_d = {}
 # model_d["areas"] = generate_area_definitions(6, 2)
-model_d["areas"] = generate_area_definitions(1, 0)
+model_d["areas"] = generate_area_definitions(6, 0)
 model_d["traits"] = generate_trait_definitions([
             ("habitat", 2),
             ("role", 6),

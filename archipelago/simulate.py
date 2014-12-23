@@ -90,6 +90,7 @@ class StatesVector(object):
     def __init__(self,
             nchar,
             nstates=None,
+            values=None,
             ):
         """
         Parameters
@@ -100,13 +101,19 @@ class StatesVector(object):
             The number of states for each trait. If not specified, defaults
             to binary (i.e., 2 states, 0 and 1). If specifed, must be a list of
             length `nchar`, with each element in the list being integer > 0.
+        values : iterable of ints
+            Vector of initial values. If not specified, defaults to all 0's.
         """
         self._nchar = nchar
         if nstates is None:
             self._nstates = nstates
         else:
             self._nstates = [2] * nchar
-        self._states = [0] * nchar
+        if not values:
+            self._states = [0] * nchar
+        else:
+            assert len(values) == nchar
+            self._states = list(values)
 
     def clone(self):
         s = StatesVector(
@@ -220,13 +227,6 @@ class TraitTypes(object):
         s = StatesVector(
                 nchar=len(self.trait_types),
                 nstates=self.trait_nstates)
-        if values is None:
-            values = [0] * len(self.trait_types)
-        for idx, v in enumerate(values):
-            if v is None:
-                v = 0
-            assert v >= 0 and v < self.trait_types[idx]
-            s[idx] = v
         return s
 
 class Area(object):
@@ -323,30 +323,23 @@ class Geography(object):
         # instead of recalculating every time
         self.area_nstates = [2 for i in self.geography]
 
-    def new_occurrence_vector(self, incidences=None):
+    def new_occurrences_vector(self):
         s = StatesVector(
                 nchar=len(self.geography),
                 nstates=self.area_nstates,
                 )
-        if incidences is None:
-            incidences = [0] * len(self.geography)
-        for idx, v in enumerate(incidences):
-            if v is None:
-                v = 0
-            assert v >= 0 and v < 2
-            s[idx] = v
         return s
 
 class Lineage(dendropy.Node):
 
     def __init__(self,
             index,
-            distribution_vector=None,
+            occurrences_vector=None,
             traits_vector=None,
             ):
         dendropy.Node.__init__(self)
         self.index = index
-        self.distribution_vector = distribution_vector
+        self.occurrences_vector = occurrences_vector
         self.traits_vector = traits_vector
         self.extant = True
         self.edge.length = 0
@@ -364,10 +357,10 @@ class Phylogeny(dendropy.Tree):
             if "seed_node" not in kwargs:
                 seed_node = self.node_factory(
                         index=next(self.lineage_indexer),
-                        distribution_vector=self.system.geography.new_occurrence_vector(),
+                        occurrences_vector=self.system.geography.new_occurrences_vector(),
                         traits_vector=self.system.trait_types.new_traits_vector(),
                         )
-                seed_node.distribution_vector[0] = 1
+                seed_node.occurrences_vector[0] = 1
                 kwargs["seed_node"] = seed_node
             dendropy.Tree.__init__(self, *args, **kwargs)
             self.current_lineages = set([self.seed_node])
@@ -388,14 +381,68 @@ class Phylogeny(dendropy.Tree):
     def split_lineage(self, lineage):
         lineage.extant = False
         self.current_lineages.remove(lineage)
+
+        # speciation modes
+        # -   single-area sympatric speciation
+        #     -   ancestral range copied to both daughter species
+        # -   sympatric subset: multi-area sympatric speciation
+        #     -   d1: inherits complete range
+        #     -   d2: inherits single area in ancestral range
+        # -   vicariance
+        #     -   ancestral range divided up between two daughter species
+        # -   jump dispersal
+        #     -   single
+        presences = [idx for idx, s in enumerate(lineage.occurrences_vector) if s == 1]
+        num_presences = len(presences)
+        num_areas = len(self.system.geography.area_indexes)
+        if num_presences <= 1:
+            speciation_mode = 0
+        elif num_presences == num_areas:
+            speciation_mode = self.system.rng.randint(0, 2)
+        else:
+            speciation_mode = self.system.rng.randint(0, 3)
+        if speciation_mode == 0:
+            dist1 = lineage.occurrences_vector.clone()
+            dist2 = lineage.occurrences_vector.clone()
+        elif speciation_mode == 1:
+            dist1 = lineage.occurrences_vector.clone()
+            dist2 = self.system.geography.new_occurrences_vector()
+            dist2[ self.system.rng.choice(presences) ] = 1
+        elif speciation_mode == 2:
+            dist1 = self.system.geography.new_occurrences_vector()
+            dist2 = self.system.geography.new_occurrences_vector()
+            if num_presences == 2:
+                dist1[presences[0]] = 1
+                dist1[presences[1]] = 1
+            else:
+                n1 = self.system.rng.randint(1, num_presences-1)
+                n2 = num_presences - n1
+                if n2 == n1:
+                    n1 += 1
+                    n2 -= 1
+                sample1 = set(self.system.rng.sample(presences, n1))
+                for idx in self.system.geography.area_indexes:
+                    if idx in sample1:
+                        dist1[idx] = 1
+                    else:
+                        dist2[idx] = 1
+        elif speciation_mode == 3:
+            dist1 = lineage.occurrences_vector.clone()
+            dist2 = self.system.geography.new_occurrences_vector()
+            absences = [idx for idx in self.system.geography.area_indexes if idx not in presences]
+            dist2[ self.system.rng.choice(absences) ] = 1
+        else:
+            raise ValueError(speciation_mode)
+
+
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
-                distribution_vector=lineage.distribution_vector.clone(),
+                occurrences_vector=dist1,
                 traits_vector=lineage.traits_vector.clone(),
                 )
         c2 = self.node_factory(
                 index=next(self.lineage_indexer),
-                distribution_vector=lineage.distribution_vector.clone(),
+                occurrences_vector=dist2,
                 traits_vector=lineage.traits_vector.clone(),
                 )
         # to do:
@@ -412,13 +459,13 @@ class Phylogeny(dendropy.Tree):
         lineage.traits_vector[trait_idx] = state_idx
 
     def disperse_lineage(self, lineage, dest_area_idx):
-        lineage.distribution_vector[dest_area_idx] = 1
+        lineage.occurrences_vector[dest_area_idx] = 1
 
     def focal_area_lineages(self):
         focal_area_lineages = set()
         for lineage in self.iterate_current_lineages():
             for area_idx in self.system.geography.focal_area_indexes:
-                if lineage.distribution_vector[area_idx] == 1:
+                if lineage.occurrences_vector[area_idx] == 1:
                     focal_area_lineages.add(lineage)
                     break
         return focal_area_lineages
@@ -427,7 +474,7 @@ class Phylogeny(dendropy.Tree):
         count = 0
         for lineage in self.iterate_current_lineages():
             for area_idx in self.system.geography.focal_area_indexes:
-                if lineage.distribution_vector[area_idx] == 1:
+                if lineage.occurrences_vector[area_idx] == 1:
                     count += 1
                     break
         return count
@@ -711,7 +758,9 @@ class ArchipelagoSimulator(object):
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, state_idx) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            for area_idx, occurrence in enumerate(lineage.distribution_vector):
+            for area_idx, occurs in enumerate(lineage.occurrences_vector):
+                if not occurs:
+                    continue
                 for dest_idx in self.geography.area_indexes:
                     if dest_idx == area_idx:
                         continue

@@ -5,14 +5,14 @@
 ##  Copyright 2010-2014 Jeet Sukumaran.
 ##  All rights reserved.
 ##
-##  Redistribution and use in source and binary forms, with or without
+##  Reoccurrences and use in source and binary forms, with or without
 ##  modification, are permitted provided that the following conditions are met:
 ##
-##      * Redistributions of source code must retain the above copyright
+##      * Reoccurrencess of source code must retain the above copyright
 ##        notice, this list of conditions and the following disclaimer.
-##      * Redistributions in binary form must reproduce the above copyright
+##      * Reoccurrencess in binary form must reproduce the above copyright
 ##        notice, this list of conditions and the following disclaimer in the
-##        documentation and/or other materials provided with the distribution.
+##        documentation and/or other materials provided with the occurrences.
 ##      * The names of its contributors may not be used to endorse or promote
 ##        products derived from this software without specific prior written
 ##        permission.
@@ -52,9 +52,9 @@ def dump_stack():
 def encode_lineage(node, exclude_areas=None):
     traits = "".join(str(i) for i in node.traits_vector)
     if exclude_areas is None:
-        areas = "".join(str(i) for i in node.distribution_vector)
+        areas = "".join(str(i) for i in node.occurrences_vector)
     else:
-        areas = "".join(str(i) for idx, i in enumerate(node.distribution_vector) if idx not in exclude_areas)
+        areas = "".join(str(i) for idx, i in enumerate(node.occurrences_vector) if idx not in exclude_areas)
     return "s{}.{}.{}".format(node.index, traits, areas)
 
 class OutOfRegionError(Exception):
