@@ -636,13 +636,12 @@ class ArchipelagoSimulator(object):
             if self.log_frequency:
                 if self.target_num_tips:
                     if ntips_in_focal_areas - last_logged_num_tips >= self.log_frequency:
-                        self.run_logger.info("{} tip lineages occurring in focal areas ({} tip lineages total on phylogeny)".format(ntips_in_focal_areas, ntips))
                         last_logged_num_tips = ntips_in_focal_areas
+                        self.run_logger.info("{} lineages occurring in focal areas, {} lineages across all areas".format(ntips_in_focal_areas, ntips))
                 else:
                     if self.elapsed_time - last_logged_time >= self.log_frequency:
-                        self.run_logger.info("{} tip lineages occuring in focal areas ({} tip lineages total on phylogeny)".format(ntips_in_focal_areas, ntips))
                         last_logged_time = self.elapsed_time
-                    last_logged_time = 0.0
+                        self.run_logger.info("{} lineages occurring in focal areas, {} lineages across all areas".format(ntips_in_focal_areas, ntips))
             event_calls, event_rates, sum_of_event_rates = self.schedule_events()
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
@@ -664,9 +663,17 @@ class ArchipelagoSimulator(object):
                     n = len(focal_area_tree.seed_node._child_nodes)
                     if n < 2:
                         raise FailedSimulationException("Insufficient lineages in focal area: {}".format(n))
-                    self.write_tree(focal_area_tree, self.focal_area_tree_log)
+                    self.write_tree(
+                            out=self.focal_area_tree_log,
+                            tree=focal_area_tree,
+                            focal_area_only_labeling=True,
+                            )
                 if self.full_area_tree_log is not None:
-                    self.write_tree(self.phylogeny, self.full_area_tree_log)
+                    self.write_tree(
+                            out=self.full_area_tree_log,
+                            tree=self.phylogeny,
+                            focal_area_only_labeling=False,
+                            )
                 break
 
     def schedule_events(self):
@@ -704,12 +711,20 @@ class ArchipelagoSimulator(object):
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 
-    def write_tree(self, tree, out):
+    def write_tree(self,
+            out,
+            tree,
+            focal_area_only_labeling,
+            ):
+        if focal_area_only_labeling:
+            labelf = lambda x: utility.encode_lineage(x, exclude_areas=self.geography.supplemental_area_indexes)
+        else:
+            labelf = lambda x: utility.encode_lineage(x, exclude_areas=None)
         tree.write_to_stream(
                 out,
                 schema="newick",
                 suppress_annotations=False,
-                node_label_compose_func=utility.encode_lineage,
+                node_label_compose_func=labelf,
                 suppress_internal_node_labels=self.is_suppress_internal_node_labels,
                 )
 

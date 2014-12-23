@@ -49,9 +49,12 @@ def dump_stack():
         else:
             print("{}: {}: {}".format(filename, line_num, source_code[source_index].strip()))
 
-def encode_lineage(node):
+def encode_lineage(node, exclude_areas=None):
     traits = "".join(str(i) for i in node.traits_vector)
-    areas = "".join(str(i) for i in node.distribution_vector)
+    if exclude_areas is None:
+        areas = "".join(str(i) for i in node.distribution_vector)
+    else:
+        areas = "".join(str(i) for idx, i in enumerate(node.distribution_vector) if idx not in exclude_areas)
     return "s{}.{}.{}".format(node.index, traits, areas)
 
 class OutOfRegionError(Exception):

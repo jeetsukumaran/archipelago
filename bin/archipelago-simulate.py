@@ -64,7 +64,7 @@ def generate_trait_definitions(trait_descs):
     return traits
 
 model_d = {}
-model_d["areas"] = generate_area_definitions(4, 1)
+model_d["areas"] = generate_area_definitions(6, 2)
 model_d["traits"] = generate_trait_definitions([
             ("habitat", 2),
             ("role", 6),
@@ -101,7 +101,7 @@ model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixe
 config_d = {}
 config_d["output_prefix"] = "arch1"
 config_d["termination_conditions"] = {}
-config_d["termination_conditions"]["target_num_tips"] = 4
+config_d["termination_conditions"]["target_num_tips"] = 50
 s = simulate.ArchipelagoSimulator(
         config_d=config_d,
         model_d=model_d,
