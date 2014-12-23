@@ -101,7 +101,20 @@ class StatesVector(object):
             to binary (i.e., 2 states, 0 and 1). If specifed, must be a list of
             length `nchar`, with each element in the list being integer > 0.
         """
-        self._states = [2] * nchar
+        self._nchar = nchar
+        if nstates is None:
+            self._nstates = nstates
+        else:
+            self._nstates = [2] * nchar
+        self._states = [0] * nchar
+
+    def clone(self):
+        s = StatesVector(
+                nchar=self._nchar,
+                nstates=self._nstates,
+            )
+        s._states = list(self._states)
+        return s
 
     @property
     def nchar(self):
@@ -377,13 +390,13 @@ class Phylogeny(dendropy.Tree):
         self.current_lineages.remove(lineage)
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
-                distribution_vector=self.system.geography.new_occurrence_vector(),
-                traits_vector=self.system.trait_types.new_traits_vector(),
+                distribution_vector=lineage.distribution_vector.clone(),
+                traits_vector=lineage.traits_vector.clone(),
                 )
         c2 = self.node_factory(
                 index=next(self.lineage_indexer),
-                distribution_vector=self.system.geography.new_occurrence_vector(),
-                traits_vector=self.system.trait_types.new_traits_vector(),
+                distribution_vector=lineage.distribution_vector.clone(),
+                traits_vector=lineage.traits_vector.clone(),
                 )
         # to do:
         # - handle sympatrix, allopatric, para-allopatric speciation
