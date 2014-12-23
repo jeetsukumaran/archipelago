@@ -291,20 +291,9 @@ class RunLogger(object):
 
     def get_simulation_generation_formatter(self):
         # f = logging.Formatter("[%(asctime)s] t = %(elapsed_time)10.6f: %(message)s")
-        f = logging.Formatter("[%(asctime)s] %(simulation_time)s: %(message)s")
+        f = logging.Formatter("[%(asctime)s] %(simulation_time)s%(message)s")
         f.datefmt='%Y-%m-%d %H:%M:%S'
         return f
-
-    def get_rich_formatter(self):
-        f = logging.Formatter("[%(asctime)s] %(filename)s (%(lineno)d): %(levelname) 8s: %(message)s")
-        f.datefmt='%Y-%m-%d %H:%M:%S'
-        return f
-
-    def get_simple_formatter(self):
-        return logging.Formatter("%(levelname) 8s: %(message)s")
-
-    def get_raw_formatter(self):
-        return logging.Formatter("%(message)s")
 
     def get_logging_formatter(self, format=None):
         if format is not None:
@@ -324,17 +313,17 @@ class RunLogger(object):
 
     def supplemental_info_d(self):
         if self._system is not None:
-            # return {
-            #   "simulation_time" : "t = {:10.6f}".format(self._system.elapsed_time),
-            # }
-            if self._system.elapsed_time == 0:
-                return {
-                        "simulation_time" : "INITIALIZATION",
-                        }
-            else:
-                return {
-                        "simulation_time" : "t = {:10.6f}".format(self._system.elapsed_time),
-                        }
+            return {
+              "simulation_time" : "[t = {:10.6f}] ".format(self._system.elapsed_time),
+            }
+            # if self._system.elapsed_time == 0:
+            #     return {
+            #             "simulation_time" : "Setup: ",
+            #             }
+            # else:
+            #     return {
+            #             "simulation_time" : "t = {:10.6f}: ".format(self._system.elapsed_time),
+            #             }
         else:
             return None
 

@@ -681,8 +681,6 @@ class ArchipelagoSimulator(object):
 
     def set_model(self, model_d, verbose=True):
 
-        print("########### {}".format(model_d))
-
         # Geography
         if "areas" not in model_d:
             raise ValueError("No areas defined")

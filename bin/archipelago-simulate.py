@@ -64,8 +64,8 @@ def generate_trait_definitions(trait_descs):
     return traits
 
 model_d = {}
-# model_d["areas"] = generate_area_definitions(6, 2)
-model_d["areas"] = generate_area_definitions(6, 0)
+model_d["areas"] = generate_area_definitions(6,2)
+# model_d["areas"] = generate_area_definitions(6, 0)
 model_d["traits"] = generate_trait_definitions([
             ("habitat", 2),
             ("role", 6),
@@ -84,7 +84,7 @@ model_d["traits"] = generate_trait_definitions([
 
 
 b = 0.01
-e = 0.01
+e = 0.001
 q = 0.01
 d = 0.01
 model_d["diversification"] = {}
@@ -104,18 +104,24 @@ config_d["output_prefix"] = "arch1"
 config_d["termination_conditions"] = {}
 config_d["termination_conditions"]["target_num_tips"] = 10
 config_d["random_seed"] = 5545155817108460088
-config_d["debug_mode"] = True
-config_d["standard_error_logging_level"] = "debug"
-s = simulate.ArchipelagoSimulator(
-        config_d=config_d,
-        model_d=model_d,
-        )
-while True:
-    try:
-        s.run()
-        break
-    except simulate.TotalExtinctionException:
-        pass
+# config_d["log_frequency"] = 0
+# config_d["debug_mode"] = True
+# config_d["standard_error_logging_level"] = "debug"
+# s = simulate.ArchipelagoSimulator(
+#         config_d=config_d,
+#         model_d=model_d,
+#         )
+
+simulate.repeat_run(
+      nreps=1,
+      model_d=model_d,
+      config_d=config_d,
+      random_seed=None,
+      stderr_logging_level="info",
+      file_logging_level="debug",
+      maximum_num_reruns_per_replicates=4,
+      )
+
 # for k in range(100):
 #     if k % 10 == 0:
 #         sys.stderr.write("Event {}: {}: {} tips\n".format(k, s.current_time, len(s.phylogeny.current_lineages)))
