@@ -339,7 +339,7 @@ class RunLogger(object):
             return None
 
     def debug(self, msg):
-        self._log.debug(msg, extra=self.supplemental_info_d())
+        self._log.debug("[DEBUG] {}".format(msg), extra=self.supplemental_info_d())
 
     def info(self, msg):
         self._log.info(msg, extra=self.supplemental_info_d())

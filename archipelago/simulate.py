@@ -364,6 +364,9 @@ class Lineage(dendropy.Node):
         self.is_extant = True
         self.edge.length = 0
 
+    def __repr__(self):
+        return utility.encode_lineage(self)
+
 class Phylogeny(dendropy.Tree):
 
     def node_factory(cls, **kwargs):
@@ -399,18 +402,16 @@ class Phylogeny(dendropy.Tree):
             yield lineage
 
     def split_lineage(self, lineage):
-        lineage.is_extant = False
-        self.current_lineages.remove(lineage)
 
         # speciation modes
-        # -   single-area sympatric speciation
+        # 0:  single-area sympatric speciation
         #     -   ancestral range copied to both daughter species
-        # -   sympatric subset: multi-area sympatric speciation
+        # 1:  sympatric subset: multi-area sympatric speciation
         #     -   d1: inherits complete range
         #     -   d2: inherits single area in ancestral range
-        # -   vicariance
+        # 2:  vicariance
         #     -   ancestral range divided up between two daughter species
-        # -   jump dispersal
+        # 3:  jump dispersal
         #     -   single
         presences = lineage.distribution_vector.presences()
         num_presences = len(presences)
@@ -427,13 +428,14 @@ class Phylogeny(dendropy.Tree):
         elif speciation_mode == 1:
             dist1 = lineage.distribution_vector.clone()
             dist2 = self.system.geography.new_distribution_vector()
+            # TODO: area diversity base speciation
             dist2[ self.system.rng.choice(presences) ] = 1
         elif speciation_mode == 2:
             dist1 = self.system.geography.new_distribution_vector()
             dist2 = self.system.geography.new_distribution_vector()
             if num_presences == 2:
                 dist1[presences[0]] = 1
-                dist1[presences[1]] = 1
+                dist2[presences[1]] = 1
             else:
                 n1 = self.system.rng.randint(1, num_presences-1)
                 n2 = num_presences - n1
@@ -454,7 +456,16 @@ class Phylogeny(dendropy.Tree):
         else:
             raise ValueError(speciation_mode)
 
-
+        if self.system.debug_mode:
+            self.system.run_logger.debug("Splitting {} with distribution {} under speciation mode {} to: {} and {}".format(
+                lineage,
+                lineage.distribution_vector.presences(),
+                speciation_mode,
+                dist1.presences(),
+                dist2.presences(),
+                ))
+            assert len(dist1.presences()) > 0
+            assert len(dist2.presences()) > 0
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
                 distribution_vector=dist1,
@@ -465,8 +476,9 @@ class Phylogeny(dendropy.Tree):
                 distribution_vector=dist2,
                 traits_vector=lineage.traits_vector.clone(),
                 )
-        # to do:
-        # - handle sympatrix, allopatric, para-allopatric speciation
+
+        lineage.is_extant = False
+        self.current_lineages.remove(lineage)
         lineage.add_child(c1)
         lineage.add_child(c2)
         self.current_lineages.add(c1)
@@ -477,6 +489,7 @@ class Phylogeny(dendropy.Tree):
             self._make_lineage_extinct_on_phylogeny(lineage)
         else:
             presences = lineage.distribution_vector.presences()
+            assert len(presences) > 0
             if len(presences) == 1:
                 self._make_lineage_extinct_on_phylogeny(lineage)
             else:
@@ -484,9 +497,16 @@ class Phylogeny(dendropy.Tree):
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
         lineage.is_extant = False
+        self.current_lineages.remove(lineage)
         if lineage is self.seed_node:
             self.total_extinction_exception("Death cycle (pruning): seed node has been extirpated from all habitats on all islands")
-        self.prune_subtree(node=lineage)
+        # print(self.as_string("newick", node_label_compose_func=utility.encode_lineage).replace("\n", ""))
+        # for nd in self:
+        #     print("{}: {}".format(
+        #         utility.encode_lineage(nd),
+        #         ", ".join(utility.encode_lineage(ch) for ch in nd._child_nodes),
+        #         ))
+        # print("To delete: {} ({})".format(utility.encode_lineage(lineage), lineage is self.seed_node))
         if self.seed_node.num_child_nodes() == 0 and not self.seed_node.is_extant:
             self.total_extinction_exception("Death cycle (post-pruning): no extant lineages on tree")
         # if self.debug_mode:
@@ -582,7 +602,11 @@ class ArchipelagoSimulator(object):
         if self.run_logger is None:
             self.run_logger = utility.RunLogger(
                     name="archipelago",
-                    log_path=self.output_prefix + ".log")
+                    stderr_logging_level=config_d.pop("standard_error_logging_level", "info"),
+                    log_to_file=config_d.pop("log_to_file", True),
+                    log_path=self.output_prefix + ".log",
+                    file_logging_level=config_d.pop("file_logging_level", "info"),
+                    )
         self.run_logger.system = self
 
         if verbose:
@@ -622,10 +646,6 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("Using existing random number generator")
 
-        self.debug_mode = config_d.pop("debug_mode", False)
-        if verbose and self.debug_mode:
-            self.run_logger.info("Running in DEBUG mode")
-
         termination_conditions_d = config_d.pop("termination_conditions", {})
         self.target_num_tips = termination_conditions_d.pop("target_num_tips", 50)
         # self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 500)
@@ -657,6 +677,11 @@ class ArchipelagoSimulator(object):
         else:
             default_log_frequency = self.max_time/100
         self.log_frequency = config_d.pop("log_frequency", default_log_frequency)
+
+        self.debug_mode = config_d.pop("debug_mode", False)
+        if verbose and self.debug_mode:
+            self.run_logger.info("Running in DEBUG mode")
+
         if config_d:
             raise TypeError("Unsupported configuration keywords: {}".format(config_d))
 
@@ -680,15 +705,15 @@ class ArchipelagoSimulator(object):
 
         # Diversification: speciation
         diversification_d = model_d.pop("diversification", {})
-        if "lineage_speciation_probability_function" in diversification_d:
-            self.lineage_speciation_probability_function = diversification_d.pop("lineage_speciation_probability_function")
+        if "lineage_birth_probability_function" in diversification_d:
+            self.lineage_birth_probability_function = diversification_d.pop("lineage_birth_probability_function")
         else:
-            self.lineage_speciation_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_birth_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
                     "Fixed speciation probability: {}".format(0.01)
             )
         if verbose:
-            desc = getattr(self.lineage_speciation_probability_function, "__doc__", None)
+            desc = getattr(self.lineage_birth_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
             self.run_logger.info("[DIVERSIFICATION] Setting lineage speciation probability function: {}".format(desc,))
@@ -737,7 +762,19 @@ class ArchipelagoSimulator(object):
                 last_logged_time = 0.0
         ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
         ntips = len(self.phylogeny.current_lineages)
+        num_events = 0
         while True:
+            num_events += 1
+
+            ### DEBUG
+            if self.debug_mode:
+                self.run_logger.debug("Pre-event {}: debug check".format(num_events))
+                self.phylogeny._debug_check_tree()
+                for lineage in self.phylogeny.current_lineages:
+                    assert lineage.is_extant
+                    assert len(lineage.distribution_vector.presences()) > 0
+
+            ### LOGGING
             if self.log_frequency:
                 if self.target_num_tips:
                     if ntips_in_focal_areas - last_logged_num_tips >= self.log_frequency:
@@ -747,6 +784,8 @@ class ArchipelagoSimulator(object):
                     if self.elapsed_time - last_logged_time >= self.log_frequency:
                         last_logged_time = self.elapsed_time
                         self.run_logger.info("{} lineages occurring in focal areas, {} lineages across all areas".format(ntips_in_focal_areas, ntips))
+
+            ### EVENT SCHEDULING
             event_calls, event_rates, sum_of_event_rates = self.schedule_events()
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
@@ -754,8 +793,22 @@ class ArchipelagoSimulator(object):
                 raise NotImplementedError
             for lineage in self.phylogeny.iterate_current_lineages():
                 lineage.edge.length += time_till_event
+
+            ### EVENT SELECTION AND EXECUTION
             event_idx = weighted_index_choice(event_rates, self.rng)
+            if self.debug_mode:
+                self.run_logger.debug("Event {}: {}".format(num_events, event_calls[event_idx]))
             event_calls[event_idx][0](*event_calls[event_idx][1:])
+
+            ### DEBUG
+            if self.debug_mode:
+                self.run_logger.debug("Post-event {}: debug check".format(num_events))
+                self.phylogeny._debug_check_tree()
+                for lineage in self.phylogeny.current_lineages:
+                    assert lineage.is_extant
+                    assert len(lineage.distribution_vector.presences()) > 0
+
+
             ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
             ntips = len(self.phylogeny.current_lineages)
             if self.gsa_termination_num_tips and ntips_in_focal_areas >= self.gsa_termination_num_tips:
@@ -787,7 +840,7 @@ class ArchipelagoSimulator(object):
         for lineage in self.phylogeny.iterate_current_lineages():
             # speciation
             event_calls.append( (self.phylogeny.split_lineage, lineage) )
-            event_rates.append(self.lineage_speciation_probability_function(lineage))
+            event_rates.append(self.lineage_birth_probability_function(lineage))
             # extinction
             extinction_prob = self.lineage_death_probability_function(lineage)
             if extinction_prob:
