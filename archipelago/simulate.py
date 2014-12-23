@@ -484,20 +484,20 @@ class ArchipelagoSimulator(object):
             self.run_logger.info("Configuring simulation '{}'".format(self.name))
 
         if config_d.pop("store_focal_area_trees", True):
-            self.focal_area_tree_log = open(self.output_prefix + ".focal.trees", "w")
-            self.run_logger.info("Focal area trees filepath: {}".format(self.focal_area_tree_log.name))
+            self.focal_areas_tree_log = open(self.output_prefix + ".focal-areas.trees", "w")
+            self.run_logger.info("Focal area trees filepath: {}".format(self.focal_areas_tree_log.name))
         else:
-            self.focal_area_tree_log = None
+            self.focal_areas_tree_log = None
             self.run_logger.info("Focal area trees will not be stored")
 
         if config_d.pop("store_full_area_trees", True):
-            self.full_area_tree_log = open(self.output_prefix + ".full.trees", "w")
-            self.run_logger.info("Full area trees filepath: {}".format(self.full_area_tree_log.name))
+            self.all_areas_tree_log = open(self.output_prefix + ".all-areas.trees", "w")
+            self.run_logger.info("Full area trees filepath: {}".format(self.all_areas_tree_log.name))
         else:
-            self.full_area_tree_log = None
+            self.all_areas_tree_log = None
             self.run_logger.info("Full area trees will not be stored")
 
-        if not self.focal_area_tree_log and not self.full_area_tree_log:
+        if not self.focal_areas_tree_log and not self.all_areas_tree_log:
             self.run_logger.warning("No trees will be stored!")
 
         self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False)
@@ -658,21 +658,21 @@ class ArchipelagoSimulator(object):
             elif self.gsa_termination_num_tips and ntips_in_focal_areas == self.target_num_tips:
                 raise NotImplementedError
             elif self.target_num_tips and ntips_in_focal_areas >= self.target_num_tips:
-                if self.focal_area_tree_log is not None:
+                if self.focal_areas_tree_log is not None:
                     focal_area_tree = self.phylogeny.extract_focal_area_tree()
                     n = len(focal_area_tree.seed_node._child_nodes)
                     if n < 2:
                         raise FailedSimulationException("Insufficient lineages in focal area: {}".format(n))
                     self.write_tree(
-                            out=self.focal_area_tree_log,
+                            out=self.focal_areas_tree_log,
                             tree=focal_area_tree,
-                            focal_area_only_labeling=True,
+                            focal_areas_only_labeling=True,
                             )
-                if self.full_area_tree_log is not None:
+                if self.all_areas_tree_log is not None:
                     self.write_tree(
-                            out=self.full_area_tree_log,
+                            out=self.all_areas_tree_log,
                             tree=self.phylogeny,
-                            focal_area_only_labeling=False,
+                            focal_areas_only_labeling=False,
                             )
                 break
 
@@ -714,9 +714,9 @@ class ArchipelagoSimulator(object):
     def write_tree(self,
             out,
             tree,
-            focal_area_only_labeling,
+            focal_areas_only_labeling,
             ):
-        if focal_area_only_labeling:
+        if focal_areas_only_labeling:
             labelf = lambda x: utility.encode_lineage(x, exclude_areas=self.geography.supplemental_area_indexes)
         else:
             labelf = lambda x: utility.encode_lineage(x, exclude_areas=None)
