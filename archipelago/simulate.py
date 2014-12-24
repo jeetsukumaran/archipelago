@@ -723,7 +723,7 @@ class ArchipelagoSimulator(object):
         else:
             self.lineage_birth_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
-                    "Fixed speciation probability: {}".format(0.01)
+                    "fixed: {}".format(0.01)
             )
         if verbose:
             desc = getattr(self.lineage_birth_probability_function, "__doc__", None)
@@ -737,7 +737,7 @@ class ArchipelagoSimulator(object):
         else:
             self.lineage_death_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
-                    "Fixed death probability: {}".format(0.01)
+                    "fixed: {}".format(0.01)
             )
         self.is_lineage_death_global = strtobool(str(model_d.pop("is_lineage_death_global", 0)))
         if verbose:
@@ -755,7 +755,7 @@ class ArchipelagoSimulator(object):
         else:
             self.lineage_dispersal_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
-                    "Fixed dispersal probability: {}".format(0.01)
+                    "fixed: {}".format(0.01)
             )
         if verbose:
             desc = getattr(self.lineage_dispersal_probability_function, "__doc__", None)
