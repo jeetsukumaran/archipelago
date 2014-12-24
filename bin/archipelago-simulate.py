@@ -82,6 +82,17 @@ model_d["traits"] = generate_trait_definitions([
 #     pass
 # model_d["dispersal_function"] = habitat_constrained_dispersal
 
+config_d = {}
+config_d["output_prefix"] = "arch1"
+# config_d["random_seed"] = 5545155817108460088
+# config_d["log_frequency"] = 0
+# config_d["debug_mode"] = True
+# config_d["standard_error_logging_level"] = "debug"
+# s = simulate.ArchipelagoSimulator(
+#         config_d=config_d,
+#         model_d=model_d,
+#         )
+
 
 b = 0.01
 e = 0.00
@@ -92,6 +103,9 @@ model_d["diversification"]["lineage_birth_probability_function"] = lambda x: b
 model_d["diversification"]["lineage_birth_probability_function"].__doc__ = "Fixed birth probability: {}".format(b)
 model_d["diversification"]["lineage_death_probability_function"] = lambda x: e
 model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixed death probability: {}".format(e)
+model_d["termination_conditions"] = {}
+model_d["termination_conditions"]["target_num_tips"] = 10
+model_d["termination_conditions"]["max_time"] = 500
 
 # import json
 # import pprint
@@ -99,19 +113,6 @@ model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixe
 # px.pprint(model_d)
 # sys.exit(0)
 
-config_d = {}
-config_d["output_prefix"] = "arch1"
-config_d["termination_conditions"] = {}
-config_d["termination_conditions"]["target_num_tips"] = 10
-config_d["termination_conditions"]["max_time"] = 500
-# config_d["random_seed"] = 5545155817108460088
-# config_d["log_frequency"] = 0
-# config_d["debug_mode"] = True
-# config_d["standard_error_logging_level"] = "debug"
-# s = simulate.ArchipelagoSimulator(
-#         config_d=config_d,
-#         model_d=model_d,
-#         )
 
 simulate.repeat_run(
       nreps=5,

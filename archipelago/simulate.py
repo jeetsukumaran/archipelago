@@ -649,41 +649,15 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("Using existing random number generator")
 
-        termination_conditions_d = dict(config_d.pop("termination_conditions", {}))
-        self.target_num_tips = termination_conditions_d.pop("target_num_tips", 50)
-        # self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 500)
-        self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 0)
-        self.max_time = termination_conditions_d.pop("max_time", 0)
-        if termination_conditions_d:
-            raise TypeError("Unsupported configuration keywords: {}".format(termination_conditions_d))
-        if self.gsa_termination_num_tips and not self.target_num_tips:
-            raise ValueError("Cannot specify 'gsa_termination_num_tips' without specifying 'target_num_tips'")
-        if not self.target_num_tips and self.max_time:
-            desc = "Simulation will terminate after {} time units".format(self.max_time)
-        elif self.target_num_tips and not self.gsa_termination_num_tips and not self.max_time:
-            desc = "Simulation will terminate when {} tips are generated (no time limit)".format(self.target_num_tips)
-        elif self.target_num_tips and not self.gsa_termination_num_tips and self.max_time:
-            desc = "Simulation will terminate when {} tips are generated or after {} time units".format(self.target_num_tips, self.max_time)
-        elif self.target_num_tips and self.gsa_termination_num_tips and not self.max_time:
-            desc = "Simulation will terminate when {} tips are generated, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.gsa_termination_num_tips)
-        elif self.target_num_tips and self.gsa_termination_num_tips and self.max_time:
-            desc = "Simulation will terminate when {} tips are generated or after {} time units, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.max_time, self.gsa_termination_num_tips)
-        elif not self.target_num_tips and not self.max_time:
-            raise ValueError("Unspecified termination condition")
-        else:
-            raise ValueError("Unsupported termination condition(s)")
-        if verbose:
-            self.run_logger.info(desc)
-
-        if self.target_num_tips:
-            default_log_frequency = 1
-        else:
-            default_log_frequency = self.max_time/100
-        self.log_frequency = config_d.pop("log_frequency", default_log_frequency)
+        self.log_frequency = config_d.pop("log_frequency", None)
 
         self.debug_mode = config_d.pop("debug_mode", False)
         if verbose and self.debug_mode:
             self.run_logger.info("Running in DEBUG mode")
+
+        self.store_model_description = config_d.pop("store_model_description", True)
+        if verbose and self.store_model_description:
+            self.run_logger.info("Model description will be stored in: ")
 
         if config_d:
             raise TypeError("Unsupported configuration keywords: {}".format(config_d))
@@ -753,6 +727,32 @@ class ArchipelagoSimulator(object):
                 desc = "(no description available)"
             self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(desc,))
 
+        termination_conditions_d = dict(model_d.pop("termination_conditions", {}))
+        self.target_num_tips = termination_conditions_d.pop("target_num_tips", 50)
+        # self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 500)
+        self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 0)
+        self.max_time = termination_conditions_d.pop("max_time", 0)
+        if termination_conditions_d:
+            raise TypeError("Unsupported configuration keywords: {}".format(termination_conditions_d))
+        if self.gsa_termination_num_tips and not self.target_num_tips:
+            raise ValueError("Cannot specify 'gsa_termination_num_tips' without specifying 'target_num_tips'")
+        if not self.target_num_tips and self.max_time:
+            desc = "Simulation will terminate after {} time units".format(self.max_time)
+        elif self.target_num_tips and not self.gsa_termination_num_tips and not self.max_time:
+            desc = "Simulation will terminate when {} tips are generated (no time limit)".format(self.target_num_tips)
+        elif self.target_num_tips and not self.gsa_termination_num_tips and self.max_time:
+            desc = "Simulation will terminate when {} tips are generated or after {} time units".format(self.target_num_tips, self.max_time)
+        elif self.target_num_tips and self.gsa_termination_num_tips and not self.max_time:
+            desc = "Simulation will terminate when {} tips are generated, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.gsa_termination_num_tips)
+        elif self.target_num_tips and self.gsa_termination_num_tips and self.max_time:
+            desc = "Simulation will terminate when {} tips are generated or after {} time units, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.max_time, self.gsa_termination_num_tips)
+        elif not self.target_num_tips and not self.max_time:
+            raise ValueError("Unspecified termination condition")
+        else:
+            raise ValueError("Unsupported termination condition(s)")
+        if verbose:
+            self.run_logger.info(desc)
+
         if model_d:
             raise TypeError("Unsupported model keywords: {}".format(model_d))
 
@@ -760,6 +760,14 @@ class ArchipelagoSimulator(object):
 
         ### Initialize time
         self.elapsed_time = 0.0
+
+        ### Initialize logging
+        ### None: default logging, 0: no logging
+        if self.log_frequency is None:
+            if self.target_num_tips:
+                default_log_frequency = 1
+            else:
+                default_log_frequency = self.max_time/100
         if self.log_frequency:
             if self.target_num_tips:
                 last_logged_num_tips = 0
