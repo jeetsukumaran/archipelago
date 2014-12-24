@@ -55,12 +55,17 @@ def weighted_index_choice(weights, rng=None):
         if rnd < 0:
             return i
 
-class InsufficientFocalAreaLineagesSimulationException(Exception):
+class ArchipelagoException(Exception):
     pass
 
-class TotalExtinctionException(Exception):
-    def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+class FailedSimulationException(ArchipelagoException):
+    pass
+
+class InsufficientFocalAreaLineagesSimulationException(FailedSimulationException):
+    pass
+
+class TotalExtinctionException(FailedSimulationException):
+    pass
 
 class IndexGenerator(object):
 
@@ -538,11 +543,11 @@ class Phylogeny(dendropy.Tree):
         tcopy = copy.deepcopy(self)
         focal_area_lineages = tcopy.focal_area_lineages()
         if len(focal_area_lineages) < 2:
-            raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination: {}".format(len(focal_area_lineages)))
+            raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
         try:
             tcopy.filter_leaf_nodes(filter_fn=lambda x: x in focal_area_lineages)
         except dendropy.SeedNodeDeletionException:
-            raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination: {}".format(len(focal_area_lineages)))
+            raise InsufficientFocalAreaLineagesSimulationException("No extant lineages in focal area at termination".format(len(focal_area_lineages)))
         return tcopy
 
 class ArchipelagoSimulator(object):
@@ -800,8 +805,8 @@ class ArchipelagoSimulator(object):
 
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
-            if self.max_time and self.elapsed_time > max_time:
-                self.elapsed_time = max_time
+            if self.max_time and self.elapsed_time > self.max_time:
+                self.elapsed_time = self.max_time
                 self.run_logger.info("Termination condition of t = {} reached: storing results and terminating".format(self.elapsed_time))
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
@@ -897,7 +902,7 @@ class ArchipelagoSimulator(object):
             focal_area_tree = self.phylogeny.extract_focal_area_tree()
             n = len(focal_area_tree.seed_node._child_nodes)
             if n < 2:
-                raise FailedSimulationException("Insufficient lineages in focal area: {}".format(n))
+                raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area: {}".format(n))
             self.write_tree(
                     out=focal_areas_tree_out,
                     tree=focal_area_tree,
@@ -942,7 +947,7 @@ def repeat_run(
         output_prefix=None,
         stderr_logging_level="info",
         file_logging_level="debug",
-        maximum_num_reruns_per_replicates=1000):
+        maximum_num_reruns_per_replicates=100):
     """
     Executes multiple runs of the Archipelago simulator under identical
     parameters to produce the specified number of replicates, discarding failed
@@ -1010,7 +1015,7 @@ def repeat_run(
     while current_rep < nreps:
         simulation_name="Run{}".format((current_rep+1))
         run_output_prefix = "{}.R{:04d}".format(output_prefix, current_rep+1)
-        run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: starting".format(current_rep+1, nreps))
+        run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Starting".format(current_rep+1, nreps))
         num_reruns = 0
         while True:
             archipelago_simulator = ArchipelagoSimulator(
@@ -1020,18 +1025,18 @@ def repeat_run(
             try:
                 archipelago_simulator.run()
                 run_logger.system = None
-            except TotalExtinctionException as e:
+            except ArchipelagoException as e:
+                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Simulation failure before termination condition at t = {}: {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time, e))
                 run_logger.system = None
-                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: total extinction of all lineages at t = {} before termination condition".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
                 num_reruns += 1
                 if num_reruns > maximum_num_reruns_per_replicates:
-                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: maximum number of re-runs exceeded: aborting".format(current_rep+1, nreps))
+                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Maximum number of re-runs exceeded: aborting".format(current_rep+1, nreps))
                     break
                 else:
-                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: re-running replicate (number of re-runs: {})".format(current_rep+1, nreps, num_reruns))
+                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Re-running replicate (number of re-runs: {})".format(current_rep+1, nreps, num_reruns))
             else:
                 run_logger.system = None
-                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
+                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
                 num_reruns = 0
                 break
         current_rep += 1
