@@ -318,7 +318,7 @@ class RunLogger(object):
             # }
             if self._system.elapsed_time == 0:
                 return {
-                        "simulation_time" : "Initialization: ",
+                        "simulation_time" : "Setup: ",
                         }
             else:
                 return {

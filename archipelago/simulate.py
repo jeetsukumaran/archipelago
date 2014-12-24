@@ -10,6 +10,7 @@ import collections
 import argparse
 import pprint
 import copy
+import json
 from distutils.util import strtobool
 
 import dendropy
@@ -188,6 +189,14 @@ class TraitType(object):
             for j, w in enumerate(tw):
                 self.transition_rate_matrix[i].append( w * self.transition_rate )
 
+    def as_definition(self):
+        d = collections.OrderedDict()
+        d["label"] = self.label
+        d["nstates"] = self.nstates
+        d["transition_rate"] = self.transition_rate
+        d["transition_weights"] = self.transition_weights
+        return d
+
 class TraitTypes(object):
 
     def __init__(self):
@@ -258,6 +267,10 @@ class TraitTypes(object):
                 nstates=self.trait_nstates)
         return s
 
+    def as_definition(self):
+        traits = [t.as_definition() for t in self.trait_types]
+        return traits
+
 class Area(object):
 
     def __init__(self,
@@ -265,12 +278,22 @@ class Area(object):
             label=None,
             is_supplemental=False,
             relative_diversity=None,
-           transition_weights=None,
+            dispersal_weights=None,
             ):
         self.index = index
         self.label = label
         self.is_supplemental = is_supplemental
         self.relative_diversity = relative_diversity
+        self.dispersal_weights = dispersal_weights
+
+    def as_definition(self):
+        d = collections.OrderedDict()
+        # d["index"] = self.index
+        d["label"] = self.label
+        d["is_supplemental"] = self.is_supplemental
+        d["relative_diversity"] = self.relative_diversity
+        d["dispersal_weights"] = self.dispersal_weights
+        return d
 
 class Geography(object):
 
@@ -336,11 +359,13 @@ class Geography(object):
                     total_dispersal_weight += d
             if area1._dispersal_weights_d:
                 raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
+            area1.dispersal_weights = self.dispersal_weights[a1_idx]
             del area1._dispersal_weights_d
         if self.normalize_dispersal_weights and total_dispersal_weight:
             for a1_idx, area1 in enumerate(self.areas):
                 for a2_idx, area2 in enumerate(self.areas):
                     self.dispersal_weights[a1_idx][a2_idx] /= total_dispersal_weight
+                area1.dispersal_weights = self.dispersal_weights[a1_idx]
         if verbose:
             if self.normalize_dispersal_weights:
                 weight_type = "Normalized dispersal"
@@ -351,6 +376,10 @@ class Geography(object):
 
         # instead of recalculating every time
         self.area_nstates = [2 for i in self.areas]
+
+    def as_definition(self):
+        areas = [a.as_definition() for a in self.areas]
+        return areas
 
     def new_distribution_vector(self):
         s = DistributionVector(num_areas=len(self.areas))
@@ -655,9 +684,16 @@ class ArchipelagoSimulator(object):
         if verbose and self.debug_mode:
             self.run_logger.info("Running in DEBUG mode")
 
-        self.store_model_description = config_d.pop("store_model_description", True)
-        if verbose and self.store_model_description:
-            self.run_logger.info("Model description will be stored in: ")
+        if config_d.pop("store_model_description", True):
+            self.model_description_file = config_d.pop("model_description_file", None)
+            if self.model_description_file is None:
+                self.model_description_file = open(self.output_prefix + ".model.json", "w")
+            if verbose:
+                self.run_logger.info("Model description filepath: {}".format(self.model_description_file.name))
+        else:
+            self.model_description_file = None
+            if verbose:
+                self.run_logger.info("Model description will not be stored")
 
         if config_d:
             raise TypeError("Unsupported configuration keywords: {}".format(config_d))
@@ -728,24 +764,27 @@ class ArchipelagoSimulator(object):
             self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(desc,))
 
         termination_conditions_d = dict(model_d.pop("termination_conditions", {}))
-        self.target_num_tips = termination_conditions_d.pop("target_num_tips", 50)
-        # self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 500)
-        self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", 0)
-        self.max_time = termination_conditions_d.pop("max_time", 0)
+        self.target_num_tips = termination_conditions_d.pop("target_num_tips", None)
+        self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", None)
+        self.max_time = termination_conditions_d.pop("max_time", None)
         if termination_conditions_d:
             raise TypeError("Unsupported configuration keywords: {}".format(termination_conditions_d))
         if self.gsa_termination_num_tips and not self.target_num_tips:
             raise ValueError("Cannot specify 'gsa_termination_num_tips' without specifying 'target_num_tips'")
+        if self.target_num_tips is None and self.max_time is None:
+            if verbose:
+                self.run_logger.info("Termination conditions not specified: default termination conditions applied")
+            self.target_num_tips = 50
         if not self.target_num_tips and self.max_time:
-            desc = "Simulation will terminate after {} time units".format(self.max_time)
+            desc = "Simulation will terminate at time t = {}".format(self.max_time)
         elif self.target_num_tips and not self.gsa_termination_num_tips and not self.max_time:
-            desc = "Simulation will terminate when {} tips are generated (no time limit)".format(self.target_num_tips)
+            desc = "Simulation will terminate when there are {} lineages in focal areas (no time limit)".format(self.target_num_tips)
         elif self.target_num_tips and not self.gsa_termination_num_tips and self.max_time:
-            desc = "Simulation will terminate when {} tips are generated or after {} time units".format(self.target_num_tips, self.max_time)
+            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas".format(self.max_time, self.target_num_tips)
         elif self.target_num_tips and self.gsa_termination_num_tips and not self.max_time:
-            desc = "Simulation will terminate when {} tips are generated, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.gsa_termination_num_tips)
+            desc = "Simulation will terminate when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.gsa_termination_num_tips, self.target_num_tips)
         elif self.target_num_tips and self.gsa_termination_num_tips and self.max_time:
-            desc = "Simulation will terminate when {} tips are generated or after {} time units, with a random snapshot of the phylogeny when there were {} extant tips will be sampled and returned".format(self.target_num_tips, self.max_time, self.gsa_termination_num_tips)
+            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.max_time, self.gsa_termination_num_tips, self.target_num_tips)
         elif not self.target_num_tips and not self.max_time:
             raise ValueError("Unspecified termination condition")
         else:
@@ -756,7 +795,39 @@ class ArchipelagoSimulator(object):
         if model_d:
             raise TypeError("Unsupported model keywords: {}".format(model_d))
 
+    def store_model(self, out):
+        model_d = collections.OrderedDict()
+        model_d["areas"] = self.geography.as_definition()
+        model_d["traits"] = self.trait_types.as_definition()
+        model_d["diversification"] = self.diversification_as_definition()
+        model_d["dispersal"] = self.dispersal_as_definition()
+        model_d["termination_conditions"] = self.termination_conditions_as_definition()
+        json.dump(model_d, out, indent=4, separators=(',', ': '))
+
+    def diversification_as_definition(self):
+        d = collections.OrderedDict()
+        # d["lineage_birth_probability_function"] = self.lineage_birth_probability_function
+        d["lineage_birth_probability_function_description"] = self.lineage_birth_probability_function.__doc__
+        d["lineage_death_probability_function_description"] = self.lineage_death_probability_function.__doc__
+        return d
+
+    def dispersal_as_definition(self):
+        d = collections.OrderedDict()
+        d["lineage_dispersal_probability_function_description"] = self.lineage_dispersal_probability_function.__doc__
+        return d
+
+    def termination_conditions_as_definition(self):
+        d = collections.OrderedDict()
+        d["target_num_tips"] = self.target_num_tips
+        d["gsa_termination_num_tips"] = self.gsa_termination_num_tips
+        d["max_time"] = self.max_time
+        return d
+
     def run(self):
+
+        ### Save model
+        if self.model_description_file is not None:
+            self.store_model(self.model_description_file)
 
         ### Initialize time
         self.elapsed_time = 0.0
@@ -849,7 +920,7 @@ class ArchipelagoSimulator(object):
                 # store snapshot in log, but do not break
                 raise NotImplementedError
             elif self.target_num_tips and ntips_in_focal_areas >= self.target_num_tips:
-                self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {} reached: storing results and terminating".format(self.target_num_tips, self.elapsed_time))
+                self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {}: storing results and terminating".format(self.target_num_tips, self.elapsed_time))
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,

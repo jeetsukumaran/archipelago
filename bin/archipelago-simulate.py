@@ -104,8 +104,8 @@ model_d["diversification"]["lineage_birth_probability_function"].__doc__ = "Fixe
 model_d["diversification"]["lineage_death_probability_function"] = lambda x: e
 model_d["diversification"]["lineage_death_probability_function"].__doc__ = "Fixed death probability: {}".format(e)
 model_d["termination_conditions"] = {}
-model_d["termination_conditions"]["target_num_tips"] = 10
-model_d["termination_conditions"]["max_time"] = 500
+# model_d["termination_conditions"]["target_num_tips"] = 10
+# model_d["termination_conditions"]["max_time"] = 500
 
 # import json
 # import pprint
