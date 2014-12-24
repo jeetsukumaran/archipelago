@@ -227,7 +227,7 @@ class TraitTypes(object):
                         trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
             self.trait_label_index_map[trait.label] = trait.index
             if verbose:
-                run_logger.info("[ECOLOGY] Configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
+                run_logger.info("(ECOLOGY) configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
                     idx=trait.index,
                     label=trait.label,
                     normalized="normalized " if self.normalize_transition_weights else "",
@@ -241,7 +241,7 @@ class TraitTypes(object):
         # if len(self.trait_types) < 1:
         #     raise ValueError("No traits defined")
         if verbose:
-            run_logger.info("[ECOLOGY] {} traits defined: {}".format(
+            run_logger.info("(ECOLOGY) Total of {} traits defined: {}".format(
                 len(self.trait_types),
                 ", ".join("'{}'".format(a.label) for a in self.trait_types),
                 ))
@@ -303,7 +303,7 @@ class Geography(object):
             else:
                 self.focal_area_indexes.append(area.index)
             if verbose:
-                run_logger.info("[GEOGRAPHY] Configuring area {idx}: '{label}' ({is_supplemental}; relative diversity: {relative_diversity})".format(
+                run_logger.info("(GEOGRAPHY) Configuring area {idx}: '{label}' ({is_supplemental}; relative diversity: {relative_diversity})".format(
                     idx=area.index,
                     label=area.label,
                     is_supplemental="supplemental" if area.is_supplemental else "primary",
@@ -314,7 +314,7 @@ class Geography(object):
         if len(self.areas) < 1:
             raise ValueError("No areas defined")
         if verbose:
-            run_logger.info("[GEOGRAPHY] {} areas defined: {}".format(
+            run_logger.info("(GEOGRAPHY) Total of {} areas defined: {}".format(
                 len(self.areas),
                 ", ".join("'{}'".format(a.label) for a in self.areas),
                 ))
@@ -342,7 +342,7 @@ class Geography(object):
             else:
                 weight_type = "Dispersal"
             for a1, area1 in enumerate(self.areas):
-                run_logger.info("[GEOGRAPHY] {} weights from area '{}': {}".format(weight_type, area1.label, self.dispersal_weights[a1]))
+                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.dispersal_weights[a1]))
 
         # instead of recalculating every time
         self.area_nstates = [2 for i in self.areas]
@@ -601,25 +601,29 @@ class ArchipelagoSimulator(object):
         if verbose:
             self.run_logger.info("Configuring simulation '{}'".format(self.name))
 
-        if config_d.pop("store_focal_area_trees", True):
-            self.focal_areas_tree_log = open(self.output_prefix + ".focal-areas.trees", "w")
+        if config_d.pop("store_focal_areas_trees", True):
+            self.focal_areas_trees_file = config_d.pop("focal_areas_trees_file", None)
+            if self.focal_areas_trees_file is None:
+                self.focal_areas_trees_file = open(self.output_prefix + ".focal-areas.trees", "w")
             if verbose:
-                self.run_logger.info("Focal area trees filepath: {}".format(self.focal_areas_tree_log.name))
+                self.run_logger.info("Focal area trees filepath: {}".format(self.focal_areas_trees_file.name))
         else:
-            self.focal_areas_tree_log = None
+            self.focal_areas_trees_file = None
             if verbose:
                 self.run_logger.info("Focal area trees will not be stored")
 
-        if config_d.pop("store_full_area_trees", True):
-            self.all_areas_tree_log = open(self.output_prefix + ".all-areas.trees", "w")
+        if config_d.pop("store_all_areas_trees", True):
+            self.all_areas_trees_file = config_d.pop("all_areas_trees_file", None)
+            if self.all_areas_trees_file is None:
+                self.all_areas_trees_file = open(self.output_prefix + ".all-areas.trees", "w")
             if verbose:
-                self.run_logger.info("Full area trees filepath: {}".format(self.all_areas_tree_log.name))
+                self.run_logger.info("All areas trees filepath: {}".format(self.all_areas_trees_file.name))
         else:
-            self.all_areas_tree_log = None
+            self.all_areas_trees_file = None
             if verbose:
-                self.run_logger.info("Full area trees will not be stored")
+                self.run_logger.info("All areas trees will not be stored")
 
-        if not self.focal_areas_tree_log and not self.all_areas_tree_log:
+        if not self.focal_areas_trees_file and not self.all_areas_trees_file:
             self.run_logger.warning("No trees will be stored!")
 
         self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False)
@@ -710,7 +714,7 @@ class ArchipelagoSimulator(object):
             desc = getattr(self.lineage_birth_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DIVERSIFICATION] Setting lineage speciation probability function: {}".format(desc,))
+            self.run_logger.info("(DIVERSIFICATION) Setting lineage speciation probability function: {}".format(desc,))
 
         # Diversification: death/extinction/extirpation
         if "lineage_death_probability_function" in diversification_d:
@@ -725,7 +729,7 @@ class ArchipelagoSimulator(object):
             desc = getattr(self.lineage_death_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DIVERSIFICATION] Setting lineage death (= {is_global}) probability function: {desc}".format(
+            self.run_logger.info("(DIVERSIFICATION) Setting lineage death (= {is_global}) probability function: {desc}".format(
                 is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
                 desc=desc,
                 ))
@@ -742,7 +746,7 @@ class ArchipelagoSimulator(object):
             desc = getattr(self.lineage_dispersal_probability_function, "__doc__", None)
             if desc is None:
                 desc = "(no description available)"
-            self.run_logger.info("[DISPERSAL] Setting lineage dispersal probability function: {}".format(desc,))
+            self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(desc,))
 
         if model_d:
             raise TypeError("Unsupported model keywords: {}".format(model_d))
@@ -797,7 +801,13 @@ class ArchipelagoSimulator(object):
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
             if self.max_time and self.elapsed_time > max_time:
-                raise NotImplementedError
+                self.elapsed_time = max_time
+                self.run_logger.info("Termination condition of t = {} reached: storing results and terminating".format(self.elapsed_time))
+                self.store_sample(
+                    focal_areas_tree_out=self.focal_areas_trees_file,
+                    all_areas_tree_out=self.all_areas_trees_file,
+                    )
+                break
             for lineage in self.phylogeny.iterate_current_lineages():
                 lineage.edge.length += time_till_event
 
@@ -819,26 +829,18 @@ class ArchipelagoSimulator(object):
             ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
             ntips = len(self.phylogeny.current_lineages)
             if self.gsa_termination_num_tips and ntips_in_focal_areas >= self.gsa_termination_num_tips:
+                # select/process one of the previously stored snapshots, write to final results file,
+                # and then break
                 raise NotImplementedError
             elif self.gsa_termination_num_tips and ntips_in_focal_areas == self.target_num_tips:
+                # store snapshot in log, but do not break
                 raise NotImplementedError
             elif self.target_num_tips and ntips_in_focal_areas >= self.target_num_tips:
-                if self.focal_areas_tree_log is not None:
-                    focal_area_tree = self.phylogeny.extract_focal_area_tree()
-                    n = len(focal_area_tree.seed_node._child_nodes)
-                    if n < 2:
-                        raise FailedSimulationException("Insufficient lineages in focal area: {}".format(n))
-                    self.write_tree(
-                            out=self.focal_areas_tree_log,
-                            tree=focal_area_tree,
-                            focal_areas_only_labeling=True,
-                            )
-                if self.all_areas_tree_log is not None:
-                    self.write_tree(
-                            out=self.all_areas_tree_log,
-                            tree=self.phylogeny,
-                            focal_areas_only_labeling=False,
-                            )
+                self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {} reached: storing results and terminating".format(self.target_num_tips, self.elapsed_time))
+                self.store_sample(
+                    focal_areas_tree_out=self.focal_areas_trees_file,
+                    all_areas_tree_out=self.all_areas_trees_file,
+                    )
                 break
 
     def schedule_events(self):
@@ -889,6 +891,24 @@ class ArchipelagoSimulator(object):
                         event_rates.append(dispersal_rate)
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
+
+    def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
+        if focal_areas_tree_out is not None:
+            focal_area_tree = self.phylogeny.extract_focal_area_tree()
+            n = len(focal_area_tree.seed_node._child_nodes)
+            if n < 2:
+                raise FailedSimulationException("Insufficient lineages in focal area: {}".format(n))
+            self.write_tree(
+                    out=focal_areas_tree_out,
+                    tree=focal_area_tree,
+                    focal_areas_only_labeling=True,
+                    )
+        if all_areas_tree_out is not None:
+            self.write_tree(
+                    out=all_areas_tree_out,
+                    tree=self.phylogeny,
+                    focal_areas_only_labeling=False,
+                    )
 
     def write_tree(self,
             out,
@@ -982,33 +1002,36 @@ def repeat_run(
         config_d["rng"] = random.Random(random_seed)
     else:
         run_logger.info("||ARCHIPELAGO-META|| Using existing RNG: {}".format(config_d["rng"]))
-    header_written = False
+    if config_d.get("store_focal_areas_trees", True) and "focal_areas_trees_file" not in config_d:
+        config_d["focal_areas_trees_file"] = open(output_prefix + ".focal-areas.trees", "w")
+    if config_d.get("store_all_areas_trees", True) and "all_areas_trees_file" not in config_d:
+        config_d["all_areas_trees_file"] = open(output_prefix + ".all-areas.trees", "w")
     current_rep = 0
     while current_rep < nreps:
         simulation_name="Run{}".format((current_rep+1))
         run_output_prefix = "{}.R{:04d}".format(output_prefix, current_rep+1)
-        run_logger.info("||ARCHIPELAGO-META|| Run {} of {}: starting".format(current_rep+1, nreps))
+        run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: starting".format(current_rep+1, nreps))
         num_reruns = 0
         while True:
             archipelago_simulator = ArchipelagoSimulator(
                 model_d=model_d,
                 config_d=config_d,
-                verbose_setup=num_reruns == 0)
+                verbose_setup=num_reruns == 0 and current_rep == 0)
             try:
                 archipelago_simulator.run()
                 run_logger.system = None
             except TotalExtinctionException as e:
                 run_logger.system = None
-                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: total extinction of all lineages before termination condition".format(current_rep+1, nreps, num_reruns))
+                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: total extinction of all lineages at t = {} before termination condition".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
                 num_reruns += 1
                 if num_reruns > maximum_num_reruns_per_replicates:
-                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: maximum number of re-runs exceeded: aborting".format(current_rep+1, nreps, num_reruns))
+                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: maximum number of re-runs exceeded: aborting".format(current_rep+1, nreps))
                     break
                 else:
                     run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: re-running replicate (number of re-runs: {})".format(current_rep+1, nreps, num_reruns))
             else:
                 run_logger.system = None
-                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: completed to termination condition".format(current_rep+1, nreps, num_reruns))
+                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
                 num_reruns = 0
                 break
         current_rep += 1

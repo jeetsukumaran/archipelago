@@ -313,17 +313,17 @@ class RunLogger(object):
 
     def supplemental_info_d(self):
         if self._system is not None:
-            return {
-              "simulation_time" : "[t = {:10.6f}] ".format(self._system.elapsed_time),
-            }
-            # if self._system.elapsed_time == 0:
-            #     return {
-            #             "simulation_time" : "Setup: ",
-            #             }
-            # else:
-            #     return {
-            #             "simulation_time" : "t = {:10.6f}: ".format(self._system.elapsed_time),
-            #             }
+            # return {
+            #   "simulation_time" : "[t = {:10.6f}] ".format(self._system.elapsed_time),
+            # }
+            if self._system.elapsed_time == 0:
+                return {
+                        "simulation_time" : "Initialization: ",
+                        }
+            else:
+                return {
+                        "simulation_time" : "[t = {:13.6f}] ".format(self._system.elapsed_time),
+                        }
         else:
             return None
 

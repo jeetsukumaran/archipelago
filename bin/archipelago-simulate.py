@@ -84,7 +84,7 @@ model_d["traits"] = generate_trait_definitions([
 
 
 b = 0.01
-e = 0.001
+e = 0.01
 q = 0.01
 d = 0.01
 model_d["diversification"] = {}
@@ -103,7 +103,7 @@ config_d = {}
 config_d["output_prefix"] = "arch1"
 config_d["termination_conditions"] = {}
 config_d["termination_conditions"]["target_num_tips"] = 10
-config_d["random_seed"] = 5545155817108460088
+# config_d["random_seed"] = 5545155817108460088
 # config_d["log_frequency"] = 0
 # config_d["debug_mode"] = True
 # config_d["standard_error_logging_level"] = "debug"
@@ -113,7 +113,7 @@ config_d["random_seed"] = 5545155817108460088
 #         )
 
 simulate.repeat_run(
-      nreps=1,
+      nreps=5,
       model_d=model_d,
       config_d=config_d,
       random_seed=None,
