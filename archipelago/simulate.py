@@ -122,9 +122,23 @@ class RateFunction(object):
         if self.definition_type == "fixed-value":
             self.definition_content = float(self.definition_content)
             self._compute_rate = lambda lineage: self.definition_content
-        elif self.definition_type == "lambda":
+        elif self.definition_type == "lambda-definition":
             self._compute_rate = eval(self.definition_content)
-        elif self.definition_type == "function":
+        elif self.definition_type == "trait-state-map":
+            parts = self.definition_content.split(":")
+            if len(parts) != 2:
+                raise ValueError("Expecting definition in form of '<trait-label>: <rate-for-state-0>, <rate-for-state-1>, ..., <rate-for-state-n>' but found: '{}'".format(self.definition_content))
+            trait_label = parts[0]
+            if trait_label not in trait_types.trait_label_index_map:
+                raise ValueError("Trait '{}' not defined: {}".format(trait_label, trait_types.trait_label_index_map.keys()))
+            trait = trait_types.get_by_label(trait_label)
+            rate_list = [p.strip() for p in parts[1].split(",") if p.strip()]
+            if len(rate_list) != trait.nstates:
+                raise ValueError("Trait '{}' has {} states, but rate mapping only provides {} values".format(
+                    trait_label, trait.nstates, len(rate_list)))
+            rates = [float(v) for v in rate_list]
+            self._compute_rate = lambda lineage: rates[lineage.traits_vector[trait.index]]
+        elif self.definition_type == "function-object":
             self._compute_rate = self.definition_content
         else:
             raise ValueError("Unrecognized function definition type: '{}'".format(self.definition_type))
@@ -137,6 +151,7 @@ class RateFunction(object):
         else:
             d["value"] = self.definition_content
         d["description"] = self.description
+        return d
 
 class StatesVector(object):
     """
@@ -261,6 +276,10 @@ class TraitTypes(object):
     def __getitem__(self, idx):
         return self.trait_types[idx]
 
+    def get_by_label(self, label):
+        idx = self.trait_label_index_map[label]
+        return self.trait_types[idx]
+
     def parse_definition(self,
             trait_types,
             run_logger,
@@ -268,9 +287,12 @@ class TraitTypes(object):
         self.trait_types = []
         self.trait_label_index_map = collections.OrderedDict()
         for trait_idx, trait_d in enumerate(trait_types):
+            if "label" not in trait_d:
+                raise ValueError("Trait definition requires 'label' to be defined")
+            trait_label = str(trait_d.pop("label"))
             trait = TraitType(
                 index=trait_idx,
-                label=str(trait_d.pop("label", trait_idx)),
+                label=trait_label,
                 nstates=trait_d.pop("nstates", 2),
                 transition_rate=trait_d.pop("transition_rate", 0.01),
             )
