@@ -255,8 +255,9 @@ class TraitTypes(object):
         # if len(self.trait_types) < 1:
         #     raise ValueError("No traits defined")
         if verbose:
-            run_logger.info("(ECOLOGY) Total of {} traits defined: {}".format(
+            run_logger.info("(ECOLOGY) Total of {} traits defined{}{}".format(
                 len(self.trait_types),
+                ": " if self.trait_types else "",
                 ", ".join("'{}'".format(a.label) for a in self.trait_types),
                 ))
         self.trait_nstates = [trait.nstates for trait in self.trait_types]
@@ -725,11 +726,14 @@ class ArchipelagoSimulator(object):
                     0.01,
                     "fixed: {}".format(0.01)
             )
+        fallback_desc = getattr(self.lineage_birth_probability_function, "__doc__")
+        if fallback_desc is None:
+            fallback_desc = "(no description available)"
+        self.lineage_birth_probability_function_desc = diversification_d.pop("lineage_birth_probability_function", fallback_desc)
+        self.lineage_birth_probability_function_definition = diversification_d.pop("lineage_birth_probability_function", "(no definition specified)")
         if verbose:
-            desc = getattr(self.lineage_birth_probability_function, "__doc__", None)
-            if desc is None:
-                desc = "(no description available)"
-            self.run_logger.info("(DIVERSIFICATION) Setting lineage speciation probability function: {}".format(desc,))
+            self.run_logger.info("(DIVERSIFICATION) Setting lineage birth probability function: {desc}".format(
+                desc=self.lineage_birth_probability_function_desc,))
 
         # Diversification: death/extinction/extirpation
         if "lineage_death_probability_function" in diversification_d:
@@ -740,13 +744,15 @@ class ArchipelagoSimulator(object):
                     "fixed: {}".format(0.01)
             )
         self.is_lineage_death_global = strtobool(str(diversification_d.pop("is_lineage_death_global", 0)))
+        fallback_desc = getattr(self.lineage_death_probability_function, "__doc__")
+        if fallback_desc is None:
+            fallback_desc = "(no description available)"
+        self.lineage_death_probability_function_desc = diversification_d.pop("lineage_death_probability_function", fallback_desc)
+        self.lineage_death_probability_function_definition = diversification_d.pop("lineage_death_probability_function", "(no definition specified)")
         if verbose:
-            desc = getattr(self.lineage_death_probability_function, "__doc__", None)
-            if desc is None:
-                desc = "(no description available)"
             self.run_logger.info("(DIVERSIFICATION) Setting lineage death (= {is_global}) probability function: {desc}".format(
                 is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
-                desc=desc,
+                desc=self.lineage_death_probability_function_desc,
                 ))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
@@ -760,11 +766,13 @@ class ArchipelagoSimulator(object):
                     0.01,
                     "fixed: {}".format(0.01)
             )
+        fallback_desc = getattr(self.lineage_dispersal_probability_function, "__doc__")
+        if fallback_desc is None:
+            fallback_desc = "(no description available)"
+        self.lineage_dispersal_probability_function_desc = dispersal_d.pop("lineage_dispersal_probability_function", fallback_desc)
+        self.lineage_dispersal_probability_function_definition = dispersal_d.pop("lineage_dispersal_probability_function", "(no definition specified)")
         if verbose:
-            desc = getattr(self.lineage_dispersal_probability_function, "__doc__", None)
-            if desc is None:
-                desc = "(no description available)"
-            self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(desc,))
+            self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(self.lineage_dispersal_probability_function_desc))
         if dispersal_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(dispersal_d))
 
@@ -812,13 +820,16 @@ class ArchipelagoSimulator(object):
     def diversification_as_definition(self):
         d = collections.OrderedDict()
         # d["lineage_birth_probability_function"] = self.lineage_birth_probability_function
-        d["lineage_birth_probability_function_description"] = self.lineage_birth_probability_function.__doc__
-        d["lineage_death_probability_function_description"] = self.lineage_death_probability_function.__doc__
+        d["lineage_birth_probability_function_description"] = self.lineage_birth_probability_function_desc
+        d["lineage_birth_probability_function_definition"] = self.lineage_birth_probability_function_definition
+        d["lineage_death_probability_function_description"] = self.lineage_death_probability_function_desc
+        d["lineage_death_probability_function_definition"] = self.lineage_death_probability_function_definition
         return d
 
     def dispersal_as_definition(self):
         d = collections.OrderedDict()
-        d["lineage_dispersal_probability_function_description"] = self.lineage_dispersal_probability_function.__doc__
+        d["lineage_dispersal_probability_function_description"] = self.lineage_dispersal_probability_function_desc
+        d["lineage_dispersal_probability_function_definition"] = self.lineage_dispersal_probability_function_definition
         return d
 
     def termination_conditions_as_definition(self):
