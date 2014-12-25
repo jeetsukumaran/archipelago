@@ -1026,7 +1026,7 @@ def repeat_run(
         random_seed=None,
         stderr_logging_level="info",
         file_logging_level="debug",
-        maximum_num_reruns_per_replicates=100):
+        maximum_num_restarts_per_replicates=100):
     """
     Executes multiple runs of the Archipelago simulator under identical
     parameters to produce the specified number of replicates, discarding failed
@@ -1051,7 +1051,7 @@ def repeat_run(
     file_logging_level : string or None
         Message level threshold for file logs; if 'none' or `None`, file
         logs will be supprsed.
-    maximum_num_reruns_per_replicates : int
+    maximum_num_restarts_per_replicates : int
         A failed replicate (due to e.g., total extinction of all taxa) will be
         re-run. This limits the number of re-runs.
     """
@@ -1076,16 +1076,16 @@ def repeat_run(
                 file_logging_level=file_logging_level,
                 )
     run_logger = config_d["run_logger"]
-    run_logger.info("||ARCHIPELAGO-META|| Starting: {}".format(archipelago.description()))
+    run_logger.info("-archipelago- Starting: {}".format(archipelago.description()))
     if "rng" not in config_d:
         if random_seed is None:
             random_seed = config_d.pop("random_seed", None)
             if random_seed is None:
                 random_seed = random.randint(0, sys.maxsize)
-        run_logger.info("||ARCHIPELAGO-META|| Initializing with random seed: {}".format(random_seed))
+        run_logger.info("-archipelago- Initializing with random seed: {}".format(random_seed))
         config_d["rng"] = random.Random(random_seed)
     else:
-        run_logger.info("||ARCHIPELAGO-META|| Using existing RNG: {}".format(config_d["rng"]))
+        run_logger.info("-archipelago- Using existing RNG: {}".format(config_d["rng"]))
     if config_d.get("store_focal_areas_trees", True) and "focal_areas_trees_file" not in config_d:
         config_d["focal_areas_trees_file"] = open(output_prefix + ".focal-areas.trees", "w")
     if config_d.get("store_all_areas_trees", True) and "all_areas_trees_file" not in config_d:
@@ -1094,28 +1094,28 @@ def repeat_run(
     while current_rep < nreps:
         simulation_name="Run{}".format((current_rep+1))
         run_output_prefix = "{}.R{:04d}".format(output_prefix, current_rep+1)
-        run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Starting".format(current_rep+1, nreps))
-        num_reruns = 0
+        run_logger.info("-archipelago- Replicate {} of {}: Starting".format(current_rep+1, nreps))
+        num_restarts = 0
         while True:
             archipelago_simulator = ArchipelagoSimulator(
                 model_d=model_d,
                 config_d=config_d,
-                verbose_setup=num_reruns == 0 and current_rep == 0)
+                verbose_setup=num_restarts == 0 and current_rep == 0)
             try:
                 archipelago_simulator.run()
                 run_logger.system = None
             except ArchipelagoException as e:
-                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Simulation failure before termination condition at t = {}: {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time, e))
                 run_logger.system = None
-                num_reruns += 1
-                if num_reruns > maximum_num_reruns_per_replicates:
-                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Maximum number of re-runs exceeded: aborting".format(current_rep+1, nreps))
+                run_logger.info("-archipelago- Replicate {} of {}: Simulation failure before termination condition at t = {}: {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time, e))
+                num_restarts += 1
+                if num_restarts > maximum_num_restarts_per_replicates:
+                    run_logger.info("-archipelago- Replicate {} of {}: Maximum number of restarts exceeded: aborting".format(current_rep+1, nreps))
                     break
                 else:
-                    run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Re-running replicate (number of re-runs: {})".format(current_rep+1, nreps, num_reruns))
+                    run_logger.info("-archipelago- Replicate {} of {}: Restarting replicate (number of restarts: {})".format(current_rep+1, nreps, num_restarts))
             else:
                 run_logger.system = None
-                run_logger.info("||ARCHIPELAGO-META|| Replicate {} of {}: Completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
-                num_reruns = 0
+                run_logger.info("-archipelago- Replicate {} of {}: Completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
+                num_restarts = 0
                 break
         current_rep += 1
