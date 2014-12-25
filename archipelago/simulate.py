@@ -111,7 +111,7 @@ class RateFunction(object):
 
     def parse_definition(self, rate_function_d, trait_types):
         rate_function_d = dict(rate_function_d)
-        self.definition_type = rate_function_d.pop("type")
+        self.definition_type = rate_function_d.pop("definition_type")
         self.definition_content = rate_function_d.pop("definition")
         self.description = rate_function_d.pop("description")
         if rate_function_d:
@@ -145,11 +145,11 @@ class RateFunction(object):
 
     def as_definition(self):
         d = collections.OrderedDict()
-        d["type"] = self.definition_type
-        if d["type"] == "function":
-            d["value"] = str(self.definition_content)
+        d["definition_type"] = self.definition_type
+        if d["definition_type"] == "function":
+            d["definition"] = str(self.definition_content)
         else:
-            d["value"] = self.definition_content
+            d["definition"] = self.definition_content
         d["description"] = self.description
         return d
 
