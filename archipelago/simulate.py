@@ -534,7 +534,7 @@ class Phylogeny(dendropy.Tree):
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
         if len(self.current_lineages) == 1:
-            self.total_extinction_exception("No extant lineages remaining")
+            self.total_extinction_exception("no extant lineages remaining")
         lineage.is_extant = False
         self.current_lineages.remove(lineage)
         self.prune_subtree(lineage)
@@ -572,11 +572,11 @@ class Phylogeny(dendropy.Tree):
         tcopy = copy.deepcopy(self)
         focal_area_lineages = tcopy.focal_area_lineages()
         if len(focal_area_lineages) < 2:
-            raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
+            raise InsufficientFocalAreaLineagesSimulationException("insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
         try:
             tcopy.filter_leaf_nodes(filter_fn=lambda x: x in focal_area_lineages)
         except dendropy.SeedNodeDeletionException:
-            raise InsufficientFocalAreaLineagesSimulationException("No extant lineages in focal area at termination".format(len(focal_area_lineages)))
+            raise InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
         return tcopy
 
 class ArchipelagoSimulator(object):
