@@ -764,28 +764,28 @@ class ArchipelagoSimulator(object):
             self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(desc,))
 
         termination_conditions_d = dict(model_d.pop("termination_conditions", {}))
-        self.target_num_tips = termination_conditions_d.pop("target_num_tips", None)
-        self.gsa_termination_num_tips = termination_conditions_d.pop("gsa_termination_num_tips", None)
+        self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
+        self.gsa_termination_focal_area_lineages = termination_conditions_d.pop("gsa_termination_focal_area_lineages", None)
         self.max_time = termination_conditions_d.pop("max_time", None)
         if termination_conditions_d:
             raise TypeError("Unsupported configuration keywords: {}".format(termination_conditions_d))
-        if self.gsa_termination_num_tips and not self.target_num_tips:
-            raise ValueError("Cannot specify 'gsa_termination_num_tips' without specifying 'target_num_tips'")
-        if self.target_num_tips is None and self.max_time is None:
+        if self.gsa_termination_focal_area_lineages and not self.target_focal_area_lineages:
+            raise ValueError("Cannot specify 'gsa_termination_focal_area_lineages' without specifying 'target_focal_area_lineages'")
+        if self.target_focal_area_lineages is None and self.max_time is None:
             if verbose:
                 self.run_logger.info("Termination conditions not specified: default termination conditions applied")
-            self.target_num_tips = 50
-        if not self.target_num_tips and self.max_time:
+            self.target_focal_area_lineages = 50
+        if not self.target_focal_area_lineages and self.max_time:
             desc = "Simulation will terminate at time t = {}".format(self.max_time)
-        elif self.target_num_tips and not self.gsa_termination_num_tips and not self.max_time:
-            desc = "Simulation will terminate when there are {} lineages in focal areas (no time limit)".format(self.target_num_tips)
-        elif self.target_num_tips and not self.gsa_termination_num_tips and self.max_time:
-            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas".format(self.max_time, self.target_num_tips)
-        elif self.target_num_tips and self.gsa_termination_num_tips and not self.max_time:
-            desc = "Simulation will terminate when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.gsa_termination_num_tips, self.target_num_tips)
-        elif self.target_num_tips and self.gsa_termination_num_tips and self.max_time:
-            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.max_time, self.gsa_termination_num_tips, self.target_num_tips)
-        elif not self.target_num_tips and not self.max_time:
+        elif self.target_focal_area_lineages and not self.gsa_termination_focal_area_lineages and not self.max_time:
+            desc = "Simulation will terminate when there are {} lineages in focal areas (no time limit)".format(self.target_focal_area_lineages)
+        elif self.target_focal_area_lineages and not self.gsa_termination_focal_area_lineages and self.max_time:
+            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas".format(self.max_time, self.target_focal_area_lineages)
+        elif self.target_focal_area_lineages and self.gsa_termination_focal_area_lineages and not self.max_time:
+            desc = "Simulation will terminate when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.gsa_termination_focal_area_lineages, self.target_focal_area_lineages)
+        elif self.target_focal_area_lineages and self.gsa_termination_focal_area_lineages and self.max_time:
+            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.max_time, self.gsa_termination_focal_area_lineages, self.target_focal_area_lineages)
+        elif not self.target_focal_area_lineages and not self.max_time:
             raise ValueError("Unspecified termination condition")
         else:
             raise ValueError("Unsupported termination condition(s)")
@@ -818,8 +818,8 @@ class ArchipelagoSimulator(object):
 
     def termination_conditions_as_definition(self):
         d = collections.OrderedDict()
-        d["target_num_tips"] = self.target_num_tips
-        d["gsa_termination_num_tips"] = self.gsa_termination_num_tips
+        d["target_focal_area_lineages"] = self.target_focal_area_lineages
+        d["gsa_termination_focal_area_lineages"] = self.gsa_termination_focal_area_lineages
         d["max_time"] = self.max_time
         return d
 
@@ -835,12 +835,12 @@ class ArchipelagoSimulator(object):
         ### Initialize logging
         ### None: default logging, 0: no logging
         if self.log_frequency is None:
-            if self.target_num_tips:
+            if self.target_focal_area_lineages:
                 default_log_frequency = 1
             else:
                 default_log_frequency = self.max_time/100
         if self.log_frequency:
-            if self.target_num_tips:
+            if self.target_focal_area_lineages:
                 last_logged_num_tips = 0
             else:
                 last_logged_time = 0.0
@@ -866,7 +866,7 @@ class ArchipelagoSimulator(object):
 
             ### LOGGING
             if self.log_frequency:
-                if self.target_num_tips:
+                if self.target_focal_area_lineages:
                     if ntips_in_focal_areas - last_logged_num_tips >= self.log_frequency:
                         last_logged_num_tips = ntips_in_focal_areas
                         self.run_logger.info("{} lineages occurring in focal areas, {} lineages across all areas".format(ntips_in_focal_areas, ntips))
@@ -912,15 +912,15 @@ class ArchipelagoSimulator(object):
 
             ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
             ntips = len(self.phylogeny.current_lineages)
-            if self.gsa_termination_num_tips and ntips_in_focal_areas >= self.gsa_termination_num_tips:
+            if self.gsa_termination_focal_area_lineages and ntips_in_focal_areas >= self.gsa_termination_focal_area_lineages:
                 # select/process one of the previously stored snapshots, write to final results file,
                 # and then break
                 raise NotImplementedError
-            elif self.gsa_termination_num_tips and ntips_in_focal_areas == self.target_num_tips:
+            elif self.gsa_termination_focal_area_lineages and ntips_in_focal_areas == self.target_focal_area_lineages:
                 # store snapshot in log, but do not break
                 raise NotImplementedError
-            elif self.target_num_tips and ntips_in_focal_areas >= self.target_num_tips:
-                self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {}: storing results and terminating".format(self.target_num_tips, self.elapsed_time))
+            elif self.target_focal_area_lineages and ntips_in_focal_areas >= self.target_focal_area_lineages:
+                self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {}: storing results and terminating".format(self.target_focal_area_lineages, self.elapsed_time))
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
@@ -1019,11 +1019,11 @@ class ArchipelagoSimulator(object):
         return s.replace("\n", "")
 
 def repeat_run(
+        output_prefix,
         nreps,
         model_d,
         config_d,
         random_seed=None,
-        output_prefix=None,
         stderr_logging_level="info",
         file_logging_level="debug",
         maximum_num_reruns_per_replicates=100):
