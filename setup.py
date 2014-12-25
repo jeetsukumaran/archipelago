@@ -16,7 +16,7 @@ setup(
     #         "bin/archipelago-generate-jobs.py",
     #         "bin/archipelago-summarize-jobs.py",
     #         "bin/archipelago-summarize-trees.py",
-    #         "bin/archipelago-profile-trees.py",
+            "bin/archipelago-profile-trees.py",
             ],
     url="http://pypi.python.org/pypi/archipelago/",
     license="LICENSE.txt",
