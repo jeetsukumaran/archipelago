@@ -85,6 +85,16 @@ class IndexGenerator(object):
             start = self.start
         self.index = start
 
+# class RateFunction(object):
+
+#     def __init__(self):
+#         self.function = None
+#         self.definition_type = None # value, lambda
+#         self.function_
+
+#     def __call__(self, lineage):
+#         return self.function(lineage)
+
 class StatesVector(object):
     """
     A vector in which each element is an integer represents the state of a
@@ -719,60 +729,60 @@ class ArchipelagoSimulator(object):
 
         # Diversification: speciation
         diversification_d = dict(model_d.pop("diversification", {}))
-        if "lineage_birth_probability_function" in diversification_d:
-            self.lineage_birth_probability_function = diversification_d.pop("lineage_birth_probability_function")
+        if "lineage_birth_rate_function" in diversification_d:
+            self.lineage_birth_rate_function = diversification_d.pop("lineage_birth_rate_function")
         else:
-            self.lineage_birth_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_birth_rate_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
                     "fixed: {}".format(0.01)
             )
-        fallback_desc = getattr(self.lineage_birth_probability_function, "__doc__")
+        fallback_desc = getattr(self.lineage_birth_rate_function, "__doc__")
         if fallback_desc is None:
             fallback_desc = "(no description available)"
-        self.lineage_birth_probability_func_description = diversification_d.pop("lineage_birth_probability_function_description", fallback_desc)
-        self.lineage_birth_probability_function_definition = diversification_d.pop("lineage_birth_probability_function_definition", "(no definition specified)")
+        self.lineage_birth_rate_function_description = diversification_d.pop("lineage_birth_rate_function_description", fallback_desc)
+        self.lineage_birth_rate_function_definition = diversification_d.pop("lineage_birth_rate_function_definition", "(no definition specified)")
         if verbose:
             self.run_logger.info("(DIVERSIFICATION) Setting lineage birth probability function: {desc}".format(
-                desc=self.lineage_birth_probability_func_description,))
+                desc=self.lineage_birth_rate_function_description,))
 
         # Diversification: death/extinction/extirpation
-        if "lineage_death_probability_function" in diversification_d:
-            self.lineage_death_probability_function = diversification_d.pop("lineage_death_probability_function")
+        if "lineage_death_rate_function" in diversification_d:
+            self.lineage_death_rate_function = diversification_d.pop("lineage_death_rate_function")
         else:
-            self.lineage_death_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_death_rate_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
                     "fixed: {}".format(0.01)
             )
         self.is_lineage_death_global = strtobool(str(diversification_d.pop("is_lineage_death_global", 0)))
-        fallback_desc = getattr(self.lineage_death_probability_function, "__doc__")
+        fallback_desc = getattr(self.lineage_death_rate_function, "__doc__")
         if fallback_desc is None:
             fallback_desc = "(no description available)"
-        self.lineage_death_probability_func_description = diversification_d.pop("lineage_death_probability_function_description", fallback_desc)
-        self.lineage_death_probability_function_definition = diversification_d.pop("lineage_death_probability_function_definition", "(no definition specified)")
+        self.lineage_death_rate_function_description = diversification_d.pop("lineage_death_rate_function_description", fallback_desc)
+        self.lineage_death_rate_function_definition = diversification_d.pop("lineage_death_rate_function_definition", "(no definition specified)")
         if verbose:
             self.run_logger.info("(DIVERSIFICATION) Setting lineage death (= {is_global}) probability function: {desc}".format(
                 is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
-                desc=self.lineage_death_probability_func_description,
+                desc=self.lineage_death_rate_function_description,
                 ))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
         # Dispersal submodel
         dispersal_d = dict(model_d.pop("dispersal", {}))
-        if "lineage_dispersal_probability_function" in dispersal_d:
-            self.lineage_dispersal_probability_function = dispersal_d.pop("lineage_dispersal_probability_function")
+        if "lineage_dispersal_rate_function" in dispersal_d:
+            self.lineage_dispersal_rate_function = dispersal_d.pop("lineage_dispersal_rate_function")
         else:
-            self.lineage_dispersal_probability_function = ArchipelagoSimulator.get_fixed_value_function(
+            self.lineage_dispersal_rate_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
                     "fixed: {}".format(0.01)
             )
-        fallback_desc = getattr(self.lineage_dispersal_probability_function, "__doc__")
+        fallback_desc = getattr(self.lineage_dispersal_rate_function, "__doc__")
         if fallback_desc is None:
             fallback_desc = "(no description available)"
-        self.lineage_dispersal_probability_func_description = dispersal_d.pop("lineage_dispersal_probability_function_description", fallback_desc)
-        self.lineage_dispersal_probability_function_definition = dispersal_d.pop("lineage_dispersal_probability_function_definition", "(no definition specified)")
+        self.lineage_dispersal_rate_function_description = dispersal_d.pop("lineage_dispersal_rate_function_description", fallback_desc)
+        self.lineage_dispersal_rate_function_definition = dispersal_d.pop("lineage_dispersal_rate_function_definition", "(no definition specified)")
         if verbose:
-            self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(self.lineage_dispersal_probability_func_description))
+            self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(self.lineage_dispersal_rate_function_description))
         if dispersal_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(dispersal_d))
 
@@ -819,17 +829,18 @@ class ArchipelagoSimulator(object):
 
     def diversification_as_definition(self):
         d = collections.OrderedDict()
-        # d["lineage_birth_probability_function"] = self.lineage_birth_probability_function
-        d["lineage_birth_probability_function_description"] = self.lineage_birth_probability_func_description
-        d["lineage_birth_probability_function_definition"] = self.lineage_birth_probability_function_definition
-        d["lineage_death_probability_function_description"] = self.lineage_death_probability_func_description
-        d["lineage_death_probability_function_definition"] = self.lineage_death_probability_function_definition
+        # d["lineage_birth_rate"] = collections.OrderedDict()
+        # d["linage_birth_rate"]["function_type"] = self.lineage_birth_rate.
+        d["lineage_birth_rate_function_description"] = self.lineage_birth_rate_function_description
+        d["lineage_birth_rate_function_definition"] = self.lineage_birth_rate_function_definition
+        d["lineage_death_rate_function_description"] = self.lineage_death_rate_function_description
+        d["lineage_death_rate_function_definition"] = self.lineage_death_rate_function_definition
         return d
 
     def dispersal_as_definition(self):
         d = collections.OrderedDict()
-        d["lineage_dispersal_probability_function_description"] = self.lineage_dispersal_probability_func_description
-        d["lineage_dispersal_probability_function_definition"] = self.lineage_dispersal_probability_function_definition
+        d["lineage_dispersal_rate_function_description"] = self.lineage_dispersal_rate_function_description
+        d["lineage_dispersal_rate_function_definition"] = self.lineage_dispersal_rate_function_definition
         return d
 
     def termination_conditions_as_definition(self):
@@ -958,15 +969,15 @@ class ArchipelagoSimulator(object):
             #     self.run_logger.debug("Scheduling events for lineage {}".format(lineage))
 
             # speciation
-            speciation_prob = self.lineage_birth_probability_function(lineage)
-            if speciation_prob:
+            speciation_rate = self.lineage_birth_rate_function(lineage)
+            if speciation_rate:
                 event_calls.append( (self.phylogeny.split_lineage, lineage) )
-                event_rates.append(speciation_prob)
+                event_rates.append(speciation_rate)
             # extinction
-            extinction_prob = self.lineage_death_probability_function(lineage)
-            if extinction_prob:
+            extinction_rate = self.lineage_death_rate_function(lineage)
+            if extinction_rate:
                 event_calls.append( (self.phylogeny.extirpate_lineage, lineage) )
-                event_rates.append(extinction_prob)
+                event_rates.append(extinction_rate)
             # trait evolution
             for trait_idx, trait_state in enumerate(lineage.traits_vector):
                 for state_idx in range(self.trait_types[trait_idx].nstates):
@@ -984,8 +995,8 @@ class ArchipelagoSimulator(object):
                     if dest_idx == area_idx:
                         continue
                     dispersal_weight = self.geography.dispersal_weights[area_idx][dest_idx]
-                    dispersal_prob = self.lineage_dispersal_probability_function(lineage)
-                    dispersal_rate = dispersal_weight * dispersal_prob
+                    lineage_dispersal_rate = self.lineage_dispersal_rate_function(lineage)
+                    dispersal_rate = dispersal_weight * lineage_dispersal_rate
                     if dispersal_rate:
                         event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_idx) )
                         event_rates.append(dispersal_rate)
