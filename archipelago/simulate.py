@@ -251,7 +251,7 @@ class TraitTypes(object):
                     ))
             trait.compile_matrix()
             if trait_d:
-                raise TypeError("Unsupported trait keywords: {}".format(trait_d))
+                raise TypeError("Unsupported trait model keywords: {}".format(trait_d))
         # if len(self.trait_types) < 1:
         #     raise ValueError("No traits defined")
         if verbose:
@@ -338,7 +338,7 @@ class Geography(object):
                     relative_diversity=area.relative_diversity,
                     ))
             if area_d:
-                raise TypeError("Unsupported area keywords: {}".format(area_d))
+                raise TypeError("Unsupported area model keywords: {}".format(area_d))
         if len(self.areas) < 1:
             raise ValueError("No areas defined")
         if verbose:
@@ -739,7 +739,7 @@ class ArchipelagoSimulator(object):
                     0.01,
                     "fixed: {}".format(0.01)
             )
-        self.is_lineage_death_global = strtobool(str(model_d.pop("is_lineage_death_global", 0)))
+        self.is_lineage_death_global = strtobool(str(diversification_d.pop("is_lineage_death_global", 0)))
         if verbose:
             desc = getattr(self.lineage_death_probability_function, "__doc__", None)
             if desc is None:
@@ -748,10 +748,13 @@ class ArchipelagoSimulator(object):
                 is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
                 desc=desc,
                 ))
+        if diversification_d:
+            raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
         # Dispersal submodel
-        if "lineage_dispersal_probability_function" in model_d:
-            self.lineage_dispersal_probability_function = model_d.pop("lineage_dispersal_probability_function")
+        dispersal_d = dict(model_d.pop("dispersal", {}))
+        if "lineage_dispersal_probability_function" in dispersal_d:
+            self.lineage_dispersal_probability_function = dispersal_d.pop("lineage_dispersal_probability_function")
         else:
             self.lineage_dispersal_probability_function = ArchipelagoSimulator.get_fixed_value_function(
                     0.01,
@@ -762,13 +765,15 @@ class ArchipelagoSimulator(object):
             if desc is None:
                 desc = "(no description available)"
             self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(desc,))
+        if dispersal_d:
+            raise TypeError("Unsupported diversification model keywords: {}".format(dispersal_d))
 
         termination_conditions_d = dict(model_d.pop("termination_conditions", {}))
         self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
         self.gsa_termination_focal_area_lineages = termination_conditions_d.pop("gsa_termination_focal_area_lineages", None)
         self.max_time = termination_conditions_d.pop("max_time", None)
         if termination_conditions_d:
-            raise TypeError("Unsupported configuration keywords: {}".format(termination_conditions_d))
+            raise TypeError("Unsupported termination condition model keywords: {}".format(termination_conditions_d))
         if self.gsa_termination_focal_area_lineages and not self.target_focal_area_lineages:
             raise ValueError("Cannot specify 'gsa_termination_focal_area_lineages' without specifying 'target_focal_area_lineages'")
         if self.target_focal_area_lineages is None and self.max_time is None:
