@@ -111,7 +111,7 @@ class RateFunction(object):
 
     def parse_definition(self, rate_function_d, trait_types):
         rate_function_d = dict(rate_function_d)
-        self.definition_type = rate_function_d.pop("definition_type")
+        self.definition_type = rate_function_d.pop("definition_type").replace("-", "_")
         self.definition_content = rate_function_d.pop("definition")
         self.description = rate_function_d.pop("description")
         if rate_function_d:
@@ -119,12 +119,13 @@ class RateFunction(object):
         self.compile_function(trait_types)
 
     def compile_function(self, trait_types):
-        if self.definition_type == "fixed-value":
+        self.definition_type = self.definition_type.replace("-", "_")
+        if self.definition_type == "fixed_value":
             self.definition_content = float(self.definition_content)
             self._compute_rate = lambda lineage: self.definition_content
-        elif self.definition_type == "lambda-definition":
+        elif self.definition_type == "lambda_definition":
             self._compute_rate = eval(self.definition_content)
-        elif self.definition_type == "trait-state-map":
+        elif self.definition_type == "trait_state_index_map":
             parts = self.definition_content.split(":")
             if len(parts) != 2:
                 raise ValueError("Expecting definition in form of '<trait-label>: <rate-for-state-0>, <rate-for-state-1>, ..., <rate-for-state-n>' but found: '{}'".format(self.definition_content))
@@ -138,7 +139,7 @@ class RateFunction(object):
                     trait_label, trait.nstates, len(rate_list)))
             rates = [float(v) for v in rate_list]
             self._compute_rate = lambda lineage: rates[lineage.traits_vector[trait.index]]
-        elif self.definition_type == "function-object":
+        elif self.definition_type == "function_object":
             self._compute_rate = self.definition_content
         else:
             raise ValueError("Unrecognized function definition type: '{}'".format(self.definition_type))
