@@ -85,15 +85,58 @@ class IndexGenerator(object):
             start = self.start
         self.index = start
 
-# class RateFunction(object):
+class RateFunction(object):
 
-#     def __init__(self):
-#         self.function = None
-#         self.definition_type = None # value, lambda
-#         self.function_
+    @classmethod
+    def from_definition(cls, rate_function_d, trait_types):
+        rf = cls()
+        rf.parse_definition(rate_function_d, trait_types)
+        return rf
 
-#     def __call__(self, lineage):
-#         return self.function(lineage)
+    def __init__(self,
+            definition_type=None,
+            definition_content=None,
+            description=None,
+            trait_types=None,
+            ):
+        self.definition_type = definition_type # value, lambda, function, map
+        self.definition_content = definition_content
+        self.description = description
+        self._compute_rate = None
+        if trait_types is not None:
+            self.compile_function(trait_types)
+
+    def __call__(self, lineage):
+        return self._compute_rate(lineage)
+
+    def parse_definition(self, rate_function_d, trait_types):
+        rate_function_d = dict(rate_function_d)
+        self.definition_type = rate_function_d.pop("type")
+        self.definition_content = rate_function_d.pop("definition")
+        self.description = rate_function_d.pop("description")
+        if rate_function_d:
+            raise TypeError("Unsupported function definition keywords: {}".format(rate_function_d))
+        self.compile_function(trait_types)
+
+    def compile_function(self, trait_types):
+        if self.definition_type == "fixed-value":
+            self.definition_content = float(self.definition_content)
+            self._compute_rate = lambda lineage: self.definition_content
+        elif self.definition_type == "lambda":
+            self._compute_rate = eval(self.definition_content)
+        elif self.definition_type == "function":
+            self._compute_rate = self.definition_content
+        else:
+            raise ValueError("Unrecognized function definition type: '{}'".format(self.definition_type))
+
+    def as_definition(self):
+        d = collections.OrderedDict()
+        d["type"] = self.definition_type
+        if d["type"] == "function":
+            d["value"] = str(self.definition_content)
+        else:
+            d["value"] = self.definition_content
+        d["description"] = self.description
 
 class StatesVector(object):
     """
@@ -727,64 +770,56 @@ class ArchipelagoSimulator(object):
                 run_logger=self.run_logger,
                 verbose=verbose)
 
-        # Diversification: speciation
+        # Diversification
+        ## speciation
         diversification_d = dict(model_d.pop("diversification", {}))
-        if "lineage_birth_rate_function" in diversification_d:
-            self.lineage_birth_rate_function = diversification_d.pop("lineage_birth_rate_function")
+        if "lineage_birth_rate" in diversification_d:
+            self.lineage_birth_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_birth_rate"), self.trait_types)
         else:
-            self.lineage_birth_rate_function = ArchipelagoSimulator.get_fixed_value_function(
-                    0.01,
-                    "fixed: {}".format(0.01)
-            )
-        fallback_desc = getattr(self.lineage_birth_rate_function, "__doc__")
-        if fallback_desc is None:
-            fallback_desc = "(no description available)"
-        self.lineage_birth_rate_function_description = diversification_d.pop("lineage_birth_rate_function_description", fallback_desc)
-        self.lineage_birth_rate_function_definition = diversification_d.pop("lineage_birth_rate_function_definition", "(no definition specified)")
+            self.lineage_birth_rate_function = RateFunction(
+                    definition_type="lambda",
+                    definition_content="lambda lineage: 0.01",
+                    description="fixed: 0.01",
+                    trait_types=self.trait_types,
+                    )
         if verbose:
-            self.run_logger.info("(DIVERSIFICATION) Setting lineage birth probability function: {desc}".format(
-                desc=self.lineage_birth_rate_function_description,))
-
-        # Diversification: death/extinction/extirpation
-        if "lineage_death_rate_function" in diversification_d:
-            self.lineage_death_rate_function = diversification_d.pop("lineage_death_rate_function")
-        else:
-            self.lineage_death_rate_function = ArchipelagoSimulator.get_fixed_value_function(
-                    0.01,
-                    "fixed: {}".format(0.01)
-            )
+            self.run_logger.info("(DIVERSIFICATION) Setting lineage birth rate function: {desc}".format(
+                desc=self.lineage_birth_rate_function.description,))
+        ## extinction
         self.is_lineage_death_global = strtobool(str(diversification_d.pop("is_lineage_death_global", 0)))
-        fallback_desc = getattr(self.lineage_death_rate_function, "__doc__")
-        if fallback_desc is None:
-            fallback_desc = "(no description available)"
-        self.lineage_death_rate_function_description = diversification_d.pop("lineage_death_rate_function_description", fallback_desc)
-        self.lineage_death_rate_function_definition = diversification_d.pop("lineage_death_rate_function_definition", "(no definition specified)")
+        if "lineage_death_rate" in diversification_d:
+            self.lineage_death_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_death_rate"), self.trait_types)
+        else:
+            self.lineage_death_rate_function = RateFunction(
+                    definition_type="lambda",
+                    definition_content="lambda lineage: 0.0",
+                    description="fixed: 0.0",
+                    trait_types=self.trait_types,
+                    )
         if verbose:
             self.run_logger.info("(DIVERSIFICATION) Setting lineage death (= {is_global}) probability function: {desc}".format(
                 is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
-                desc=self.lineage_death_rate_function_description,
+                desc=self.lineage_death_rate_function.description,
                 ))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
         # Dispersal submodel
         dispersal_d = dict(model_d.pop("dispersal", {}))
-        if "lineage_dispersal_rate_function" in dispersal_d:
-            self.lineage_dispersal_rate_function = dispersal_d.pop("lineage_dispersal_rate_function")
+        if "lineage_dispersal_rate" in dispersal_d:
+            self.lineage_dispersal_rate_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_rate"), self.trait_types)
         else:
-            self.lineage_dispersal_rate_function = ArchipelagoSimulator.get_fixed_value_function(
-                    0.01,
-                    "fixed: {}".format(0.01)
-            )
-        fallback_desc = getattr(self.lineage_dispersal_rate_function, "__doc__")
-        if fallback_desc is None:
-            fallback_desc = "(no description available)"
-        self.lineage_dispersal_rate_function_description = dispersal_d.pop("lineage_dispersal_rate_function_description", fallback_desc)
-        self.lineage_dispersal_rate_function_definition = dispersal_d.pop("lineage_dispersal_rate_function_definition", "(no definition specified)")
+            self.lineage_dispersal_rate_function = RateFunction(
+                    definition_type="lambda",
+                    definition_content="lambda lineage: 0.01",
+                    description="fixed: 0.01",
+                    trait_types=self.trait_types,
+                    )
         if verbose:
-            self.run_logger.info("(DISPERSAL) Setting lineage dispersal probability function: {}".format(self.lineage_dispersal_rate_function_description))
+            self.run_logger.info("(DISPERSAL) Setting lineage dispersal rate function: {desc}".format(
+                desc=self.lineage_dispersal_rate_function.description,))
         if dispersal_d:
-            raise TypeError("Unsupported diversification model keywords: {}".format(dispersal_d))
+            raise TypeError("Unsupported dispersal model keywords: {}".format(dispersal_d))
 
         termination_conditions_d = dict(model_d.pop("termination_conditions", {}))
         self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
@@ -829,18 +864,13 @@ class ArchipelagoSimulator(object):
 
     def diversification_as_definition(self):
         d = collections.OrderedDict()
-        # d["lineage_birth_rate"] = collections.OrderedDict()
-        # d["linage_birth_rate"]["function_type"] = self.lineage_birth_rate.
-        d["lineage_birth_rate_function_description"] = self.lineage_birth_rate_function_description
-        d["lineage_birth_rate_function_definition"] = self.lineage_birth_rate_function_definition
-        d["lineage_death_rate_function_description"] = self.lineage_death_rate_function_description
-        d["lineage_death_rate_function_definition"] = self.lineage_death_rate_function_definition
+        d["lineage_birth_rate"] = self.lineage_birth_rate_function.as_definition()
+        d["lineage_death_rate"] = self.lineage_death_rate_function.as_definition()
         return d
 
     def dispersal_as_definition(self):
         d = collections.OrderedDict()
-        d["lineage_dispersal_rate_function_description"] = self.lineage_dispersal_rate_function_description
-        d["lineage_dispersal_rate_function_definition"] = self.lineage_dispersal_rate_function_definition
+        d["lineage_dispersal_rate"] = self.lineage_dispersal_rate_function.as_definition()
         return d
 
     def termination_conditions_as_definition(self):
