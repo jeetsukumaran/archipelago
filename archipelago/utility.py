@@ -61,13 +61,6 @@ def encode_lineage(node, exclude_areas=None):
         areas = "".join(str(i) for idx, i in enumerate(node.distribution_vector) if idx not in exclude_areas)
     return "s{}.{}.{}".format(node.index, traits, areas)
 
-def read_model_from_json_path(filepath):
-    return json.load(open(filepath, "r"))
-
-def read_model_from_python_path(filepath):
-    src = open(filepath, "rb").read()
-    return eval(src)
-
 class IndexGenerator(object):
 
     def __init__(self, start=0):

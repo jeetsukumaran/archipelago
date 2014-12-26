@@ -9,15 +9,29 @@ except ImportError:
     from io import StringIO # Python 3
 import archipelago
 from archipelago import simulate
-from archipelago import utility
+from archipelago import model
 
 def main():
     parser = argparse.ArgumentParser(
             description="{} Biogeographical Simulator".format(archipelago.description())
             )
+    model_options = parser.add_argument_group("Simulation Model")
+    model_options.add_argument("model_file",
+            help="Path to file defining model dictionary")
+    model_options.add_argument("-f", "--model-format",
+            dest="model_file_schema",
+            choices=["json", "python"],
+            default=None,
+            help="Format of model file.")
 
-    run_options = parser.add_argument("model_file",
-            help="Path to (Python) file defining model dictionary")
+    output_options = parser.add_argument_group("Output Options")
+    output_options.add_argument('-o', '--output-prefix',
+        action='store',
+        dest='output_prefix',
+        type=str,
+        default='archipelago',
+        metavar='OUTPUT-FILE-PREFIX',
+        help="Prefix for output files (default: '%(default)s').")
 
     run_options = parser.add_argument_group("Run Options")
     run_options.add_argument("-n", "--nreps",
@@ -42,19 +56,12 @@ def main():
             default=False,
             help="Run in debugging mode.")
 
-    output_options = parser.add_argument_group("Output Options")
-    output_options.add_argument('-o', '--output-prefix',
-        action='store',
-        dest='output_prefix',
-        type=str,
-        default='archipelago_run',
-        metavar='OUTPUT-FILE-PREFIX',
-        help="Prefix for output files (default: '%(default)s').")
-
     args = parser.parse_args()
 
     config_d = {}
-    model_d = utility.read_model_from_python_path(args.model_file)
+    model_d = model.ArchipelagoModel.get_model_definition_from_path(
+            filepath=args.model_file,
+            schema=args.model_file_schema)
 
     simulate.repeat_run(
             output_prefix=args.output_prefix,

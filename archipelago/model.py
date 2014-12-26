@@ -5,6 +5,7 @@ try:
 except ImportError:
     from io import StringIO # Python 3
 import sys
+import os
 import random
 import collections
 import argparse
@@ -17,6 +18,60 @@ import dendropy
 from archipelago import utility
 
 class ArchipelagoModel(object):
+
+    @classmethod
+    def diagnose_model_file_schema(cls, filepath):
+        ext = os.path.splitext(filepath)[1]
+        if ext ==  ".json":
+            schema = "json"
+        elif ext == ".py":
+            schema = "python"
+        else:
+            raise ValueError("Schema cannot be diagnosed from extension: '{}'".format(ext))
+        return schema
+
+    @classmethod
+    def get_model_definition_from_path(cls, filepath, schema=None):
+        if schema is None:
+            schema = cls.diagnose_model_file_schema(filepath)
+        src = open(filepath, "r")
+        return cls.get_model_definition_from_file(src, schema)
+
+    @classmethod
+    def get_model_definition_from_file(cls, src, schema):
+        if schema == "json":
+            return json.load(src)
+        elif schema == "python":
+            return eval(src.read())
+        else:
+            raise ValueError("Unrecognized format: '{}'".format(schema))
+
+    @classmethod
+    def from_path(cls,
+            filepath,
+            schema=None,
+            run_logger=None):
+        if schema is None:
+            schema = cls.diagnose_model_file_schema(filepath)
+        src = open(filepath, "r")
+        return cls.from_file(
+                src=src,
+                schema=schema,
+                run_logger=run_logger)
+
+    @classmethod
+    def from_file(cls,
+            src,
+            schema,
+            run_logger=None):
+        if isinstance(src, str):
+            src = open(src, "r")
+        model_d = get_model_definition_from_file(
+                src=src,
+                schema=schema)
+        return cls.from_definition(
+                model_d=model_d,
+                run_logger=run_logger)
 
     @classmethod
     def from_definition(cls, model_d, run_logger):
@@ -476,7 +531,7 @@ class Geography(object):
                 relative_diversity=area_d.pop("relative_diversity", 1.0),
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
-            area._dispersal_weights_d = dict(area_d.pop("dispersal_weights", {})) # delay processing until all areas have been defined
+            area._dispersal_weights_d = list(area_d.pop("dispersal_weights", [])) # delay processing until all areas have been defined
             self.areas.append(area)
             self.area_label_index_map[area.label] = area.index
             self.area_indexes.append(area.index)
@@ -503,16 +558,26 @@ class Geography(object):
         self.dispersal_weights = []
         total_dispersal_weight = 0.0
         for a1_idx, area1 in enumerate(self.areas):
+            if len(area1._dispersal_weights_d) == 0:
+                area1._dispersal_weights_d = [1.0] * len(self.areas)
+                area1._dispersal_weights_d[a1_idx] = 0.0
+            if len(area1._dispersal_weights_d) != len(self.areas):
+                raise ValueError("Expecting exactly {} elements in dispersal weight vector for area '{}', but instead found {}: {}".format(
+                    len(self.areas), area1.label, len(area1._dispersal_weights_d), area1._dispersal_weights_d))
             self.dispersal_weights.append([])
             for a2_idx, area2 in enumerate(self.areas):
                 if a1_idx == a2_idx:
+                    d = float(area1._dispersal_weights_d[a2_idx])
+                    if d != 0:
+                        raise ValueError("Self-dispersal weight from area {label} to {label} must be 0.0, but instead found: {dw}".format(
+                            label=area1.label, dw=d))
                     self.dispersal_weights[a1_idx].append(0.0)
                 else:
-                    d = float(area1._dispersal_weights_d.pop(area2.label, 1.0))
+                    d = float(area1._dispersal_weights_d[a2_idx])
                     self.dispersal_weights[a1_idx].append(d)
                     total_dispersal_weight += d
-            if area1._dispersal_weights_d:
-                raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
+            # if area1._dispersal_weights_d:
+            #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
             area1.dispersal_weights = self.dispersal_weights[a1_idx]
             del area1._dispersal_weights_d
         if self.normalize_dispersal_weights and total_dispersal_weight:
