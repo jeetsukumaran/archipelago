@@ -17,6 +17,7 @@ import dendropy
 from dendropy.utility import textprocessing
 
 import archipelago
+from archipelago import model
 from archipelago import utility
 
 def weighted_choice(seq, weights, rng=None):
@@ -68,594 +69,6 @@ class InsufficientFocalAreaLineagesSimulationException(FailedSimulationException
 class TotalExtinctionException(FailedSimulationException):
     pass
 
-class IndexGenerator(object):
-
-    def __init__(self, start=0):
-        self.start = start
-        self.index = start
-
-    def __next__(self):
-        c = self.index
-        self.index += 1
-        return c
-    next = __next__
-
-    def reset(self, start=None):
-        if start is None:
-            start = self.start
-        self.index = start
-
-class RateFunction(object):
-
-    @classmethod
-    def from_definition(cls, rate_function_d, trait_types):
-        rf = cls()
-        rf.parse_definition(rate_function_d, trait_types)
-        return rf
-
-    def __init__(self,
-            definition_type=None,
-            definition_content=None,
-            description=None,
-            trait_types=None,
-            ):
-        self.definition_type = definition_type # value, lambda, function, map
-        self.definition_content = definition_content
-        self.description = description
-        self._compute_rate = None
-        if trait_types is not None:
-            self.compile_function(trait_types)
-
-    def __call__(self, lineage):
-        return self._compute_rate(lineage)
-
-    def parse_definition(self, rate_function_d, trait_types):
-        rate_function_d = dict(rate_function_d)
-        self.definition_type = rate_function_d.pop("definition_type").replace("-", "_")
-        self.definition_content = rate_function_d.pop("definition")
-        self.description = rate_function_d.pop("description")
-        if rate_function_d:
-            raise TypeError("Unsupported function definition keywords: {}".format(rate_function_d))
-        self.compile_function(trait_types)
-
-    def compile_function(self, trait_types):
-        self.definition_type = self.definition_type.replace("-", "_")
-        if self.definition_type == "fixed_value":
-            self.definition_content = float(self.definition_content)
-            self._compute_rate = lambda lineage: self.definition_content
-        elif self.definition_type == "lambda_definition":
-            self._compute_rate = eval(self.definition_content)
-        elif self.definition_type == "trait_state_index_map":
-            parts = self.definition_content.split(":")
-            if len(parts) != 2:
-                raise ValueError("Expecting definition in form of '<trait-label>: <rate-for-state-0>, <rate-for-state-1>, ..., <rate-for-state-n>' but found: '{}'".format(self.definition_content))
-            trait_label = parts[0]
-            if trait_label not in trait_types.trait_label_index_map:
-                raise ValueError("Trait '{}' not defined: {}".format(trait_label, trait_types.trait_label_index_map.keys()))
-            trait = trait_types.get_by_label(trait_label)
-            rate_list = [p.strip() for p in parts[1].split(",") if p.strip()]
-            if len(rate_list) != trait.nstates:
-                raise ValueError("Trait '{}' has {} states, but rate mapping only provides {} values".format(
-                    trait_label, trait.nstates, len(rate_list)))
-            rates = [float(v) for v in rate_list]
-            self._compute_rate = lambda lineage: rates[lineage.traits_vector[trait.index]]
-        elif self.definition_type == "function_object":
-            self._compute_rate = self.definition_content
-        else:
-            raise ValueError("Unrecognized function definition type: '{}'".format(self.definition_type))
-
-    def as_definition(self):
-        d = collections.OrderedDict()
-        d["definition_type"] = self.definition_type
-        if d["definition_type"] == "function":
-            d["definition"] = str(self.definition_content)
-        else:
-            d["definition"] = self.definition_content
-        d["description"] = self.description
-        return d
-
-class StatesVector(object):
-    """
-    A vector in which each element is an integer represents the state of a
-    trait.
-
-    E.g.,
-
-        [1,0,1,2]
-
-    is a 4-trait vector, where trait 0 is in state 1, trait 1 is in
-    state 0, and so on.
-    """
-
-    def __init__(self,
-            nchar,
-            nstates=None,
-            values=None,
-            ):
-        """
-        Parameters
-        ----------
-        nchar : integer
-            The number of traits to be tracked.
-        nstates : list of integers
-            The number of states for each trait. If not specified, defaults
-            to binary (i.e., 2 states, 0 and 1). If specifed, must be a list of
-            length `nchar`, with each element in the list being integer > 0.
-        values : iterable of ints
-            Vector of initial values. If not specified, defaults to all 0's.
-        """
-        self._nchar = nchar
-        if nstates is None:
-            self._nstates = nstates
-        else:
-            self._nstates = [2] * nchar
-        if not values:
-            self._states = [0] * nchar
-        else:
-            assert len(values) == nchar
-            self._states = list(values)
-
-    def clone(self):
-        s = self.__class__(
-                nchar=self._nchar,
-                nstates=self._nstates,
-            )
-        s._states = list(self._states)
-        return s
-
-    @property
-    def nchar(self):
-        return len(self)
-
-    def __len__(self):
-        return self._nchar
-
-    def __getitem__(self, trait_index):
-        return self._states[trait_index]
-
-    def __setitem__(self, trait_index, v):
-        self._states[trait_index] = v
-
-class DistributionVector(StatesVector):
-
-    def __init__(self, num_areas):
-        StatesVector.__init__(self,
-                nchar=num_areas,
-                nstates=[2] * num_areas,
-                )
-
-    def presences(self):
-        """
-        Returns list of indexes in which lineage is present.
-        """
-        return [idx for idx, s in enumerate(self._states) if s == 1]
-
-    def clone(self):
-        s = self.__class__(num_areas=self._nchar)
-        s._states = list(self._states)
-        return s
-
-class TraitType(object):
-
-    def __init__(self,
-            index=None,
-            label=None,
-            nstates=None,
-            transition_rate=None,
-            transition_weights=None,
-            ):
-        self.index = index
-        self.label = label
-        self.nstates = nstates
-        self.transition_rate = transition_rate
-        self.transition_weights = transition_weights
-        self.transition_rate_matrix = []
-
-    def compile_matrix(self):
-        self.transition_rate_matrix = []
-        for i, tw in enumerate(self.transition_weights):
-            self.transition_rate_matrix.append([])
-            for j, w in enumerate(tw):
-                self.transition_rate_matrix[i].append( w * self.transition_rate )
-
-    def as_definition(self):
-        d = collections.OrderedDict()
-        d["label"] = self.label
-        d["nstates"] = self.nstates
-        d["transition_rate"] = self.transition_rate
-        d["transition_weights"] = self.transition_weights
-        return d
-
-class TraitTypes(object):
-
-    def __init__(self):
-        self.normalize_transition_weights = True
-
-    def __iter__(self):
-        return iter(self.trait_types)
-
-    def __getitem__(self, idx):
-        return self.trait_types[idx]
-
-    def get_by_label(self, label):
-        idx = self.trait_label_index_map[label]
-        return self.trait_types[idx]
-
-    def parse_definition(self,
-            trait_types,
-            run_logger,
-            verbose=True):
-        self.trait_types = []
-        self.trait_label_index_map = collections.OrderedDict()
-        for trait_idx, trait_d in enumerate(trait_types):
-            if "label" not in trait_d:
-                raise ValueError("Trait definition requires 'label' to be defined")
-            trait_label = str(trait_d.pop("label"))
-            trait = TraitType(
-                index=trait_idx,
-                label=trait_label,
-                nstates=trait_d.pop("nstates", 2),
-                transition_rate=trait_d.pop("transition_rate", 0.01),
-            )
-            self.trait_types.append(trait)
-            transition_weights = dict(trait_d.pop("transition_weights", {})) # delay processing until all traits have been defined
-            if not transition_weights:
-                trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
-            total_transition_weight = 0.0
-            for a1_idx in range(trait.nstates):
-                for a2_idx in range(trait.nstates):
-                    if a1_idx == a2_idx:
-                        trait.transition_weights[a1_idx][a2_idx] = 0.0
-                    else:
-                        trait.transition_weights[a1_idx][a2_idx] = float(trait.transition_weights[a1_idx][a2_idx])
-                        total_transition_weight += trait.transition_weights[a1_idx][a2_idx]
-            if self.normalize_transition_weights and total_transition_weight:
-                for a1_idx in range(trait.nstates):
-                    for a2_idx in range(trait.nstates):
-                        if a1_idx == a2_idx:
-                            continue
-                        trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
-            self.trait_label_index_map[trait.label] = trait.index
-            if verbose:
-                run_logger.info("(ECOLOGY) configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
-                    idx=trait.index,
-                    label=trait.label,
-                    normalized="normalized " if self.normalize_transition_weights else "",
-                    nstates=trait.nstates,
-                    trate=trait.transition_rate,
-                    tweights=trait.transition_weights,
-                    ))
-            trait.compile_matrix()
-            if trait_d:
-                raise TypeError("Unsupported trait model keywords: {}".format(trait_d))
-        # if len(self.trait_types) < 1:
-        #     raise ValueError("No traits defined")
-        if verbose:
-            run_logger.info("(ECOLOGY) Total of {} traits defined{}{}".format(
-                len(self.trait_types),
-                ": " if self.trait_types else "",
-                ", ".join("'{}'".format(a.label) for a in self.trait_types),
-                ))
-        self.trait_nstates = [trait.nstates for trait in self.trait_types]
-
-    def new_traits_vector(self, values=None):
-        s = StatesVector(
-                nchar=len(self.trait_types),
-                nstates=self.trait_nstates)
-        return s
-
-    def as_definition(self):
-        traits = [t.as_definition() for t in self.trait_types]
-        return traits
-
-class Area(object):
-
-    def __init__(self,
-            index=None,
-            label=None,
-            is_supplemental=False,
-            relative_diversity=None,
-            dispersal_weights=None,
-            ):
-        self.index = index
-        self.label = label
-        self.is_supplemental = is_supplemental
-        self.relative_diversity = relative_diversity
-        self.dispersal_weights = dispersal_weights
-
-    def as_definition(self):
-        d = collections.OrderedDict()
-        # d["index"] = self.index
-        d["label"] = self.label
-        d["is_supplemental"] = self.is_supplemental
-        d["relative_diversity"] = self.relative_diversity
-        d["dispersal_weights"] = self.dispersal_weights
-        return d
-
-class Geography(object):
-
-    def __init__(self):
-        self.normalize_dispersal_weights = True
-
-    def __iter__(self):
-        return iter(self.areas)
-
-    def __getitem__(self, idx):
-        return self.areas[idx]
-
-    def parse_definition(self,
-            areas,
-            run_logger,
-            verbose=True):
-        self.areas = []
-        self.area_label_index_map = collections.OrderedDict()
-        self.area_indexes = []
-        self.focal_area_indexes = []
-        self.supplemental_area_indexes = []
-        for area_idx, area_d in enumerate(areas):
-            area = Area(
-                index=area_idx,
-                label=str(area_d.pop("label", area_idx)),
-                relative_diversity=area_d.pop("relative_diversity", 1.0),
-                is_supplemental=area_d.pop("is_supplemental", False)
-            )
-            area._dispersal_weights_d = dict(area_d.pop("dispersal_weights", {})) # delay processing until all areas have been defined
-            self.areas.append(area)
-            self.area_label_index_map[area.label] = area.index
-            self.area_indexes.append(area.index)
-            if area.is_supplemental:
-                self.supplemental_area_indexes.append(area.index)
-            else:
-                self.focal_area_indexes.append(area.index)
-            if verbose:
-                run_logger.info("(GEOGRAPHY) Configuring area {idx}: '{label}' ({is_supplemental}; relative diversity: {relative_diversity})".format(
-                    idx=area.index,
-                    label=area.label,
-                    is_supplemental="supplemental" if area.is_supplemental else "primary",
-                    relative_diversity=area.relative_diversity,
-                    ))
-            if area_d:
-                raise TypeError("Unsupported area model keywords: {}".format(area_d))
-        if len(self.areas) < 1:
-            raise ValueError("No areas defined")
-        if verbose:
-            run_logger.info("(GEOGRAPHY) Total of {} areas defined: {}".format(
-                len(self.areas),
-                ", ".join("'{}'".format(a.label) for a in self.areas),
-                ))
-        self.dispersal_weights = []
-        total_dispersal_weight = 0.0
-        for a1_idx, area1 in enumerate(self.areas):
-            self.dispersal_weights.append([])
-            for a2_idx, area2 in enumerate(self.areas):
-                if a1_idx == a2_idx:
-                    self.dispersal_weights[a1_idx].append(0.0)
-                else:
-                    d = float(area1._dispersal_weights_d.pop(area2.label, 1.0))
-                    self.dispersal_weights[a1_idx].append(d)
-                    total_dispersal_weight += d
-            if area1._dispersal_weights_d:
-                raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
-            area1.dispersal_weights = self.dispersal_weights[a1_idx]
-            del area1._dispersal_weights_d
-        if self.normalize_dispersal_weights and total_dispersal_weight:
-            for a1_idx, area1 in enumerate(self.areas):
-                for a2_idx, area2 in enumerate(self.areas):
-                    self.dispersal_weights[a1_idx][a2_idx] /= total_dispersal_weight
-                area1.dispersal_weights = self.dispersal_weights[a1_idx]
-        if verbose:
-            if self.normalize_dispersal_weights:
-                weight_type = "Normalized dispersal"
-            else:
-                weight_type = "Dispersal"
-            for a1, area1 in enumerate(self.areas):
-                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.dispersal_weights[a1]))
-
-        # instead of recalculating every time
-        self.area_nstates = [2 for i in self.areas]
-
-    def as_definition(self):
-        areas = [a.as_definition() for a in self.areas]
-        return areas
-
-    def new_distribution_vector(self):
-        s = DistributionVector(num_areas=len(self.areas))
-        return s
-
-class Lineage(dendropy.Node):
-
-    def __init__(self,
-            index,
-            distribution_vector=None,
-            traits_vector=None,
-            ):
-        dendropy.Node.__init__(self)
-        self.index = index
-        self.distribution_vector = distribution_vector
-        self.traits_vector = traits_vector
-        self.is_extant = True
-        self.edge.length = 0
-
-    def __repr__(self):
-        return utility.encode_lineage(self)
-
-class Phylogeny(dendropy.Tree):
-
-    def node_factory(cls, **kwargs):
-        return Lineage(**kwargs)
-    node_factory = classmethod(node_factory)
-
-    def __init__(self, *args, **kwargs):
-        if "system" in kwargs:
-            self.system = kwargs.pop("system")
-            self.lineage_indexer = IndexGenerator(0)
-            if "seed_node" not in kwargs:
-                seed_node = self.node_factory(
-                        index=next(self.lineage_indexer),
-                        distribution_vector=self.system.geography.new_distribution_vector(),
-                        traits_vector=self.system.trait_types.new_traits_vector(),
-                        )
-                seed_node.distribution_vector[0] = 1
-                kwargs["seed_node"] = seed_node
-            dendropy.Tree.__init__(self, *args, **kwargs)
-            self.current_lineages = set([self.seed_node])
-        else:
-            dendropy.Tree.__init__(self, *args, **kwargs)
-
-    def __deepcopy__(self, memo=None):
-        if memo is None:
-            memo = {}
-        memo[id(self.system)] = self.system
-        memo[id(self.taxon_namespace)] = self.taxon_namespace
-        return dendropy.Tree.__deepcopy__(self, memo)
-
-    def iterate_current_lineages(self):
-        for lineage in self.current_lineages:
-            yield lineage
-
-    def split_lineage(self, lineage):
-
-        # speciation modes
-        # 0:  single-area sympatric speciation
-        #     -   ancestral range copied to both daughter species
-        # 1:  sympatric subset: multi-area sympatric speciation
-        #     -   d1: inherits complete range
-        #     -   d2: inherits single area in ancestral range
-        # 2:  vicariance
-        #     -   ancestral range divided up between two daughter species
-        # 3:  jump dispersal
-        #     -   single
-        presences = lineage.distribution_vector.presences()
-        num_presences = len(presences)
-        num_areas = len(self.system.geography.area_indexes)
-        if num_presences <= 1:
-            speciation_mode = 0
-        elif num_presences == num_areas:
-            speciation_mode = self.system.rng.randint(0, 2)
-        else:
-            speciation_mode = self.system.rng.randint(0, 3)
-        if speciation_mode == 0:
-            dist1 = lineage.distribution_vector.clone()
-            dist2 = lineage.distribution_vector.clone()
-        elif speciation_mode == 1:
-            dist1 = lineage.distribution_vector.clone()
-            dist2 = self.system.geography.new_distribution_vector()
-            # TODO: area diversity base speciation
-            dist2[ self.system.rng.choice(presences) ] = 1
-        elif speciation_mode == 2:
-            dist1 = self.system.geography.new_distribution_vector()
-            dist2 = self.system.geography.new_distribution_vector()
-            if num_presences == 2:
-                dist1[presences[0]] = 1
-                dist2[presences[1]] = 1
-            else:
-                n1 = self.system.rng.randint(1, num_presences-1)
-                n2 = num_presences - n1
-                if n2 == n1:
-                    n1 += 1
-                    n2 -= 1
-                sample1 = set(self.system.rng.sample(presences, n1))
-                for idx in self.system.geography.area_indexes:
-                    if idx in sample1:
-                        dist1[idx] = 1
-                    else:
-                        dist2[idx] = 1
-        elif speciation_mode == 3:
-            dist1 = lineage.distribution_vector.clone()
-            dist2 = self.system.geography.new_distribution_vector()
-            absences = [idx for idx in self.system.geography.area_indexes if idx not in presences]
-            dist2[ self.system.rng.choice(absences) ] = 1
-        else:
-            raise ValueError(speciation_mode)
-
-        c1 = self.node_factory(
-                index=next(self.lineage_indexer),
-                distribution_vector=dist1,
-                traits_vector=lineage.traits_vector.clone(),
-                )
-        c2 = self.node_factory(
-                index=next(self.lineage_indexer),
-                distribution_vector=dist2,
-                traits_vector=lineage.traits_vector.clone(),
-                )
-        if self.system.debug_mode:
-            self.system.run_logger.debug("Splitting {} with distribution {} under speciation mode {} to: {} (distribution: {}) and {} (distribution: {})".format(
-                lineage,
-                lineage.distribution_vector.presences(),
-                speciation_mode,
-                c1,
-                dist1.presences(),
-                c2,
-                dist2.presences(),
-                ))
-            assert len(dist1.presences()) > 0
-            assert len(dist2.presences()) > 0
-
-        lineage.is_extant = False
-        self.current_lineages.remove(lineage)
-        lineage.add_child(c1)
-        lineage.add_child(c2)
-        self.current_lineages.add(c1)
-        self.current_lineages.add(c2)
-
-    def extirpate_lineage(self, lineage):
-        if self.system.is_lineage_death_global:
-            self._make_lineage_extinct_on_phylogeny(lineage)
-        else:
-            presences = lineage.distribution_vector.presences()
-            assert len(presences) > 0
-            if len(presences) == 1:
-                self._make_lineage_extinct_on_phylogeny(lineage)
-            else:
-                lineage.distribution_vector[ self.system.rng.choice(presences) ] = 0
-
-    def _make_lineage_extinct_on_phylogeny(self, lineage):
-        if len(self.current_lineages) == 1:
-            self.total_extinction_exception("no extant lineages remaining")
-        lineage.is_extant = False
-        self.current_lineages.remove(lineage)
-        self.prune_subtree(lineage)
-
-    def total_extinction_exception(self, msg):
-        # self.run_logger.info("Total extinction: {}".format(msg))
-        raise TotalExtinctionException(msg)
-
-    def evolve_trait(self, lineage, trait_idx, state_idx):
-        lineage.traits_vector[trait_idx] = state_idx
-
-    def disperse_lineage(self, lineage, dest_area_idx):
-        lineage.distribution_vector[dest_area_idx] = 1
-
-    def focal_area_lineages(self):
-        focal_area_lineages = set()
-        for lineage in self.iterate_current_lineages():
-            for area_idx in self.system.geography.focal_area_indexes:
-                if lineage.distribution_vector[area_idx] == 1:
-                    focal_area_lineages.add(lineage)
-                    break
-        return focal_area_lineages
-
-    def num_focal_area_lineages(self):
-        count = 0
-        for lineage in self.iterate_current_lineages():
-            for area_idx in self.system.geography.focal_area_indexes:
-                if lineage.distribution_vector[area_idx] == 1:
-                    count += 1
-                    break
-        return count
-
-    def extract_focal_area_tree(self):
-        # tcopy = Phylogeny(self)
-        tcopy = copy.deepcopy(self)
-        focal_area_lineages = tcopy.focal_area_lineages()
-        if len(focal_area_lineages) < 2:
-            raise InsufficientFocalAreaLineagesSimulationException("insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
-        try:
-            tcopy.filter_leaf_nodes(filter_fn=lambda x: x in focal_area_lineages)
-        except dendropy.SeedNodeDeletionException:
-            raise InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
-        return tcopy
-
 class ArchipelagoSimulator(object):
 
     @staticmethod
@@ -679,14 +92,17 @@ class ArchipelagoSimulator(object):
         self.configure_simulator(config_d, verbose=verbose_setup)
 
         # set up model
-        if model_d is None:
-            model_d = {}
-        else:
-            model_d = dict(model_d)
-        self.set_model(model_d, verbose=verbose_setup)
+        self.model = model.ArchipelagoModel.from_definition(
+                model_d=model_d,
+                run_logger=self.run_logger if verbose_setup else None)
 
         # start
-        self.phylogeny = Phylogeny(system=self)
+        self.phylogeny = model.Phylogeny(
+                model=self.model,
+                rng=self.rng,
+                debug_mode=self.debug_mode,
+                run_logger=self.run_logger,
+                )
 
         # begin logging generations
         self.run_logger.system = self
@@ -775,139 +191,11 @@ class ArchipelagoSimulator(object):
         if config_d:
             raise TypeError("Unsupported configuration keywords: {}".format(config_d))
 
-    def set_model(self, model_d, verbose=True):
-
-        # Geography
-        if "areas" not in model_d:
-            raise ValueError("No areas defined")
-        self.geography = Geography()
-        self.geography.parse_definition(
-                copy.deepcopy(model_d.pop("areas", [])),
-                run_logger=self.run_logger,
-                verbose=verbose)
-
-        # Ecology
-        self.trait_types = TraitTypes()
-        self.trait_types.parse_definition(
-                copy.deepcopy(model_d.pop("traits", [])),
-                run_logger=self.run_logger,
-                verbose=verbose)
-
-        # Diversification
-        ## speciation
-        diversification_d = dict(model_d.pop("diversification", {}))
-        if "lineage_birth_rate" in diversification_d:
-            self.lineage_birth_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_birth_rate"), self.trait_types)
-        else:
-            self.lineage_birth_rate_function = RateFunction(
-                    definition_type="lambda",
-                    definition_content="lambda lineage: 0.01",
-                    description="fixed: 0.01",
-                    trait_types=self.trait_types,
-                    )
-        if verbose:
-            self.run_logger.info("(DIVERSIFICATION) Setting lineage birth rate function: {desc}".format(
-                desc=self.lineage_birth_rate_function.description,))
-        ## extinction
-        self.is_lineage_death_global = strtobool(str(diversification_d.pop("is_lineage_death_global", 0)))
-        if "lineage_death_rate" in diversification_d:
-            self.lineage_death_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_death_rate"), self.trait_types)
-        else:
-            self.lineage_death_rate_function = RateFunction(
-                    definition_type="lambda",
-                    definition_content="lambda lineage: 0.0",
-                    description="fixed: 0.0",
-                    trait_types=self.trait_types,
-                    )
-        if verbose:
-            self.run_logger.info("(DIVERSIFICATION) Setting lineage death (= {is_global}) probability function: {desc}".format(
-                is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
-                desc=self.lineage_death_rate_function.description,
-                ))
-        if diversification_d:
-            raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
-
-        # Dispersal submodel
-        dispersal_d = dict(model_d.pop("dispersal", {}))
-        if "lineage_dispersal_rate" in dispersal_d:
-            self.lineage_dispersal_rate_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_rate"), self.trait_types)
-        else:
-            self.lineage_dispersal_rate_function = RateFunction(
-                    definition_type="lambda",
-                    definition_content="lambda lineage: 0.01",
-                    description="fixed: 0.01",
-                    trait_types=self.trait_types,
-                    )
-        if verbose:
-            self.run_logger.info("(DISPERSAL) Setting lineage dispersal rate function: {desc}".format(
-                desc=self.lineage_dispersal_rate_function.description,))
-        if dispersal_d:
-            raise TypeError("Unsupported dispersal model keywords: {}".format(dispersal_d))
-
-        termination_conditions_d = dict(model_d.pop("termination_conditions", {}))
-        self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
-        self.gsa_termination_focal_area_lineages = termination_conditions_d.pop("gsa_termination_focal_area_lineages", None)
-        self.max_time = termination_conditions_d.pop("max_time", None)
-        if termination_conditions_d:
-            raise TypeError("Unsupported termination condition model keywords: {}".format(termination_conditions_d))
-        if self.gsa_termination_focal_area_lineages and not self.target_focal_area_lineages:
-            raise ValueError("Cannot specify 'gsa_termination_focal_area_lineages' without specifying 'target_focal_area_lineages'")
-        if self.target_focal_area_lineages is None and self.max_time is None:
-            if verbose:
-                self.run_logger.info("Termination conditions not specified: default termination conditions applied")
-            self.target_focal_area_lineages = 50
-        if not self.target_focal_area_lineages and self.max_time:
-            desc = "Simulation will terminate at time t = {}".format(self.max_time)
-        elif self.target_focal_area_lineages and not self.gsa_termination_focal_area_lineages and not self.max_time:
-            desc = "Simulation will terminate when there are {} lineages in focal areas (no time limit)".format(self.target_focal_area_lineages)
-        elif self.target_focal_area_lineages and not self.gsa_termination_focal_area_lineages and self.max_time:
-            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas".format(self.max_time, self.target_focal_area_lineages)
-        elif self.target_focal_area_lineages and self.gsa_termination_focal_area_lineages and not self.max_time:
-            desc = "Simulation will terminate when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.gsa_termination_focal_area_lineages, self.target_focal_area_lineages)
-        elif self.target_focal_area_lineages and self.gsa_termination_focal_area_lineages and self.max_time:
-            desc = "Simulation will terminate at time t = {} or when there are {} lineages in focal areas (with the phylogeny sampled at a random slice of time when there were {} extant lineages in the focal areas)".format(self.max_time, self.gsa_termination_focal_area_lineages, self.target_focal_area_lineages)
-        elif not self.target_focal_area_lineages and not self.max_time:
-            raise ValueError("Unspecified termination condition")
-        else:
-            raise ValueError("Unsupported termination condition(s)")
-        if verbose:
-            self.run_logger.info(desc)
-
-        if model_d:
-            raise TypeError("Unsupported model keywords: {}".format(model_d))
-
-    def store_model(self, out):
-        model_d = collections.OrderedDict()
-        model_d["areas"] = self.geography.as_definition()
-        model_d["traits"] = self.trait_types.as_definition()
-        model_d["diversification"] = self.diversification_as_definition()
-        model_d["dispersal"] = self.dispersal_as_definition()
-        model_d["termination_conditions"] = self.termination_conditions_as_definition()
-        json.dump(model_d, out, indent=4, separators=(',', ': '))
-
-    def diversification_as_definition(self):
-        d = collections.OrderedDict()
-        d["lineage_birth_rate"] = self.lineage_birth_rate_function.as_definition()
-        d["lineage_death_rate"] = self.lineage_death_rate_function.as_definition()
-        return d
-
-    def dispersal_as_definition(self):
-        d = collections.OrderedDict()
-        d["lineage_dispersal_rate"] = self.lineage_dispersal_rate_function.as_definition()
-        return d
-
-    def termination_conditions_as_definition(self):
-        d = collections.OrderedDict()
-        d["target_focal_area_lineages"] = self.target_focal_area_lineages
-        d["gsa_termination_focal_area_lineages"] = self.gsa_termination_focal_area_lineages
-        d["max_time"] = self.max_time
-        return d
-
     def run(self):
 
         ### Save model
         if self.model_description_file is not None:
-            self.store_model(self.model_description_file)
+            self.model.write_model(self.model_description_file)
 
         ### Initialize time
         self.elapsed_time = 0.0
@@ -915,12 +203,12 @@ class ArchipelagoSimulator(object):
         ### Initialize logging
         ### None: default logging, 0: no logging
         if self.log_frequency is None:
-            if self.target_focal_area_lineages:
+            if self.model.target_focal_area_lineages:
                 default_log_frequency = 1
             else:
-                default_log_frequency = self.max_time/100
+                default_log_frequency = self.model.max_time/100
         if self.log_frequency:
-            if self.target_focal_area_lineages:
+            if self.model.target_focal_area_lineages:
                 last_logged_num_tips = 0
             else:
                 last_logged_time = 0.0
@@ -946,7 +234,7 @@ class ArchipelagoSimulator(object):
 
             ### LOGGING
             if self.log_frequency:
-                if self.target_focal_area_lineages:
+                if self.model.target_focal_area_lineages:
                     if ntips_in_focal_areas - last_logged_num_tips >= self.log_frequency:
                         last_logged_num_tips = ntips_in_focal_areas
                         self.run_logger.info("{} lineages occurring in focal areas, {} lineages across all areas".format(ntips_in_focal_areas, ntips))
@@ -964,8 +252,8 @@ class ArchipelagoSimulator(object):
 
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
-            if self.max_time and self.elapsed_time > self.max_time:
-                self.elapsed_time = self.max_time
+            if self.model.max_time and self.elapsed_time > self.model.max_time:
+                self.elapsed_time = self.model.max_time
                 self.run_logger.info("Termination condition of t = {} reached: storing results and terminating".format(self.elapsed_time))
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
@@ -992,15 +280,15 @@ class ArchipelagoSimulator(object):
 
             ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
             ntips = len(self.phylogeny.current_lineages)
-            if self.gsa_termination_focal_area_lineages and ntips_in_focal_areas >= self.gsa_termination_focal_area_lineages:
+            if self.model.gsa_termination_focal_area_lineages and ntips_in_focal_areas >= self.model.gsa_termination_focal_area_lineages:
                 # select/process one of the previously stored snapshots, write to final results file,
                 # and then break
                 raise NotImplementedError
-            elif self.gsa_termination_focal_area_lineages and ntips_in_focal_areas == self.target_focal_area_lineages:
+            elif self.model.gsa_termination_focal_area_lineages and ntips_in_focal_areas == self.target_focal_area_lineages:
                 # store snapshot in log, but do not break
                 raise NotImplementedError
-            elif self.target_focal_area_lineages and ntips_in_focal_areas >= self.target_focal_area_lineages:
-                self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {}: storing results and terminating".format(self.target_focal_area_lineages, self.elapsed_time))
+            elif self.model.target_focal_area_lineages and ntips_in_focal_areas >= self.model.target_focal_area_lineages:
+                self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {}: storing results and terminating".format(self.model.target_focal_area_lineages, self.elapsed_time))
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
@@ -1022,21 +310,21 @@ class ArchipelagoSimulator(object):
             #     self.run_logger.debug("Scheduling events for lineage {}".format(lineage))
 
             # speciation
-            speciation_rate = self.lineage_birth_rate_function(lineage)
+            speciation_rate = self.model.lineage_birth_rate_function(lineage)
             if speciation_rate:
                 event_calls.append( (self.phylogeny.split_lineage, lineage) )
                 event_rates.append(speciation_rate)
             # extinction
-            extinction_rate = self.lineage_death_rate_function(lineage)
+            extinction_rate = self.model.lineage_death_rate_function(lineage)
             if extinction_rate:
                 event_calls.append( (self.phylogeny.extirpate_lineage, lineage) )
                 event_rates.append(extinction_rate)
             # trait evolution
             for trait_idx, trait_state in enumerate(lineage.traits_vector):
-                for state_idx in range(self.trait_types[trait_idx].nstates):
+                for state_idx in range(self.model.trait_types[trait_idx].nstates):
                     if state_idx == trait_idx:
                         continue
-                    trait_transition_rate = self.trait_types[trait_idx].transition_rate_matrix[trait_state][state_idx]
+                    trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[trait_state][state_idx]
                     if trait_transition_rate:
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, state_idx) )
                         event_rates.append(trait_transition_rate)
@@ -1044,11 +332,11 @@ class ArchipelagoSimulator(object):
             for area_idx, occurs in enumerate(lineage.distribution_vector):
                 if not occurs:
                     continue
-                for dest_idx in self.geography.area_indexes:
+                for dest_idx in self.model.geography.area_indexes:
                     if dest_idx == area_idx:
                         continue
-                    dispersal_weight = self.geography.dispersal_weights[area_idx][dest_idx]
-                    lineage_dispersal_rate = self.lineage_dispersal_rate_function(lineage)
+                    dispersal_weight = self.model.geography.dispersal_weights[area_idx][dest_idx]
+                    lineage_dispersal_rate = self.model.lineage_dispersal_rate_function(lineage)
                     dispersal_rate = dispersal_weight * lineage_dispersal_rate
                     if dispersal_rate:
                         event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_idx) )
@@ -1080,7 +368,7 @@ class ArchipelagoSimulator(object):
             focal_areas_only_labeling,
             ):
         if focal_areas_only_labeling:
-            labelf = lambda x: utility.encode_lineage(x, exclude_areas=self.geography.supplemental_area_indexes)
+            labelf = lambda x: utility.encode_lineage(x, exclude_areas=self.model.geography.supplemental_area_indexes)
         else:
             labelf = lambda x: utility.encode_lineage(x, exclude_areas=None)
         tree.write_to_stream(

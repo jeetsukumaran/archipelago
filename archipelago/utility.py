@@ -38,6 +38,7 @@ import tempfile
 import pprint
 import collections
 import dendropy
+import json
 
 _LOGGING_LEVEL_ENVAR = "ARCHIPELAGO_LOGGING_LEVEL"
 _LOGGING_FORMAT_ENVAR = "ARCHIPELAGO_LOGGING_FORMAT"
@@ -56,6 +57,30 @@ def encode_lineage(node, exclude_areas=None):
     else:
         areas = "".join(str(i) for idx, i in enumerate(node.distribution_vector) if idx not in exclude_areas)
     return "s{}.{}.{}".format(node.index, traits, areas)
+
+def read_model_from_json_path(filepath):
+    return json.load(open(filepath, "r"))
+
+def read_model_from_python_path(filepath):
+    src = open(filepath, "rb").read()
+    return eval(src)
+
+class IndexGenerator(object):
+
+    def __init__(self, start=0):
+        self.start = start
+        self.index = start
+
+    def __next__(self):
+        c = self.index
+        self.index += 1
+        return c
+    next = __next__
+
+    def reset(self, start=None):
+        if start is None:
+            start = self.start
+        self.index = start
 
 class OutOfRegionError(Exception):
     pass

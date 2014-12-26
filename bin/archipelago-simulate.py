@@ -9,10 +9,7 @@ except ImportError:
     from io import StringIO # Python 3
 import archipelago
 from archipelago import simulate
-
-def read_model_definition(filename):
-    src = open(filename, "rb").read()
-    return eval(src)
+from archipelago import utility
 
 def main():
     parser = argparse.ArgumentParser(
@@ -57,7 +54,7 @@ def main():
     args = parser.parse_args()
 
     config_d = {}
-    model_d = read_model_definition(args.model_file)
+    model_d = utility.read_model_from_python_path(args.model_file)
 
     simulate.repeat_run(
             output_prefix=args.output_prefix,
