@@ -51,7 +51,10 @@ def dump_stack():
             print("{}: {}: {}".format(filename, line_num, source_code[source_index].strip()))
 
 def encode_lineage(node, exclude_areas=None):
-    traits = "".join(str(i) for i in node.traits_vector)
+    if node.traits_vector:
+        traits = "".join(str(i) for i in node.traits_vector)
+    else:
+        traits = "x"
     if exclude_areas is None:
         areas = "".join(str(i) for i in node.distribution_vector)
     else:
