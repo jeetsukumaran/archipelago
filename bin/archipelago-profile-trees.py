@@ -41,6 +41,10 @@ def main():
             action="store_true",
             default=False,
             help="Suppress progress messages.")
+    parser.add_argument( "--no-source-columns",
+            action="store_true",
+            default=False,
+            help="Do not include columns indicating source path(s) and tree indexes.")
     parser.add_argument( "--no-header-row",
             action="store_true",
             default=False,
@@ -58,10 +62,13 @@ def main():
         archipelago_model = None
     tree_profiler = profile.TreeProfiler()
     results = collections.OrderedDict()
-    source_fieldnames = [
-        "source.path",
-        "tree.index",
-    ]
+    if not args.no_source_columns:
+        source_fieldnames = [
+            "source.path",
+            "tree.index",
+        ]
+    else:
+        source_fieldnames = []
     if archipelago_model is not None:
         model_fieldnames = [
             "num.areas",
@@ -106,8 +113,9 @@ def main():
             if not args.quiet:
                 sys.stderr.write("-profiler- Source {} of {}: Tree {} of {}\n".format(source_idx+1, len(source_filepaths), tree_idx+1, len(trees)))
             results[tree] = {}
-            results[tree]["source.path"] = source_filepath
-            results[tree]["tree.index"] = tree_idx
+            if not args.no_source_columns:
+                results[tree]["source.path"] = source_filepath
+                results[tree]["tree.index"] = tree_idx
             if archipelago_model:
                 results[tree]["num.areas"] = len(archipelago_model.geography.areas)
                 results[tree]["num.focal.areas"] = len(archipelago_model.geography.focal_area_indexes)
