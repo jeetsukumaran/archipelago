@@ -33,6 +33,10 @@ def main():
                  " Parameters of the model will be added to the"
                  " profile results to facilitate analysis."
             )
+    parser.add_argument("-o", "--output-file",
+            default=None,
+            help="Path to results file (default: standard output)."
+            )
     parser.add_argument("-q", "--quiet",
             action="store_true",
             default=False,
@@ -80,7 +84,10 @@ def main():
     ]
     fieldnames = source_fieldnames + model_fieldnames + data_fieldnames
 
-    out = sys.stdout
+    if args.output_file is None or args.output_file == "-":
+        out = sys.stdout
+    else:
+        out = open(args.output_file, "w")
     writer = csv.DictWriter(out,
             fieldnames=fieldnames)
     if not args.no_header_row:
