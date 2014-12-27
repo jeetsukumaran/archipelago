@@ -9,7 +9,7 @@ import csv
 import dendropy
 
 from archipelago import profile
-from archipelago import utility
+from archipelago import model
 
 def main():
     parser = argparse.ArgumentParser()
@@ -43,34 +43,47 @@ def main():
             default=False,
             help="Suppress progress messages.")
     args = parser.parse_args()
-    tree_profiler = profile.TreeProfiler()
-    results = collections.OrderedDict()
-    fieldnames = [
-        "source.path",
-        "tree.index",
-        "pure.birth.rate",
-    ]
-    out = sys.stdout
     source_filepaths = list(args.source_paths)
+
     if not args.model_file:
         model_filepaths = [None] * len(source_filepaths)
+        is_model_available = False
     elif len(args.model_file) == 1:
         model_filepaths = [args.model_file[0]] * len(source_filepaths)
+        is_model_available = True
     elif len(args.model_file) == len(source_filepaths):
         model_filepaths = list(args.model_file)
+        is_model_available = True
     else:
         sys.exit("{} source file paths specified; exactly none, one or {} model filepaths required, but {} given".format(len(source_filepaths), len(source_filepaths), len(args.model_file)))
+
+    tree_profiler = profile.TreeProfiler()
+    results = collections.OrderedDict()
+    source_fieldnames = [
+        "source.path",
+        "tree.index",
+    ]
+    if is_model_available:
+        model_fieldnames = [
+            "num.areas",
+            "num.focal.areas",
+            "num.supplemental.areas",
+        ]
+    else:
+        model_fieldnames = [ ]
+    data_fieldnames = [
+        "pure.birth.rate",
+    ]
+    fieldnames = source_fieldnames + model_fieldnames + data_fieldnames
+
+    out = sys.stdout
     for source_idx, (source_filepath, model_filepath) in enumerate(zip(source_filepaths, model_filepaths)):
         if model_filepath is None:
             model_file_desc = ""
+            archipelago_model = None
         else:
             model_file_desc = " (model: {})".format(model_filepath)
-        #     if model_filepath.endswith(".py"):
-        #         model_definition = utility.load_model_from_python_path(model_filepath)
-        #     elif model_filepath.endswith(".json"):
-        #         model_definition = utility.load_model_from_json_path(model_filepath)
-        #     else:
-        #         raise ValueError("Unrecognized file type: {}".format(model_filepath))
+            archipelago_model = model.ArchipelagoModel.from_path(model_filepath)
         if not args.quiet:
             sys.stderr.write("-profiler- Source {source_idx} of {num_sources}{model_file_desc}: {source_filepath}\n".format(
                     source_idx=source_idx+1,
@@ -85,6 +98,10 @@ def main():
             results[tree] = {}
             results[tree]["source.path"] = source_filepath
             results[tree]["tree.index"] = tree_idx
+            if archipelago_model:
+                results[tree]["num.areas"] = len(archipelago_model.geography.areas)
+                results[tree]["num.focal.areas"] = len(archipelago_model.geography.focal_area_indexes)
+                results[tree]["num.supplemental.areas"] = len(archipelago_model.geography.supplemental_area_indexes)
         tree_profiler.estimate_pure_birth(trees, results)
     writer = csv.DictWriter(out,
             fieldnames=fieldnames)

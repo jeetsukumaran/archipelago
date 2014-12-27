@@ -66,7 +66,7 @@ class ArchipelagoModel(object):
             run_logger=None):
         if isinstance(src, str):
             src = open(src, "r")
-        model_definition = get_model_definition_from_file(
+        model_definition = cls.get_model_definition_from_file(
                 src=src,
                 schema=schema)
         return cls.from_definition(
