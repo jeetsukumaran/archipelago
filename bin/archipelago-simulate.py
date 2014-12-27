@@ -59,14 +59,14 @@ def main():
     args = parser.parse_args()
 
     config_d = {}
-    model_d = model.ArchipelagoModel.get_model_definition_from_path(
+    model_definition = model.ArchipelagoModel.get_model_definition_from_path(
             filepath=args.model_file,
             schema=args.model_file_schema)
 
     simulate.repeat_run(
             output_prefix=args.output_prefix,
             nreps=args.nreps,
-            model_d=model_d,
+            model_definition=model_definition,
             config_d=config_d,
             random_seed=args.random_seed,
             stderr_logging_level=args.stderr_logging_level,

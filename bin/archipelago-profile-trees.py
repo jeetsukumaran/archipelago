@@ -66,9 +66,9 @@ def main():
         else:
             model_file_desc = " (model: {})".format(model_filepath)
         #     if model_filepath.endswith(".py"):
-        #         model_d = utility.load_model_from_python_path(model_filepath)
+        #         model_definition = utility.load_model_from_python_path(model_filepath)
         #     elif model_filepath.endswith(".json"):
-        #         model_d = utility.load_model_from_json_path(model_filepath)
+        #         model_definition = utility.load_model_from_json_path(model_filepath)
         #     else:
         #         raise ValueError("Unrecognized file type: {}".format(model_filepath))
         if not args.quiet:

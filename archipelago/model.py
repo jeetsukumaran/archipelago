@@ -66,18 +66,18 @@ class ArchipelagoModel(object):
             run_logger=None):
         if isinstance(src, str):
             src = open(src, "r")
-        model_d = get_model_definition_from_file(
+        model_definition = get_model_definition_from_file(
                 src=src,
                 schema=schema)
         return cls.from_definition(
-                model_d=model_d,
+                model_definition=model_definition,
                 run_logger=run_logger)
 
     @classmethod
-    def from_definition(cls, model_d, run_logger):
+    def from_definition(cls, model_definition, run_logger):
         archipelago_model = cls()
         archipelago_model.parse_definition(
-                model_d=model_d,
+                model_definition=model_definition,
                 run_logger=run_logger,
         )
         return archipelago_model
@@ -86,32 +86,32 @@ class ArchipelagoModel(object):
         pass
 
     def parse_definition(self,
-            model_d,
+            model_definition,
             run_logger=None):
 
         # initialize
-        if model_d is None:
-            model_d = {}
+        if model_definition is None:
+            model_definition = {}
         else:
-            model_d = dict(model_d)
+            model_definition = dict(model_definition)
 
         # Geography
-        if "areas" not in model_d:
+        if "areas" not in model_definition:
             raise ValueError("No areas defined")
         self.geography = Geography()
         self.geography.parse_definition(
-                copy.deepcopy(model_d.pop("areas", [])),
+                copy.deepcopy(model_definition.pop("areas", [])),
                 run_logger=run_logger)
 
         # Ecology
         self.trait_types = TraitTypes()
         self.trait_types.parse_definition(
-                copy.deepcopy(model_d.pop("traits", [])),
+                copy.deepcopy(model_definition.pop("traits", [])),
                 run_logger=run_logger)
 
         # Diversification
         ## speciation
-        diversification_d = dict(model_d.pop("diversification", {}))
+        diversification_d = dict(model_definition.pop("diversification", {}))
         if "lineage_birth_rate" in diversification_d:
             self.lineage_birth_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_birth_rate"), self.trait_types)
         else:
@@ -144,7 +144,7 @@ class ArchipelagoModel(object):
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
         # Dispersal submodel
-        dispersal_d = dict(model_d.pop("dispersal", {}))
+        dispersal_d = dict(model_definition.pop("dispersal", {}))
         if "lineage_dispersal_rate" in dispersal_d:
             self.lineage_dispersal_rate_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_rate"), self.trait_types)
         else:
@@ -160,7 +160,7 @@ class ArchipelagoModel(object):
         if dispersal_d:
             raise TypeError("Unsupported dispersal model keywords: {}".format(dispersal_d))
 
-        termination_conditions_d = dict(model_d.pop("termination_conditions", {}))
+        termination_conditions_d = dict(model_definition.pop("termination_conditions", {}))
         self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
         self.gsa_termination_focal_area_lineages = termination_conditions_d.pop("gsa_termination_focal_area_lineages", None)
         self.max_time = termination_conditions_d.pop("max_time", None)
@@ -189,17 +189,17 @@ class ArchipelagoModel(object):
         if run_logger is not None:
             run_logger.info(desc)
 
-        if model_d:
-            raise TypeError("Unsupported model keywords: {}".format(model_d))
+        if model_definition:
+            raise TypeError("Unsupported model keywords: {}".format(model_definition))
 
     def write_model(self, out):
-        model_d = collections.OrderedDict()
-        model_d["areas"] = self.geography.as_definition()
-        model_d["traits"] = self.trait_types.as_definition()
-        model_d["diversification"] = self.diversification_as_definition()
-        model_d["dispersal"] = self.dispersal_as_definition()
-        model_d["termination_conditions"] = self.termination_conditions_as_definition()
-        json.dump(model_d, out, indent=4, separators=(',', ': '))
+        model_definition = collections.OrderedDict()
+        model_definition["areas"] = self.geography.as_definition()
+        model_definition["traits"] = self.trait_types.as_definition()
+        model_definition["diversification"] = self.diversification_as_definition()
+        model_definition["dispersal"] = self.dispersal_as_definition()
+        model_definition["termination_conditions"] = self.termination_conditions_as_definition()
+        json.dump(model_definition, out, indent=4, separators=(',', ': '))
 
     def diversification_as_definition(self):
         d = collections.OrderedDict()

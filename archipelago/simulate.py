@@ -77,26 +77,27 @@ class ArchipelagoSimulator(object):
         f.__doc__ = description
         return f
 
-    def __init__(self,
-            model_d=None,
-            config_d=None,
-            verbose_setup=True
-            ):
+    def __init__(self, **kwargs):
 
         # configure
-        self.elapsed_time = 0.0
-        if config_d is None:
-            config_d = {}
-        else:
-            config_d = dict(config_d)
+        self.elapsed_time = 0.0 # need to be here for logging
+        verbose_setup = kwargs.pop("verbose_setup", True)
+        config_d = dict(kwargs.pop("config_d", {}))
         self.configure_simulator(config_d, verbose=verbose_setup)
 
-        # set up model
-        self.model = model.ArchipelagoModel.from_definition(
-                model_d=model_d,
-                run_logger=self.run_logger if verbose_setup else None)
+        # model
+        if "model_definition" in kwargs and "model" in kwargs:
+            raise TypeError("Cannot specify both 'model_definition' and 'model'")
+        elif "model_definition" in kwargs:
+            self.parse_model_definition(
+                    model_definition=kwargs.pop("model_definition"),
+                    verbose_setup=verbose_setup)
+        elif "model" in kwargs:
+            self.model = kwargs.pop("model")
+        else:
+            raise TypeError("Must specify at least one of 'model_definition' or 'model'")
 
-        # start
+        # initialize phylogeny
         self.phylogeny = model.Phylogeny(
                 model=self.model,
                 rng=self.rng,
@@ -106,6 +107,12 @@ class ArchipelagoSimulator(object):
 
         # begin logging generations
         self.run_logger.system = self
+
+    def parse_model_definition(self, model_definition, verbose_setup=True):
+        self.model = model.ArchipelagoModel.from_definition(
+                model_definition=model_definition,
+                run_logger=self.run_logger if verbose_setup else None)
+        return self.model
 
     def configure_simulator(self, config_d, verbose=True):
 
@@ -389,7 +396,7 @@ class ArchipelagoSimulator(object):
 def repeat_run(
         output_prefix,
         nreps,
-        model_d,
+        model_definition,
         config_d,
         random_seed=None,
         stderr_logging_level="info",
@@ -407,7 +414,7 @@ def repeat_run(
     config_d : dict
         Simulator configuration parameters as keyword-value pairs. To be
         re-used for each replicate.
-    model_d : dict
+    model_definition : dict
         Simulator model parameters as keyword-value pairs. To be re-used for
         each replicate.
     random_seed : integer
@@ -466,7 +473,7 @@ def repeat_run(
         num_restarts = 0
         while True:
             archipelago_simulator = ArchipelagoSimulator(
-                model_d=model_d,
+                model_definition=model_definition,
                 config_d=config_d,
                 verbose_setup=num_restarts == 0 and current_rep == 0)
             try:
