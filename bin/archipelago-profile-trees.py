@@ -35,9 +35,16 @@ def main():
             )
     parser.add_argument("-q", "--quiet",
             action="store_true",
-            dest="quiet",
             default=False,
             help="Suppress progress messages.")
+    parser.add_argument( "--no-header-row",
+            action="store_true",
+            default=False,
+            help="Do not write a header row.")
+    parser.add_argument( "--header-row-only",
+            action="store_true",
+            default=False,
+            help="Write header row only and exit.")
     args = parser.parse_args()
     source_filepaths = list(args.source_paths)
 
@@ -74,6 +81,12 @@ def main():
     fieldnames = source_fieldnames + model_fieldnames + data_fieldnames
 
     out = sys.stdout
+    writer = csv.DictWriter(out,
+            fieldnames=fieldnames)
+    if not args.no_header_row:
+        writer.writeheader()
+    if args.header_row_only:
+        sys.exit(0)
     for source_idx, source_filepath in enumerate(source_filepaths):
         if not args.quiet:
             sys.stderr.write("-profiler- Source {source_idx} of {num_sources}: {source_filepath}\n".format(
@@ -101,12 +114,8 @@ def main():
                 for trait_idx, trait in enumerate(archipelago_model.trait_types):
                     results[tree]["trait.{}.transition.rate".format(trait.label)] = trait.transition_rate
         tree_profiler.estimate_pure_birth(trees, results)
-    writer = csv.DictWriter(out,
-            fieldnames=fieldnames)
-    writer.writeheader()
     for row in results.values():
         writer.writerow(row)
-
 
 if __name__ == "__main__":
     main()
