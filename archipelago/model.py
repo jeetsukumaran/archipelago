@@ -422,8 +422,10 @@ class TraitTypes(object):
         self.trait_label_index_map = collections.OrderedDict()
         for trait_idx, trait_d in enumerate(trait_types):
             if "label" not in trait_d:
-                raise ValueError("Trait definition requires 'label' to be defined")
+                raise ValueError("Trait requires 'label' to be defined")
             trait_label = str(trait_d.pop("label"))
+            if trait_label in self.trait_label_index_map:
+                raise ValueError("Trait with label '{}' already defined".format(trait_label))
             trait = TraitType(
                 index=trait_idx,
                 label=trait_label,
@@ -525,9 +527,14 @@ class Geography(object):
         self.focal_area_indexes = []
         self.supplemental_area_indexes = []
         for area_idx, area_d in enumerate(areas):
+            if "label" not in area_d:
+                raise ValueError("Area requires 'label' to be defined")
+            area_label = str(area_d.pop("label", None))
+            if area_label in self.area_label_index_map:
+                raise ValueError("Area with label '{}' already defined".format(area_label))
             area = Area(
                 index=area_idx,
-                label=str(area_d.pop("label", area_idx)),
+                label=area_label,
                 relative_diversity=area_d.pop("relative_diversity", 1.0),
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
