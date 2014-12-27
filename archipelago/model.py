@@ -696,12 +696,12 @@ class Phylogeny(dendropy.Tree):
                 dist1[presences[0]] = 1
                 dist2[presences[1]] = 1
             else:
-                n1 = self.model.rng.randint(1, num_presences-1)
+                n1 = self.rng.randint(1, num_presences-1)
                 n2 = num_presences - n1
                 if n2 == n1:
                     n1 += 1
                     n2 -= 1
-                sample1 = set(self.model.rng.sample(presences, n1))
+                sample1 = set(self.rng.sample(presences, n1))
                 for idx in self.model.geography.area_indexes:
                     if idx in sample1:
                         dist1[idx] = 1
