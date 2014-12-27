@@ -688,7 +688,7 @@ class Phylogeny(dendropy.Tree):
             dist1 = lineage.distribution_vector.clone()
             dist2 = self.model.geography.new_distribution_vector()
             # TODO: area diversity base speciation
-            dist2[ self.model.rng.choice(presences) ] = 1
+            dist2[ self.rng.choice(presences) ] = 1
         elif speciation_mode == 2:
             dist1 = self.model.geography.new_distribution_vector()
             dist2 = self.model.geography.new_distribution_vector()
