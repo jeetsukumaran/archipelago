@@ -77,6 +77,14 @@ class ArchipelagoSimulator(object):
         f.__doc__ = description
         return f
 
+    @staticmethod
+    def compose_focal_areas_trees_filepath(output_prefix):
+        return output_prefix + ".focal-areas.trees"
+
+    @staticmethod
+    def compose_all_areas_trees_filepath(output_prefix):
+        return output_prefix + ".all-areas.trees"
+
     def __init__(self, **kwargs):
 
         # configure
@@ -138,7 +146,7 @@ class ArchipelagoSimulator(object):
         if config_d.pop("store_focal_areas_trees", True):
             self.focal_areas_trees_file = config_d.pop("focal_areas_trees_file", None)
             if self.focal_areas_trees_file is None:
-                self.focal_areas_trees_file = open(self.output_prefix + ".focal-areas.trees", "w")
+                self.focal_areas_trees_file = open(ArchipelagoSimulator.compose_focal_areas_trees_filepath(self.output_prefix), "w")
             if verbose:
                 self.run_logger.info("Focal area trees filepath: {}".format(self.focal_areas_trees_file.name))
         else:
@@ -149,7 +157,7 @@ class ArchipelagoSimulator(object):
         if config_d.pop("store_all_areas_trees", True):
             self.all_areas_trees_file = config_d.pop("all_areas_trees_file", None)
             if self.all_areas_trees_file is None:
-                self.all_areas_trees_file = open(self.output_prefix + ".all-areas.trees", "w")
+                self.all_areas_trees_file = open(ArchipelagoSimulator.compose_all_areas_trees_filepath(self.output_prefix), "w")
             if verbose:
                 self.run_logger.info("All areas trees filepath: {}".format(self.all_areas_trees_file.name))
         else:
@@ -462,9 +470,9 @@ def repeat_run(
     else:
         run_logger.info("-archipelago- Using existing RNG: {}".format(config_d["rng"]))
     if config_d.get("store_focal_areas_trees", True) and "focal_areas_trees_file" not in config_d:
-        config_d["focal_areas_trees_file"] = open(output_prefix + ".focal-areas.trees", "w")
+        config_d["focal_areas_trees_file"] = open(ArchipelagoSimulator.compose_focal_areas_trees_filepath(output_prefix), "w")
     if config_d.get("store_all_areas_trees", True) and "all_areas_trees_file" not in config_d:
-        config_d["all_areas_trees_file"] = open(output_prefix + ".all-areas.trees", "w")
+        config_d["all_areas_trees_file"] = open(ArchipelagoSimulator.compose_all_areas_trees_filepath(output_prefix), "w")
     current_rep = 0
     while current_rep < nreps:
         simulation_name="Run{}".format((current_rep+1))
