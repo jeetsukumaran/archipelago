@@ -68,6 +68,12 @@ def main():
             "num.areas",
             "num.focal.areas",
             "num.supplemental.areas",
+            "lineage.birth.rate.definition",
+            "lineage.birth.rate.description",
+            "lineage.death.rate.definition",
+            "lineage.death.rate.description",
+            "lineage.dispersal.rate.definition",
+            "lineage.dispersal.rate.description",
         ]
     else:
         model_fieldnames = [ ]
@@ -102,6 +108,12 @@ def main():
                 results[tree]["num.areas"] = len(archipelago_model.geography.areas)
                 results[tree]["num.focal.areas"] = len(archipelago_model.geography.focal_area_indexes)
                 results[tree]["num.supplemental.areas"] = len(archipelago_model.geography.supplemental_area_indexes)
+                results[tree]["lineage.birth.rate.definition"] = archipelago_model.lineage_birth_rate_function.definition_content
+                results[tree]["lineage.birth.rate.description"] = archipelago_model.lineage_birth_rate_function.description
+                results[tree]["lineage.death.rate.definition"] = archipelago_model.lineage_death_rate_function.definition_content
+                results[tree]["lineage.death.rate.description"] = archipelago_model.lineage_death_rate_function.description
+                results[tree]["lineage.dispersal.rate.definition"] = archipelago_model.lineage_dispersal_rate_function.definition_content
+                results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
         tree_profiler.estimate_pure_birth(trees, results)
     writer = csv.DictWriter(out,
             fieldnames=fieldnames)
