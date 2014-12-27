@@ -82,6 +82,42 @@ class ArchipelagoModel(object):
         )
         return archipelago_model
 
+    @staticmethod
+    def encode_lineage(node, exclude_areas=None):
+        if node.traits_vector:
+            traits = "".join(str(i) for i in node.traits_vector)
+        else:
+            traits = "x"
+        if exclude_areas is None:
+            areas = "".join(str(i) for i in node.distribution_vector)
+        else:
+            areas = "".join(str(i) for idx, i in enumerate(node.distribution_vector) if idx not in exclude_areas)
+        return "s{}.{}.{}".format(node.index, traits, areas)
+
+    @staticmethod
+    def decode_label(label):
+        parts = label.split(".")
+
+        traits_string = parts[1]
+        if not traits_string or traits_string == "x":
+            traits_vector = StatesVector(nchar=0)
+        else:
+            traits_vector = StatesVector(
+                    nchar=len(traits_string),
+                    values=[int(i) for i in traits_string],
+                    )
+        if node.traits_vector:
+            traits = "".join(str(i) for i in node.traits_vector)
+        else:
+            traits = "x"
+
+        distribution_string = parts[2]
+        distribution_vector = DistributionVector(
+                num_areas=len(distribution_string),
+                values=[int(i) for i in distribution_string],)
+
+        return traits_vector, distribution_vector
+
     def __init__(self):
         pass
 
@@ -219,6 +255,13 @@ class ArchipelagoModel(object):
         d["max_time"] = self.max_time
         return d
 
+    def encode_focal_areas_lineage(self, node):
+        return ArchipelagoModel.encode_lineage(node,
+                exclude_areas=self.geography.supplemental_area_indexes)
+
+    def encode_all_areas_lineage(self, node):
+        return ArchipelagoModel.encode_lineage(node, exclude_areas=None)
+
 class RateFunction(object):
 
     @classmethod
@@ -352,10 +395,11 @@ class StatesVector(object):
 
 class DistributionVector(StatesVector):
 
-    def __init__(self, num_areas):
+    def __init__(self, num_areas, values=None):
         StatesVector.__init__(self,
                 nchar=num_areas,
                 nstates=[2] * num_areas,
+                values=values,
                 )
 
     def presences(self):

@@ -383,9 +383,9 @@ class ArchipelagoSimulator(object):
             focal_areas_only_labeling,
             ):
         if focal_areas_only_labeling:
-            labelf = lambda x: utility.encode_lineage(x, exclude_areas=self.model.geography.supplemental_area_indexes)
+            labelf = self.model.encode_focal_areas_lineage
         else:
-            labelf = lambda x: utility.encode_lineage(x, exclude_areas=None)
+            labelf = self.model.encode_all_areas_lineage
         tree.write_to_stream(
                 out,
                 schema="newick",
