@@ -28,14 +28,10 @@ def main():
             choices=["nexus", "newick"],
             help="Input data format (default: '%(default)s').")
     parser.add_argument("-m", "--model-file",
-            action="append",
-            help="Model file(s) for each of the input tree file(s). If specified, this"
-                 " option must be specified exactly once *or* once and exactly once for each"
-                 " tree file given as input. Parameters of the model will be added to the"
-                 " profile results to facilitate analysis. If only one model file is specified"
-                 " then it will be used for all the tree files. If multiple model files are specified"
-                 " then the number should match the number of source files and the order that they"
-                 " should be matched to the source files."
+            default=None,
+            help="Model file(s) for the input tree file(s)."
+                 " Parameters of the model will be added to the"
+                 " profile results to facilitate analysis."
             )
     parser.add_argument("-q", "--quiet",
             action="store_true",
@@ -45,25 +41,17 @@ def main():
     args = parser.parse_args()
     source_filepaths = list(args.source_paths)
 
-    if not args.model_file:
-        model_filepaths = [None] * len(source_filepaths)
-        is_model_available = False
-    elif len(args.model_file) == 1:
-        model_filepaths = [args.model_file[0]] * len(source_filepaths)
-        is_model_available = True
-    elif len(args.model_file) == len(source_filepaths):
-        model_filepaths = list(args.model_file)
-        is_model_available = True
+    if args.model_file:
+        archipelago_model = model.ArchipelagoModel.from_path(args.model_file)
     else:
-        sys.exit("{} source file paths specified; exactly none, one or {} model filepaths required, but {} given".format(len(source_filepaths), len(source_filepaths), len(args.model_file)))
-
+        archipelago_model = None
     tree_profiler = profile.TreeProfiler()
     results = collections.OrderedDict()
     source_fieldnames = [
         "source.path",
         "tree.index",
     ]
-    if is_model_available:
+    if archipelago_model is not None:
         model_fieldnames = [
             "num.areas",
             "num.focal.areas",
@@ -75,6 +63,9 @@ def main():
             "lineage.dispersal.rate.definition",
             "lineage.dispersal.rate.description",
         ]
+        for trait_idx, trait in enumerate(archipelago_model.trait_types):
+            model_fieldnames.append("trait.{}.transition.rate".format(trait.label))
+
     else:
         model_fieldnames = [ ]
     data_fieldnames = [
@@ -83,18 +74,11 @@ def main():
     fieldnames = source_fieldnames + model_fieldnames + data_fieldnames
 
     out = sys.stdout
-    for source_idx, (source_filepath, model_filepath) in enumerate(zip(source_filepaths, model_filepaths)):
-        if model_filepath is None:
-            model_file_desc = ""
-            archipelago_model = None
-        else:
-            model_file_desc = " (model: {})".format(model_filepath)
-            archipelago_model = model.ArchipelagoModel.from_path(model_filepath)
+    for source_idx, source_filepath in enumerate(source_filepaths):
         if not args.quiet:
-            sys.stderr.write("-profiler- Source {source_idx} of {num_sources}{model_file_desc}: {source_filepath}\n".format(
+            sys.stderr.write("-profiler- Source {source_idx} of {num_sources}: {source_filepath}\n".format(
                     source_idx=source_idx+1,
                     num_sources=len(source_filepaths),
-                    model_file_desc=model_file_desc,
                     source_filepath=source_filepath,
                     ))
         trees = dendropy.TreeList.get_from_path(source_filepath, args.schema)
@@ -114,6 +98,8 @@ def main():
                 results[tree]["lineage.death.rate.description"] = archipelago_model.lineage_death_rate_function.description
                 results[tree]["lineage.dispersal.rate.definition"] = archipelago_model.lineage_dispersal_rate_function.definition_content
                 results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
+                for trait_idx, trait in enumerate(archipelago_model.trait_types):
+                    results[tree]["trait.{}.transition.rate".format(trait.label)] = trait.transition_rate
         tree_profiler.estimate_pure_birth(trees, results)
     writer = csv.DictWriter(out,
             fieldnames=fieldnames)
