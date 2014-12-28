@@ -43,7 +43,7 @@ def main():
             help="Seed for random number generator engine.")
     run_options.add_argument("--log-frequency",
             default=None,
-            type=int,
+            type=float,
             help="Frequency that background progress messages get written to the log (0: do not log informational messages).")
     run_options.add_argument("--file-logging-level",
             default="info",
@@ -70,7 +70,8 @@ def main():
             config_d=config_d,
             random_seed=args.random_seed,
             stderr_logging_level=args.stderr_logging_level,
-            file_logging_level=args.file_logging_level)
+            file_logging_level=args.file_logging_level,
+            debug_mode=args.debug_mode)
 
 if __name__ == "__main__":
     main()

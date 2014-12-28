@@ -397,7 +397,7 @@ class ArchipelagoSimulator(object):
     def debug_compose_tree(self, tree):
         s = tree.as_string(
                 "newick",
-                node_label_compose_func=utility.encode_lineage,
+                node_label_compose_func=self.model.encode_all_areas_lineage,
                 suppress_edge_lengths=True)
         return s.replace("\n", "")
 
@@ -409,7 +409,8 @@ def repeat_run(
         random_seed=None,
         stderr_logging_level="info",
         file_logging_level="debug",
-        maximum_num_restarts_per_replicates=100):
+        maximum_num_restarts_per_replicates=100,
+        debug_mode=False):
     """
     Executes multiple runs of the Archipelago simulator under identical
     parameters to produce the specified number of replicates, discarding failed
@@ -458,6 +459,7 @@ def repeat_run(
                 log_path=output_prefix + ".log",
                 file_logging_level=file_logging_level,
                 )
+    config_d["debug_mode"] = debug_mode
     run_logger = config_d["run_logger"]
     run_logger.info("-archipelago- Starting: {}".format(archipelago.description()))
     if "rng" not in config_d:

@@ -697,7 +697,7 @@ class Lineage(dendropy.Node):
         self.edge.length = 0
 
     def __repr__(self):
-        return utility.encode_lineage(self)
+        return ArchipelagoModel.encode_lineage(self)
 
 class Phylogeny(dendropy.Tree):
 
