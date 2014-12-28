@@ -17,8 +17,10 @@ class TraitEvolutionRateEstimator(object):
     # STATE_SYMBOLS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
     def __init__(self):
-        self.tree_file_name = "x1.tre"
-        self.data_file_name = "x1.txt"
+        self.tree_file = tempfile.NamedTemporaryFile()
+        self.data_file = tempfile.NamedTemporaryFile()
+        self.tree_file_name = self.tree_file.name
+        self.data_file_name = self.data_file.name
 
     def estimate_trait_evolution_rate(self,
             trees,
@@ -33,12 +35,15 @@ class TraitEvolutionRateEstimator(object):
             is_suppressed_taxa=is_suppressed_taxa)
         assert len(trait_estimated_transition_rate_field_names) == trees.num_trait_types
         for tree_idx, tree in enumerate(trees):
-            tree.write_to_path(
-                    self.tree_file_name,
-                    "nexus",
-                    translate_tree_taxa=True,
-                    suppress_internal_node_labels=True,
-                    suppress_internal_taxon_labels=True)
+            with open(self.tree_file_name, "w") as tf:
+                tree.write_to_stream(
+                        tf,
+                        "nexus",
+                        translate_tree_taxa=True,
+                        suppress_internal_node_labels=True,
+                        suppress_internal_taxon_labels=True)
+                tf.flush()
+                tf.close()
             for trait_idx in range(trees.num_trait_types):
                 rate = self._analyze(tree,
                         tree.lineage_trait_state_set_map[trait_idx])
@@ -75,15 +80,16 @@ class TraitEvolutionRateEstimator(object):
     def _analyze(self,
             tree,
             taxon_label_state_map):
-        dataf = open(self.data_file_name, "w")
         symbols = set()
-        for taxon in tree.taxon_namespace:
-            row = [taxon.label]
-            states = taxon_label_state_map[taxon.label]
-            symbols.update(states)
-            row.append("".join(states))
-            dataf.write("{}\n".format("\t".join(row)))
-        dataf.close()
+        with open(self.data_file_name, "w") as dataf:
+            for taxon in tree.taxon_namespace:
+                row = [taxon.label]
+                states = taxon_label_state_map[taxon.label]
+                symbols.update(states)
+                row.append("".join(states))
+                dataf.write("{}\n".format("\t".join(row)))
+            dataf.flush()
+            dataf.close()
         symbols = sorted(symbols)
         if len(symbols) < 2:
             return 0.0
