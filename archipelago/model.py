@@ -123,15 +123,6 @@ class ArchipelagoModel(object):
             _decode = lambda x: ArchipelagoModel.decode_label(x.taxon.label)
         for tree in trees:
             for nd in tree:
-                # print("==> {}, {}, {}, {}: {} and {} -> {}".format(
-                #     not leaf_nodes_only,
-                #     not nd._child_nodes,
-                #     is_suppressed_taxa,
-                #     nd.taxon is not None,
-                #     not leaf_nodes_only or not nd._child_nodes,
-                #     is_suppressed_taxa and nd.taxon is not None,
-                #     (not leaf_nodes_only or not nd._child_nodes) and (is_suppressed_taxa or nd.taxon is not None)
-                #     ))
                 if (not leaf_nodes_only or not nd._child_nodes) and (is_suppressed_taxa or nd.taxon is not None):
                     traits_vector, distribution_vector = _decode(nd)
                     nd.traits_vector = traits_vector
@@ -415,6 +406,9 @@ class StatesVector(object):
     def __setitem__(self, trait_index, v):
         self._states[trait_index] = v
 
+    def __repr__(self):
+        return str(self._states)
+
 class DistributionVector(StatesVector):
 
     def __init__(self, num_areas, values=None):
@@ -505,7 +499,6 @@ class TraitTypes(object):
                 trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
             else:
                 trait.transition_weights = [list(i) for i in trait.transition_weights]
-            # print(trait.transition_weights)
             total_transition_weight = 0.0
             assert len(trait.transition_weights) == trait.nstates
             for a1_idx in range(trait.nstates):
@@ -629,6 +622,8 @@ class Geography(object):
                 raise TypeError("Unsupported area model keywords: {}".format(area_d))
         if len(self.areas) < 1:
             raise ValueError("No areas defined")
+        if len(self.focal_area_indexes) < 1:
+            raise ValueError("No focal areas defined")
         if run_logger is not None:
             run_logger.info("(GEOGRAPHY) Total of {} areas defined: {}".format(
                 len(self.areas),

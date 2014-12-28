@@ -85,6 +85,8 @@ def main():
     else:
         model_fieldnames = [ ]
     data_fieldnames = [
+        "num.tips",
+        "root.age",
         "pure.birth.rate",
     ]
     trait_labels = []
@@ -142,6 +144,9 @@ def main():
                 results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
                 for trait_idx, trait in enumerate(archipelago_model.trait_types):
                     results[tree]["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
+                tree.calc_node_ages()
+                results[tree]["root.age"] = tree.seed_node.age
+                results[tree]["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
         tree_profiler.estimate_pure_birth(
                 trees=trees,
                 tree_results_map=results,

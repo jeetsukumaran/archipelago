@@ -26,8 +26,8 @@ class TreeProfiler(object):
         for tree in trees:
             try:
                 bdfit = birthdeath.fit_pure_birth_model_to_tree(tree)
-            except ValueError:
-                pass
+            except ZeroDivisionError:
+                tree_results_map[tree]["pure.birth.rate"] = 0.0
             try:
                 tree_results_map[tree]["pure.birth.rate"] = bdfit["birth_rate"]
             except KeyError:
