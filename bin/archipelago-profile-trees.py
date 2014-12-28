@@ -81,14 +81,28 @@ def main():
             "lineage.dispersal.rate.definition",
             "lineage.dispersal.rate.description",
         ]
-        for trait_idx, trait in enumerate(archipelago_model.trait_types):
-            model_fieldnames.append("trait.{}.transition.rate".format(trait.label))
 
     else:
         model_fieldnames = [ ]
     data_fieldnames = [
         "pure.birth.rate",
     ]
+    trait_labels = []
+    trait_estimated_transition_rate_field_names = []
+    if archipelago_model is not None:
+        for trait_idx, trait in enumerate(archipelago_model.trait_types):
+            trait_labels.append(trait.label)
+            model_fieldnames.append("trait.{}.true.transition.rate".format(trait.label))
+            data_fieldnames.append("trait.{}.est.transition.rate".format(trait.label))
+            trait_estimated_transition_rate_field_names.append(data_fieldnames[-1])
+    else:
+        trees = dendropy.TreeList.get_from_path(source_filepaths[0], args.schema)
+        tree_profiler.diagnose_num_trait_types(trees)
+        for trait_idx in range(trees.num_trait_types):
+            trait_labels.append(str(trait_idx))
+            model_fieldnames.append("trait.{}.true.transition.rate".format(trait_idx))
+            data_fieldnames.append("trait.{}.est.transition.rate".format(trait_idx))
+            trait_estimated_transition_rate_field_names.append(data_fieldnames[-1])
     fieldnames = source_fieldnames + model_fieldnames + data_fieldnames
 
     if args.output_file is None or args.output_file == "-":
@@ -127,8 +141,18 @@ def main():
                 results[tree]["lineage.dispersal.rate.definition"] = archipelago_model.lineage_dispersal_rate_function.definition_content
                 results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
                 for trait_idx, trait in enumerate(archipelago_model.trait_types):
-                    results[tree]["trait.{}.transition.rate".format(trait.label)] = trait.transition_rate
-        tree_profiler.estimate_pure_birth(trees, results)
+                    results[tree]["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
+        tree_profiler.estimate_pure_birth(
+                trees=trees,
+                tree_results_map=results,
+                )
+        tree_profiler.estimate_trait_transition_rates(
+                trees=trees,
+                tree_results_map=results,
+                trait_estimated_transition_rate_field_names=trait_estimated_transition_rate_field_names,
+                is_trees_decoded=False,
+                is_suppressed_taxa=False,
+                )
     for row in results.values():
         writer.writerow(row)
 

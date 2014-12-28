@@ -10,138 +10,110 @@ import tempfile
 import subprocess
 import dendropy
 from dendropy.utility import processio
-from archipelago import symbology
+from archipelago import model
 
 class TraitEvolutionRateEstimator(object):
+
+    # STATE_SYMBOLS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
     def __init__(self):
         self.tree_file_name = "x1.tre"
         self.data_file_name = "x1.txt"
 
-    def write_bt_commands(
-            self,
-            filepath,
-            state_symbols,
-            ml=True,
+    def estimate_trait_evolution_rate(self,
+            trees,
+            tree_results_map,
+            trait_estimated_transition_rate_field_names,
+            is_trees_decoded=False,
+            is_suppressed_taxa=False,
             ):
-        bt_commands = []
-        bt_commands.append("1") # multstate
-        if ml:
-            bt_commands.append("1") # ml
-        else:
-            bt_commands.append("2") # mcmc
-        if len(state_symbols) > 7:
-            bt_commands.append("restrictall q{}{}".format(state_symbols[0], state_symbols[1]))
-        bt_commands.append("run")
-        run_file = open(filepath, "w")
-        run_file.write("\n".join(bt_commands))
-        run_file.write("\n")
-        run_file.close()
-
-    def write_job_file(
-            self,
-            job_filepath,
-            tree_filepath,
-            data_filepath,
-            run_filepath):
-        jobf = open(job_filepath, "w")
-        jobf.write("""\
-    #! /bin/bash
-    #$ -cwd
-    #$ -V
-    #$ -S /bin/bash
-    #$ -l h_vmem=8G
-    #$ -l virtual_free=8G
-
-    {app_path} {tree_path} {data_path} < {commands_path}
-    """.format(
-        app_path="BayesTraits",
-        tree_path=os.path.abspath(tree_filepath),
-        data_path=os.path.abspath(data_filepath),
-        commands_path=os.path.abspath(run_filepath),
-        ))
-
-    def create_analysis(
-            self,
-            prefix,
-            taxon_keys,
-            taxon_state_set_map,
-            tree_file,
-            ml=True):
-        data_filepath =  prefix + ".txt"
-        dataf = open(data_filepath, "w")
-        symbols = symbology.NameToSymbolMap()
-        for taxon in taxon_keys:
-            row = [taxon.label.replace(" ", "_")]
-            states = sorted([symbols[s] for s in taxon_state_set_map[taxon]])
-            row.append("".join(states))
-            dataf.write("{}\n".format("\t".join(row)))
-        dataf.close()
-        run_filepath = prefix + ".bayestraits"
-        self.write_bt_commands(
-                filepath=run_filepath,
-                state_symbols=symbols.SYMBOLS,
-                ml=ml)
-        self.write_job_file(
-                job_filepath=prefix + ".job",
-                tree_filepath=tree_file,
-                data_filepath=data_filepath,
-                run_filepath=run_filepath)
-
-    def estimate_niche_evolution_rate(self, trees, is_trees_decoded=False):
-        if not is_trees_decoded:
-            trees = self.tree_processor.decode_trees(trees)
+        self.preprocess_tree_lineages(
+            trees=trees,
+            is_trees_decoded=is_trees_decoded,
+            is_suppressed_taxa=is_suppressed_taxa)
+        assert len(trait_estimated_transition_rate_field_names) == trees.num_trait_types
         for tree_idx, tree in enumerate(trees):
-
-            taxa = tree.poll_taxa()
-            taxon_state_set_map = {}
-            for taxon in taxa:
-                taxon_state_set_map[taxon] = set()
-                for idx, i in enumerate(taxon.habitat_code):
-                    if i == "1":
-                        taxon_state_set_map[taxon].add(str(idx+1))
-
-            tree.taxon_namespace = dendropy.TaxonNamespace(taxa)
-            for nd in tree:
-                nd.label = None # BayesTraits gets confused with internal taxon labels, especially those with periods etc.
             tree.write_to_path(
                     self.tree_file_name,
                     "nexus",
-                    translate_tree_taxa=True)
+                    translate_tree_taxa=True,
+                    suppress_internal_node_labels=True,
+                    suppress_internal_taxon_labels=True)
+            for trait_idx in range(trees.num_trait_types):
+                rate = self._analyze(tree,
+                        tree.lineage_trait_state_set_map[trait_idx])
+                tree_results_map[tree][trait_estimated_transition_rate_field_names[trait_idx]] = rate
+        self.restore_tree_lineages(trees)
 
-            name_to_symbol_map = symbology.NameToSymbolMap()
-            dataf = open(self.data_file_name, "w")
-            for taxon in taxa:
-                row = [taxon.label]
-                states = sorted([name_to_symbol_map[s] for s in taxon_state_set_map[taxon]])
-                row.append("".join(states))
-                dataf.write("{}\n".format("\t".join(row)))
-            dataf.close()
+    def preprocess_tree_lineages(self,
+            trees,
+            is_trees_decoded=False,
+            is_suppressed_taxa=False):
+        if not is_trees_decoded:
+            model.ArchipelagoModel.decode_tree_lineages_from_labels(
+                    trees=trees,
+                    is_suppressed_taxa=is_suppressed_taxa,
+                    leaf_nodes_only=True)
+        sample_node = next(trees[0].leaf_node_iter())
+        num_trait_types = len(sample_node.traits_vector)
+        trees.num_trait_types = num_trait_types
+        for tree_idx, tree in enumerate(trees):
+            tree.lineage_trait_state_set_map = []
+            for trait_idx in range(trees.num_trait_types):
+                tree.lineage_trait_state_set_map.append({})
+            tree._original_taxon_namespace = tree.taxon_namespace
+            tree.taxon_namespace = dendropy.TaxonNamespace()
+            for lineage_idx, lineage in enumerate(tree.leaf_node_iter()):
+                lineage._original_taxon = lineage.taxon
+                taxon_label = "s{}".format(lineage_idx+1)
+                lineage._original_taxon = lineage.taxon
+                lineage.taxon = tree.taxon_namespace.new_taxon(label=taxon_label)
+                for trait_idx in range(trees.num_trait_types):
+                    tree.lineage_trait_state_set_map[trait_idx][lineage.taxon.label] = str(lineage.traits_vector[trait_idx])
+        return trees
 
-            bt_commands = []
-            bt_commands.append("1") # multstate
-            bt_commands.append("1") # ml; 2 == mcmc
-            if True: #len(name_to_symbol_map.SYMBOLS) > 7:
-                bt_commands.append("restrictall q{}{}".format(
-                    name_to_symbol_map.SYMBOLS[0],
-                    name_to_symbol_map.SYMBOLS[1]))
-            bt_commands.append("run")
-            # bt_commands = "\n".join(bt_commands)
-            p = subprocess.Popen(
-                    ["BayesTraits", self.tree_file_name, self.data_file_name],
-                    stdout=subprocess.PIPE,
-                    stdin=subprocess.PIPE,
-                    )
-            stdout, stderr = processio.communicate(p, bt_commands)
-            stdout = stdout.split("\n")
-            result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
-            rate = float(result['qAB'])
-            # self.create_analysis(
-            #         prefix="x{}".format(tree_idx),
-            #         taxon_keys=taxa,
-            #         taxon_state_set_map=tsm,
-            #         tree_file="z{}.nexus".format(tree_idx),
-            #         )
+    def _analyze(self,
+            tree,
+            taxon_label_state_map):
+        dataf = open(self.data_file_name, "w")
+        symbols = set()
+        for taxon in tree.taxon_namespace:
+            row = [taxon.label]
+            states = taxon_label_state_map[taxon.label]
+            symbols.update(states)
+            row.append("".join(states))
+            dataf.write("{}\n".format("\t".join(row)))
+        dataf.close()
+        symbols = sorted(symbols)
+        if len(symbols) < 2:
+            return 0.0
+        bt_commands = []
+        bt_commands.append("1") # multstate
+        bt_commands.append("1") # ml; 2 == mcmc
+        if True: #len(name_to_symbol_map.SYMBOLS) > 7:
+            bt_commands.append("restrictall q{}{}".format(
+                symbols[0],
+                symbols[1]))
+        bt_commands.append("run")
+        # bt_commands = "\n".join(bt_commands)
+        p = subprocess.Popen(
+                ["BayesTraits", self.tree_file_name, self.data_file_name],
+                stdout=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                )
+        stdout, stderr = processio.communicate(p, bt_commands)
+        stdout = stdout.split("\n")
+        result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
+        rate = float(result['q{}{}'.format(symbols[0],symbols[1])])
+        return rate
 
-
+    def restore_tree_lineages(self, trees):
+        for tree_idx, tree in enumerate(trees):
+            tree.taxon_namespace = tree._original_taxon_namespace
+            del tree._original_taxon_namespace
+            lineage_trait_state_set_map = []
+            for lineage_idx, lineage in enumerate(tree.leaf_node_iter()):
+                lineage.taxon = lineage._original_taxon
+                del lineage._original_taxon
+        return trees
 

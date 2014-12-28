@@ -97,7 +97,6 @@ class ArchipelagoModel(object):
     @staticmethod
     def decode_label(label):
         parts = label.split(".")
-
         traits_string = parts[1]
         if not traits_string or traits_string == "x":
             traits_vector = StatesVector(nchar=0)
@@ -106,17 +105,39 @@ class ArchipelagoModel(object):
                     nchar=len(traits_string),
                     values=[int(i) for i in traits_string],
                     )
-        if node.traits_vector:
-            traits = "".join(str(i) for i in node.traits_vector)
-        else:
-            traits = "x"
-
         distribution_string = parts[2]
         distribution_vector = DistributionVector(
                 num_areas=len(distribution_string),
                 values=[int(i) for i in distribution_string],)
-
         return traits_vector, distribution_vector
+
+    @staticmethod
+    def decode_tree_lineages_from_labels(trees,
+            is_suppressed_taxa=False,
+            leaf_nodes_only=False,
+            ):
+        if is_suppressed_taxa:
+            _decode = lambda x: ArchipelagoModel.decode_label(x.label)
+        else:
+            _decode = lambda x: ArchipelagoModel.decode_label(x.taxon.label)
+        for tree in trees:
+            for nd in tree:
+                # print("==> {}, {}, {}, {}: {} and {} -> {}".format(
+                #     not leaf_nodes_only,
+                #     not nd._child_nodes,
+                #     is_suppressed_taxa,
+                #     nd.taxon is not None,
+                #     not leaf_nodes_only or not nd._child_nodes,
+                #     is_suppressed_taxa and nd.taxon is not None,
+                #     (not leaf_nodes_only or not nd._child_nodes) and (is_suppressed_taxa or nd.taxon is not None)
+                #     ))
+                if (not leaf_nodes_only or not nd._child_nodes) and (is_suppressed_taxa or nd.taxon is not None):
+                    traits_vector, distribution_vector = _decode(nd)
+                    nd.traits_vector = traits_vector
+                    nd.distribution_vector = distribution_vector
+                else:
+                    nd.traits_vector = None
+                    nd.distribution_vector = None
 
     def __init__(self):
         pass
@@ -477,11 +498,17 @@ class TraitTypes(object):
                 transition_rate=trait_d.pop("transition_rate", 0.01),
             )
             self.trait_types.append(trait)
-            transition_weights = dict(trait_d.pop("transition_weights", {})) # delay processing until all traits have been defined
-            if not transition_weights:
+
+            trait.transition_weights = list(trait_d.pop("transition_weights", []))
+            if not trait.transition_weights:
                 trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
+            else:
+                trait.transition_weights = [list(i) for i in trait.transition_weights]
+            # print(trait.transition_weights)
             total_transition_weight = 0.0
+            assert len(trait.transition_weights) == trait.nstates
             for a1_idx in range(trait.nstates):
+                assert len(trait.transition_weights[a1_idx]) == trait.nstates
                 for a2_idx in range(trait.nstates):
                     if a1_idx == a2_idx:
                         trait.transition_weights[a1_idx][a2_idx] = 0.0
