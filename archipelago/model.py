@@ -511,10 +511,12 @@ class TraitTypes(object):
                         total_transition_weight += trait.transition_weights[a1_idx][a2_idx]
             if self.normalize_transition_weights and total_transition_weight:
                 for a1_idx in range(trait.nstates):
+                    nfactor = sum(trait.transition_weights[a1_idx])
                     for a2_idx in range(trait.nstates):
                         if a1_idx == a2_idx:
                             continue
-                        trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
+                        # trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
+                        trait.transition_weights[a1_idx][a2_idx] /= nfactor
             self.trait_label_index_map[trait.label] = trait.index
             if run_logger is not None:
                 run_logger.info("(ECOLOGY) configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
