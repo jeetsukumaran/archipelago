@@ -326,13 +326,13 @@ class ArchipelagoSimulator(object):
                 event_calls.append( (self.phylogeny.extirpate_lineage, lineage) )
                 event_rates.append(extinction_rate)
             # trait evolution
-            for trait_idx, trait_state in enumerate(lineage.traits_vector):
-                for state_idx in range(self.model.trait_types[trait_idx].nstates):
-                    if state_idx == trait_idx:
+            for trait_idx, current_state_idx in enumerate(lineage.traits_vector):
+                for proposed_state_idx in range(self.model.trait_types[trait_idx].nstates):
+                    if proposed_state_idx == current_state_idx:
                         continue
-                    trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[trait_state][state_idx]
+                    trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[current_state_idx][proposed_state_idx]
                     if trait_transition_rate:
-                        event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, state_idx) )
+                        event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                         event_rates.append(trait_transition_rate)
             # dispersal
             for area_idx, occurs in enumerate(lineage.distribution_vector):
@@ -340,6 +340,9 @@ class ArchipelagoSimulator(object):
                     continue
                 for dest_idx in self.model.geography.area_indexes:
                     if dest_idx == area_idx:
+                        continue
+                    if lineage.distribution_vector[dest_idx]:
+                        # already occurs here: do we model it or not?
                         continue
                     dispersal_weight = self.model.geography.dispersal_weights[area_idx][dest_idx]
                     lineage_dispersal_rate = self.model.lineage_dispersal_rate_function(lineage)
