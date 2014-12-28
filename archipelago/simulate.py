@@ -19,6 +19,7 @@ from dendropy.utility import textprocessing
 import archipelago
 from archipelago import model
 from archipelago import utility
+from archipelago import error
 
 def weighted_choice(seq, weights, rng=None):
     """
@@ -56,18 +57,6 @@ def weighted_index_choice(weights, rng=None):
         rnd -= w
         if rnd < 0:
             return i
-
-class ArchipelagoException(Exception):
-    pass
-
-class FailedSimulationException(ArchipelagoException):
-    pass
-
-class InsufficientFocalAreaLineagesSimulationException(FailedSimulationException):
-    pass
-
-class TotalExtinctionException(FailedSimulationException):
-    pass
 
 class ArchipelagoSimulator(object):
 
@@ -241,7 +230,8 @@ class ArchipelagoSimulator(object):
             ### DEBUG
             if self.debug_mode:
                 num_events += 1
-                self.run_logger.debug("Pre-event {}: debug check: {}".format(num_events, self.debug_compose_tree(self.phylogeny)))
+                # self.run_logger.debug("Pre-event {}: debug check: {}".format(num_events, self.debug_compose_tree(self.phylogeny)))
+                self.run_logger.debug("Post-event {}: debug check: current lineages = {}".format(num_events, len(self.phylogeny.current_lineages)))
                 self.phylogeny._debug_check_tree()
                 for lineage in self.phylogeny.current_lineages:
                     assert lineage.is_extant
@@ -286,7 +276,8 @@ class ArchipelagoSimulator(object):
 
             ### DEBUG
             if self.debug_mode:
-                self.run_logger.debug("Post-event {}: debug check: {}".format(num_events, self.debug_compose_tree(self.phylogeny)))
+                # self.run_logger.debug("Post-event {}: debug check: {}".format(num_events, self.debug_compose_tree(self.phylogeny)))
+                self.run_logger.debug("Post-event {}: debug check: current lineages = {}".format(num_events, len(self.phylogeny.current_lineages)))
                 self.phylogeny._debug_check_tree()
                 for lineage in self.phylogeny.current_lineages:
                     assert lineage.is_extant
@@ -364,7 +355,7 @@ class ArchipelagoSimulator(object):
             focal_area_tree = self.phylogeny.extract_focal_area_tree()
             n = len(focal_area_tree.seed_node._child_nodes)
             if n < 2:
-                raise InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area: {}".format(n))
+                raise error.InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area: {}".format(n))
             self.write_tree(
                     out=focal_areas_tree_out,
                     tree=focal_area_tree,
@@ -489,7 +480,7 @@ def repeat_run(
             try:
                 archipelago_simulator.run()
                 run_logger.system = None
-            except ArchipelagoException as e:
+            except error.ArchipelagoException as e:
                 run_logger.system = None
                 run_logger.info("-archipelago- Replicate {} of {}: Simulation failure before termination condition at t = {}: {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time, e))
                 num_restarts += 1

@@ -16,6 +16,7 @@ from distutils.util import strtobool
 import dendropy
 
 from archipelago import utility
+from archipelago import error
 
 class ArchipelagoModel(object):
 
@@ -843,7 +844,7 @@ class Phylogeny(dendropy.Tree):
 
     def total_extinction_exception(self, msg):
         # self.run_logger.info("Total extinction: {}".format(msg))
-        raise TotalExtinctionException(msg)
+        raise error.TotalExtinctionException(msg)
 
     def evolve_trait(self, lineage, trait_idx, state_idx):
         lineage.traits_vector[trait_idx] = state_idx
@@ -874,11 +875,11 @@ class Phylogeny(dendropy.Tree):
         tcopy = copy.deepcopy(self)
         focal_area_lineages = tcopy.focal_area_lineages()
         if len(focal_area_lineages) < 2:
-            raise InsufficientFocalAreaLineagesSimulationException("insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
+            raise error.InsufficientFocalAreaLineagesSimulationException("insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
         try:
             tcopy.filter_leaf_nodes(filter_fn=lambda x: x in focal_area_lineages)
         except dendropy.SeedNodeDeletionException:
-            raise InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
+            raise error.InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
         return tcopy
 
 
