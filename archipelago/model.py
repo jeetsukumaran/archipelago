@@ -499,7 +499,6 @@ class TraitTypes(object):
                 trait.transition_weights = [[1.0 for j in range(trait.nstates)] for i in range(trait.nstates)]
             else:
                 trait.transition_weights = [list(i) for i in trait.transition_weights]
-            total_transition_weight = 0.0
             assert len(trait.transition_weights) == trait.nstates
             for a1_idx in range(trait.nstates):
                 assert len(trait.transition_weights[a1_idx]) == trait.nstates
@@ -508,15 +507,14 @@ class TraitTypes(object):
                         trait.transition_weights[a1_idx][a2_idx] = 0.0
                     else:
                         trait.transition_weights[a1_idx][a2_idx] = float(trait.transition_weights[a1_idx][a2_idx])
-                        total_transition_weight += trait.transition_weights[a1_idx][a2_idx]
-            if self.normalize_transition_weights and total_transition_weight:
+            if self.normalize_transition_weights:
                 for a1_idx in range(trait.nstates):
-                    nfactor = sum(trait.transition_weights[a1_idx])
-                    for a2_idx in range(trait.nstates):
-                        if a1_idx == a2_idx:
-                            continue
-                        # trait.transition_weights[a1_idx][a2_idx] /= total_transition_weight
-                        trait.transition_weights[a1_idx][a2_idx] /= nfactor
+                    normalization_factor = sum(trait.transition_weights[a1_idx])
+                    if normalization_factor:
+                        for a2_idx in range(trait.nstates):
+                            if a1_idx == a2_idx:
+                                continue
+                            trait.transition_weights[a1_idx][a2_idx] /= normalization_factor
             self.trait_label_index_map[trait.label] = trait.index
             if run_logger is not None:
                 run_logger.info("(ECOLOGY) configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
@@ -632,7 +630,6 @@ class Geography(object):
                 ", ".join("'{}'".format(a.label) for a in self.areas),
                 ))
         self.dispersal_weights = []
-        total_dispersal_weight = 0.0
         for a1_idx, area1 in enumerate(self.areas):
             if len(area1._dispersal_weights_d) == 0:
                 area1._dispersal_weights_d = [1.0] * len(self.areas)
@@ -651,16 +648,17 @@ class Geography(object):
                 else:
                     d = float(area1._dispersal_weights_d[a2_idx])
                     self.dispersal_weights[a1_idx].append(d)
-                    total_dispersal_weight += d
             # if area1._dispersal_weights_d:
             #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
             area1.dispersal_weights = self.dispersal_weights[a1_idx]
             del area1._dispersal_weights_d
-        if self.normalize_dispersal_weights and total_dispersal_weight:
+        if self.normalize_dispersal_weights:
             for a1_idx, area1 in enumerate(self.areas):
-                for a2_idx, area2 in enumerate(self.areas):
-                    self.dispersal_weights[a1_idx][a2_idx] /= total_dispersal_weight
-                area1.dispersal_weights = self.dispersal_weights[a1_idx]
+                normalization_factor = sum(self.dispersal_weights[a1_idx])
+                if normalization_factor:
+                    for a2_idx, area2 in enumerate(self.areas):
+                        self.dispersal_weights[a1_idx][a2_idx] /= normalization_factor
+                    area1.dispersal_weights = self.dispersal_weights[a1_idx]
         if run_logger is not None:
             if self.normalize_dispersal_weights:
                 weight_type = "Normalized dispersal"
