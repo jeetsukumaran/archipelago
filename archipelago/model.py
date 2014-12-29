@@ -375,8 +375,8 @@ class StatesVector(object):
             Vector of initial values. If not specified, defaults to all 0's.
         """
         self._nchar = nchar
-        if nstates is None:
-            self._nstates = nstates
+        if nstates is not None:
+            self._nstates = list(nstates)
         else:
             self._nstates = [2] * nchar
         if not values:
