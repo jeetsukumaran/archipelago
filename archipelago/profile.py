@@ -4,11 +4,12 @@ import collections
 from dendropy.model import birthdeath
 import dendropy
 from archipelago import estimate
+from archipelago import model
 
 class TreeProfiler(object):
 
     def __init__(self):
-        self.trait_transition_rate_estimator = estimate.TraitEvolutionRateEstimator()
+        self.trait_transition_rate_estimator = estimate.TraitTransitionRateEstimator()
 
     def diagnose_num_trait_types(self,
             trees,
@@ -18,7 +19,7 @@ class TreeProfiler(object):
             model.ArchipelagoModel.decode_tree_lineages_from_labels(
                     trees=trees,
                     is_suppressed_taxa=is_suppressed_taxa)
-        sample_node = next(trees.leaf_node_iter())
+        sample_node = next(trees[0].leaf_node_iter())
         num_trait_types = len(sample_node.traits_vector)
         trees.num_trait_types = num_trait_types
 
@@ -41,7 +42,7 @@ class TreeProfiler(object):
             is_trees_decoded=False,
             is_suppressed_taxa=False,
             ):
-        self.trait_transition_rate_estimator.estimate_trait_evolution_rate(
+        self.trait_transition_rate_estimator.estimate_trait_transition_rate(
                 trees=trees,
                 tree_results_map=tree_results_map,
                 trait_estimated_transition_rate_field_names=trait_estimated_transition_rate_field_names,

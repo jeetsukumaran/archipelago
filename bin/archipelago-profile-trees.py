@@ -102,7 +102,7 @@ def main():
         tree_profiler.diagnose_num_trait_types(trees)
         for trait_idx in range(trees.num_trait_types):
             trait_labels.append(str(trait_idx))
-            model_fieldnames.append("trait.{}.true.transition.rate".format(trait_idx))
+            # model_fieldnames.append("trait.{}.true.transition.rate".format(trait_idx))
             data_fieldnames.append("trait.{}.est.transition.rate".format(trait_idx))
             trait_estimated_transition_rate_field_names.append(data_fieldnames[-1])
     fieldnames = source_fieldnames + model_fieldnames + data_fieldnames
@@ -126,8 +126,8 @@ def main():
                     ))
         trees = dendropy.TreeList.get_from_path(source_filepath, args.schema)
         for tree_idx, tree in enumerate(trees):
-            if not args.quiet:
-                sys.stderr.write("-profiler- Source {} of {}: Tree {} of {}\n".format(source_idx+1, len(source_filepaths), tree_idx+1, len(trees)))
+            # if not args.quiet:
+            #     sys.stderr.write("-profiler- Source {} of {}: Tree {} of {}\n".format(source_idx+1, len(source_filepaths), tree_idx+1, len(trees)))
             results[tree] = {}
             if not args.no_source_columns:
                 results[tree]["source.path"] = source_filepath
@@ -144,9 +144,9 @@ def main():
                 results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
                 for trait_idx, trait in enumerate(archipelago_model.trait_types):
                     results[tree]["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
-                tree.calc_node_ages()
-                results[tree]["root.age"] = tree.seed_node.age
-                results[tree]["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
+            tree.calc_node_ages()
+            results[tree]["root.age"] = tree.seed_node.age
+            results[tree]["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
         tree_profiler.estimate_pure_birth(
                 trees=trees,
                 tree_results_map=results,
