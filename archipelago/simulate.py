@@ -331,8 +331,8 @@ class ArchipelagoSimulator(object):
                 for proposed_state_idx in range(self.model.trait_types[trait_idx].nstates):
                     if proposed_state_idx == current_state_idx:
                         continue
-                    # trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[current_state_idx][proposed_state_idx]
-                    trait_transition_rate = self.model.trait_types[trait_idx].transition_rate
+                    trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[current_state_idx][proposed_state_idx]
+                    # trait_transition_rate = self.model.trait_types[trait_idx].transition_rate
                     if trait_transition_rate:
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                         event_rates.append(trait_transition_rate)
