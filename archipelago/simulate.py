@@ -328,6 +328,7 @@ class ArchipelagoSimulator(object):
                 event_rates.append(extinction_rate)
             # trait evolution
             for trait_idx, current_state_idx in enumerate(lineage.traits_vector):
+                ## normalized
                 for proposed_state_idx in range(self.model.trait_types[trait_idx].nstates):
                     if proposed_state_idx == current_state_idx:
                         continue
@@ -335,6 +336,7 @@ class ArchipelagoSimulator(object):
                     if trait_transition_rate:
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                         event_rates.append(trait_transition_rate)
+                ## unnormalized
                 # trait_transition_rate = self.model.trait_types[trait_idx].transition_rate
                 # if trait_transition_rate:
                 #     # available = [i for i in range(self.model.trait_types[trait_idx].nstates) if i != current_state_idx]
@@ -342,8 +344,7 @@ class ArchipelagoSimulator(object):
                 #     proposed_state_idx = self.rng.choice(available)
                 #     event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                 #     event_rates.append(trait_transition_rate)
-
-            dispersal
+            # dispersal
             for area_idx, occurs in enumerate(lineage.distribution_vector):
                 if not occurs:
                     continue
