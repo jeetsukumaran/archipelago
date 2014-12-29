@@ -27,10 +27,10 @@ class TraitTransitionRateEstimator(object):
         self.work_file_name = self.work_file.name
         self.output_file_name = self.output_file.name
 
-        self.tree_file_name = "x1.nex"
-        self.data_file_name = "x1.txt"
-        self.work_file_name = "x1.in"
-        self.output_file_name = "x1.out"
+        # self.tree_file_name = "x1.nex"
+        # self.data_file_name = "x1.txt"
+        # self.work_file_name = "x1.in"
+        # self.output_file_name = "x1.out"
 
     # def write_nexus(self, tree, taxon_label_state_map, filepath):
     #     from dendropy.interop import paup
