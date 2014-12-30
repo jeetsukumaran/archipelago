@@ -173,42 +173,6 @@ class TraitTransitionRateEstimator(object):
             for rate, field_name in zip(rows, trait_estimated_transition_rate_field_names):
                 tree_results_map[tree][field_name] = rate
 
-    def _run_Geiger(self,
-            tree,
-            taxon_label_state_map):
-        symbols = set()
-        with open(self.data_file_name, "w") as dataf:
-            for taxon in tree.taxon_namespace:
-                row = [taxon.label]
-                states = taxon_label_state_map[taxon.label]
-                symbols.update(states)
-                row.append("".join(states))
-                dataf.write("{}\n".format("\t".join(row)))
-            dataf.flush()
-            dataf.close()
-        symbols = sorted(symbols)
-        if len(symbols) < 2:
-            return 0.0
-        bt_commands = []
-        bt_commands.append("1") # multstate
-        bt_commands.append("1") # ml; 2 == mcmc
-        if True: #len(name_to_symbol_map.SYMBOLS) > 7:
-            bt_commands.append("restrictall q{}{}".format(
-                symbols[0],
-                symbols[1]))
-        bt_commands.append("run")
-        # bt_commands = "\n".join(bt_commands)
-        p = subprocess.Popen(
-                ["BayesTraits", self.tree_file_name, self.data_file_name],
-                stdout=subprocess.PIPE,
-                stdin=subprocess.PIPE,
-                )
-        stdout, stderr = processio.communicate(p, bt_commands)
-        stdout = stdout.split("\n")
-        result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
-        rate = float(result['q{}{}'.format(symbols[0],symbols[1])])
-        return rate
-
     def _estimate_trait_transition_rate_using_bayes_traits(self,
             trees,
             tree_results_map,
