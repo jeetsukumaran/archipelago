@@ -96,6 +96,7 @@ class ArchipelagoModel(object):
         else:
             areas_v = "".join(str(i) for idx, i in enumerate(lineage.distribution_vector) if idx not in excluded_area_indexes)
         encoding = "s{}.{}.{}".format(lineage.index, traits_v, areas_v)
+        return encoding
 
     @staticmethod
     def decode_label(label):
