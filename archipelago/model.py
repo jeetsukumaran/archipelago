@@ -84,6 +84,20 @@ class ArchipelagoModel(object):
         return archipelago_model
 
     @staticmethod
+    def compose_encoded_label(
+            lineage,
+            excluded_area_indexes=None):
+        if lineage.traits_vector:
+            traits_v = "".join(str(i) for i in lineage.traits_vector)
+        else:
+            traits_v = "x"
+        if excluded_area_indexes is None:
+            areas_v = "".join(str(i) for i in lineage.distribution_vector)
+        else:
+            areas_v = "".join(str(i) for idx, i in enumerate(lineage.distribution_vector) if idx not in excluded_area_indexes)
+        encoding = "s{}.{}.{}".format(lineage.index, traits_v, areas_v)
+
+    @staticmethod
     def decode_label(label):
         parts = label.split(".")
         traits_string = parts[1]
@@ -235,17 +249,12 @@ class ArchipelagoModel(object):
             add_annotation=False,
             exclude_supplemental_areas=False,
             ):
-        if lineage.traits_vector:
-            traits_v = "".join(str(i) for i in lineage.traits_vector)
-        else:
-            traits_v = "x"
-        if exclude_supplemental_areas is None:
-            areas_v = "".join(str(i) for i in lineage.distribution_vector)
-        else:
-            areas_v = "".join(str(i) for idx, i in enumerate(lineage.distribution_vector) if idx not in self.geography.supplemental_area_indexes)
-        encoding = "s{}.{}.{}".format(lineage.index, traits_v, areas_v)
+        encoded_label = ArchipelagoModel.compose_encoded_label(
+                lineage=lineage,
+                excluded_area_indexes=self.geography.supplemental_area_indexes if exclude_supplemental_areas else None,
+                )
         if set_label:
-            lineage.label = encoding
+            lineage.label =encoded_label
         if add_annotation:
             lineage.annotations.drop()
             lineage.annotations.add_new("traits_v", traits_v)
@@ -259,7 +268,7 @@ class ArchipelagoModel(object):
                 if lineage.distribution_vector[area_idx] == 1:
                     area_list.append(area.label)
             lineage.annotations.add_new("areas", area_list)
-        return encoding
+        return encoded_label
 
     def write_model(self, out):
         model_definition = collections.OrderedDict()
