@@ -84,22 +84,6 @@ class ArchipelagoModel(object):
         return archipelago_model
 
     @staticmethod
-    def encode_lineage(node,
-            set_label=False,
-            add_annotation=False,
-            exclude_areas=None,
-            ):
-        if node.traits_vector:
-            traits = "".join(str(i) for i in node.traits_vector)
-        else:
-            traits = "x"
-        if exclude_areas is None:
-            areas = "".join(str(i) for i in node.distribution_vector)
-        else:
-            areas = "".join(str(i) for idx, i in enumerate(node.distribution_vector) if idx not in exclude_areas)
-        return "s{}.{}.{}".format(node.index, traits, areas)
-
-    @staticmethod
     def decode_label(label):
         parts = label.split(".")
         traits_string = parts[1]
@@ -244,6 +228,38 @@ class ArchipelagoModel(object):
 
         if model_definition:
             raise TypeError("Unsupported model keywords: {}".format(model_definition))
+
+    def encode_lineage(self,
+            lineage,
+            set_label=False,
+            add_annotation=False,
+            exclude_supplemental_areas=False,
+            ):
+        if lineage.traits_vector:
+            traits_v = "".join(str(i) for i in lineage.traits_vector)
+        else:
+            traits_v = "x"
+        if exclude_supplemental_areas is None:
+            areas_v = "".join(str(i) for i in lineage.distribution_vector)
+        else:
+            areas_v = "".join(str(i) for idx, i in enumerate(lineage.distribution_vector) if idx not in self.geography.supplemental_area_indexes)
+        encoding = "s{}.{}.{}".format(lineage.index, traits_v, areas_v)
+        if set_label:
+            lineage.label = encoding
+        if add_annotation:
+            lineage.annotations.drop()
+            lineage.annotations.add_new("traits_v", traits_v)
+            lineage.annotations.add_new("distribution", areas_v)
+            for trait_idx, trait in enumerate(self.trait_types):
+                lineage.annotations.add_new(trait.label, lineage.traits_vector[trait_idx])
+            area_list = []
+            for area_idx, area in enumerate(self.geography.areas):
+                if exclude_supplemental_areas and area.is_supplemental:
+                    continue
+                if lineage.distribution_vector[area_idx] == 1:
+                    area_list.append(area.label)
+            lineage.annotations.add_new("areas", area_list)
+        return encoding
 
     def write_model(self, out):
         model_definition = collections.OrderedDict()
@@ -688,9 +704,6 @@ class Lineage(dendropy.Node):
         self.traits_vector = traits_vector
         self.is_extant = True
         self.edge.length = 0
-
-    def __repr__(self):
-        return ArchipelagoModel.encode_lineage(self)
 
 class Phylogeny(dendropy.Tree):
 

@@ -400,9 +400,9 @@ class ArchipelagoSimulator(object):
     def write_focal_areas_tree(self, out, tree):
         if self.is_encode_nodes:
             labelf = lambda x: self.model.encode_lineage(x,
-                    set_label=True,
+                    set_label=False,
                     add_annotation=self.is_annotate_nodes,
-                    exclude_areas=self.model.geography.supplemental_area_indexes)
+                    exclude_supplemental_areas=True)
         else:
             labelf = ArchipelagoSimulator.simple_node_label_function
         tree.write_to_stream(
@@ -416,9 +416,9 @@ class ArchipelagoSimulator(object):
     def write_all_areas_tree(self, out, tree):
         if self.is_encode_nodes:
             labelf = lambda x: self.model.encode_lineage(x,
-                    set_label=True,
+                    set_label=False,
                     add_annotation=self.is_annotate_nodes,
-                    exclude_areas=None)
+                    exclude_supplemental_areas=False)
         else:
             labelf = ArchipelagoSimulator.simple_node_label_function
         tree.write_to_stream(
@@ -431,9 +431,9 @@ class ArchipelagoSimulator(object):
 
     def debug_compose_tree(self, tree):
         labelf = lambda x: self.model.encode_lineage(x,
-                set_label=True,
-                add_annotation=self.is_annotate_nodes,
-                exclude_areas=None)
+                set_label=False,
+                add_annotation=False,
+                exclude_supplemental_areas=False)
         s = tree.as_string(
                 "newick",
                 node_label_compose_func=self.model.encode_all_areas_lineage,
