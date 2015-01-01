@@ -84,7 +84,11 @@ class ArchipelagoModel(object):
         return archipelago_model
 
     @staticmethod
-    def encode_lineage(node, exclude_areas=None):
+    def encode_lineage(node,
+            set_label=False,
+            add_annotation=False,
+            exclude_areas=None,
+            ):
         if node.traits_vector:
             traits = "".join(str(i) for i in node.traits_vector)
         else:
@@ -165,7 +169,7 @@ class ArchipelagoModel(object):
             self.lineage_birth_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_birth_rate"), self.trait_types)
         else:
             self.lineage_birth_rate_function = RateFunction(
-                    definition_type="lambda",
+                    definition_type="lambda_definition",
                     definition_content="lambda lineage: 0.01",
                     description="fixed: 0.01",
                     trait_types=self.trait_types,
@@ -179,7 +183,7 @@ class ArchipelagoModel(object):
             self.lineage_death_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_death_rate"), self.trait_types)
         else:
             self.lineage_death_rate_function = RateFunction(
-                    definition_type="lambda",
+                    definition_type="lambda_definition",
                     definition_content="lambda lineage: 0.0",
                     description="fixed: 0.0",
                     trait_types=self.trait_types,
@@ -267,13 +271,6 @@ class ArchipelagoModel(object):
         d["gsa_termination_focal_area_lineages"] = self.gsa_termination_focal_area_lineages
         d["max_time"] = self.max_time
         return d
-
-    def encode_focal_areas_lineage(self, node):
-        return ArchipelagoModel.encode_lineage(node,
-                exclude_areas=self.geography.supplemental_area_indexes)
-
-    def encode_all_areas_lineage(self, node):
-        return ArchipelagoModel.encode_lineage(node, exclude_areas=None)
 
 class RateFunction(object):
 
@@ -865,7 +862,7 @@ class Phylogeny(dendropy.Tree):
                     break
         return count
 
-    def extract_focal_area_tree(self):
+    def extract_focal_areas_tree(self):
         # tcopy = Phylogeny(self)
         tcopy = copy.deepcopy(self)
         focal_area_lineages = tcopy.focal_area_lineages()

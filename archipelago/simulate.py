@@ -74,6 +74,10 @@ class ArchipelagoSimulator(object):
     def compose_all_areas_trees_filepath(output_prefix):
         return output_prefix + ".all-areas.trees"
 
+    @staticmethod
+    def simple_node_label_function(node):
+        return "s{}".format(node.index)
+
     def __init__(self, **kwargs):
 
         # configure
@@ -161,6 +165,20 @@ class ArchipelagoSimulator(object):
         self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False)
         if verbose:
             self.run_logger.info("Internal node labels will{} be written on trees".format(" not" if self.is_suppress_internal_node_labels else ""))
+
+        self.is_encode_nodes = config_d.pop("encode_nodes", True)
+        if verbose:
+            if self.is_encode_nodes:
+                self.run_logger.info("Trait states and ranges will be encoded on node labels")
+            else:
+                self.run_logger.info("Trait states and ranges will NOT be encoded on node labels")
+
+        self.is_annotate_nodes = config_d.pop("annotate_nodes", False)
+        if verbose:
+            if self.is_annotate_nodes:
+                self.run_logger.info("Trait states and ranges will be annotated on node labels")
+            else:
+                self.run_logger.info("Trait states and ranges will NOT be annotated on node labels")
 
         self.rng = config_d.pop("rng", None)
         if self.rng is None:
@@ -365,31 +383,44 @@ class ArchipelagoSimulator(object):
 
     def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
         if focal_areas_tree_out is not None:
-            focal_area_tree = self.phylogeny.extract_focal_area_tree()
-            n = len(focal_area_tree.seed_node._child_nodes)
+            focal_areas_tree = self.phylogeny.extract_focal_areas_tree()
+            n = len(focal_areas_tree.seed_node._child_nodes)
             if n < 2:
                 raise error.InsufficientFocalAreaLineagesSimulationException("Insufficient lineages in focal area: {}".format(n))
-            self.write_tree(
+            self.write_focal_areas_tree(
                     out=focal_areas_tree_out,
-                    tree=focal_area_tree,
-                    focal_areas_only_labeling=True,
+                    tree=focal_areas_tree,
                     )
         if all_areas_tree_out is not None:
-            self.write_tree(
+            self.write_all_areas_tree(
                     out=all_areas_tree_out,
                     tree=self.phylogeny,
-                    focal_areas_only_labeling=False,
                     )
 
-    def write_tree(self,
-            out,
-            tree,
-            focal_areas_only_labeling,
-            ):
-        if focal_areas_only_labeling:
-            labelf = self.model.encode_focal_areas_lineage
+    def write_focal_areas_tree(self, out, tree):
+        if self.is_encode_nodes:
+            labelf = lambda x: self.model.encode_lineage(x,
+                    set_label=True,
+                    add_annotation=self.is_annotate_nodes,
+                    exclude_areas=self.model.geography.supplemental_area_indexes)
         else:
-            labelf = self.model.encode_all_areas_lineage
+            labelf = ArchipelagoSimulator.simple_node_label_function
+        tree.write_to_stream(
+                out,
+                schema="newick",
+                suppress_annotations=False,
+                node_label_compose_func=labelf,
+                suppress_internal_node_labels=self.is_suppress_internal_node_labels,
+                )
+
+    def write_all_areas_tree(self, out, tree):
+        if self.is_encode_nodes:
+            labelf = lambda x: self.model.encode_lineage(x,
+                    set_label=True,
+                    add_annotation=self.is_annotate_nodes,
+                    exclude_areas=None)
+        else:
+            labelf = ArchipelagoSimulator.simple_node_label_function
         tree.write_to_stream(
                 out,
                 schema="newick",
@@ -399,11 +430,16 @@ class ArchipelagoSimulator(object):
                 )
 
     def debug_compose_tree(self, tree):
+        labelf = lambda x: self.model.encode_lineage(x,
+                set_label=True,
+                add_annotation=self.is_annotate_nodes,
+                exclude_areas=None)
         s = tree.as_string(
                 "newick",
                 node_label_compose_func=self.model.encode_all_areas_lineage,
                 suppress_edge_lengths=True)
         return s.replace("\n", "")
+
 
 def repeat_run(
         output_prefix,
