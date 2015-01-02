@@ -116,23 +116,25 @@ class ArchipelagoModel(object):
         return traits_vector, distribution_vector
 
     @staticmethod
-    def decode_tree_lineages_from_labels(trees,
-            is_suppressed_taxa=False,
+    def decode_tree_lineages_from_labels(
+            tree,
             leaf_nodes_only=False,
+            encoded_source="node",
             ):
-        if is_suppressed_taxa:
+        if encoded_source == "node":
             _decode = lambda x: ArchipelagoModel.decode_label(x.label)
-        else:
+        elif encoded_source == "taxon":
             _decode = lambda x: ArchipelagoModel.decode_label(x.taxon.label)
-        for tree in trees:
-            for nd in tree:
-                if (not leaf_nodes_only or not nd._child_nodes) and (is_suppressed_taxa or nd.taxon is not None):
-                    traits_vector, distribution_vector = _decode(nd)
-                    nd.traits_vector = traits_vector
-                    nd.distribution_vector = distribution_vector
-                else:
-                    nd.traits_vector = None
-                    nd.distribution_vector = None
+        else:
+            raise ValueError("'encoded_source' must be 'node' or 'taxon'")
+        for nd in tree:
+            if (not leaf_nodes_only or not nd._child_nodes) and (encoded_source == "node" or nd.taxon is not None):
+                traits_vector, distribution_vector = _decode(nd)
+                nd.traits_vector = traits_vector
+                nd.distribution_vector = distribution_vector
+            else:
+                nd.traits_vector = None
+                nd.distribution_vector = None
 
     def __init__(self):
         pass
