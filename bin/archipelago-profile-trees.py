@@ -19,8 +19,11 @@ class ArchipelagoProfiler(object):
 
     GEIGER_STATE_SYMBOLS = "123456789"
 
-    def __init__(self, quiet=False):
+    def __init__(self,
+            quiet=False,
+            fail_on_estimation_error=True):
         self.quiet = quiet
+        self.fail_on_estimation_error = fail_on_estimation_error
         # self.tree_file = tempfile.NamedTemporaryFile()
         # self.data_file = tempfile.NamedTemporaryFile()
         # self.work_file = tempfile.NamedTemporaryFile()
@@ -116,15 +119,29 @@ class ArchipelagoProfiler(object):
         # estimate birth rate
         self.estimate_pure_birth_rate(tree, profile_results)
 
+        # set up for external processing
+        ## fix negative edge lengths
+        self.preprocess_edge_lengths(tree)
+        ## set up taxa
+        self.preprocess_tree_taxa(tree)
+        ## store tree
+        self.create_working_tree_file(tree)
+
         # process traits
         self.estimate_trait_evolution_rates(
-                tree,
-                profile_results,
+                tree=tree,
+                profile_results=profile_results,
                 generating_model=generating_model)
 
-
         # process areas
-        # num_areas = len(sample_node.distribution_vector)
+        self.estimate_pure_dispersal_rate(
+                tree=tree,
+                profile_results=profile_results,
+                generating_model=generating_model)
+
+        # clean up
+        self.restore_tree_taxa(tree)
+        self.restore_edge_lengths(tree)
 
         # return
         return profile_results
@@ -182,13 +199,6 @@ class ArchipelagoProfiler(object):
             tree,
             profile_results,
             generating_model=None):
-        for nd in tree:
-            nd.edge.original_length = nd.edge.length
-            if nd.edge.length is None:
-                nd.edge.length = 0.0
-            elif nd.edge.length < 0.0:
-                self.send_message("Setting negative edge length of {} to 0.0".format(nd.edge.length))
-                nd.edge.length = 0.0
         if generating_model is None:
             sample_node = next(tree.leaf_node_iter())
             num_trait_types = len(sample_node.traits_vector)
@@ -197,15 +207,6 @@ class ArchipelagoProfiler(object):
             num_trait_types = len(generating_model.geography.trait_types)
             trait_names = [trait.label for trait in generating_model.geography.trait_types]
         assert len(trait_names) == num_trait_types
-        with open(self.tree_file_name, "w") as tf:
-            tree.write_to_stream(
-                    tf,
-                    "nexus",
-                    suppress_leaf_node_labels=False,
-                    suppress_internal_node_labels=True,
-                    suppress_internal_taxon_labels=True)
-            tf.flush()
-            tf.close()
         lineage_trait_states = collections.OrderedDict()
         for trait_idx in range(num_trait_types):
             state_symbols = {}
@@ -257,12 +258,96 @@ class ArchipelagoProfiler(object):
                 stdout=subprocess.PIPE,
                 )
         stdout, stderr = processio.communicate(p)
-        rows = [row.strip() for row in stdout.split("\n")]
-        rows = [float(row) for row in rows if row]
-        assert len(rows) == num_trait_types, rows
-        assert len(rows) == len(trait_names), rows
+        if p.returncode != 0:
+            if self.fail_on_estimation_error:
+                raise Exception(p.returncode)
+            else:
+                rows = ["NA" for i in range(len(trait_names))]
+        else:
+            rows = [row.strip() for row in stdout.split("\n")]
+            rows = [float(row) for row in rows if row]
+            assert len(rows) == num_trait_types, rows
+            assert len(rows) == len(trait_names), rows
         for field_name, rate in zip(trait_names, rows):
             profile_results["trait.{}.est.transition.rate".format(field_name)] = rate
+
+    def estimate_pure_dispersal_rate(self,
+            tree,
+            profile_results,
+            generating_model=None):
+        pass
+        # self.create_geography_file(self.output_filepaths["geography_bayestraits_data"])
+        # bt_commands = []
+        # bt_commands.append("1") # multstate
+        # bt_commands.append("1") # ml; 2 == mcmc
+        # if True: #len(name_to_symbol_map.SYMBOLS) > 7:
+        #     bt_commands.append("restrictall q01")
+        # bt_commands.append("run")
+        # # bt_commands = "\n".join(bt_commands)
+        # p = subprocess.Popen(
+        #         ["BayesTraits",
+        #             self.output_filepaths["phylogeny_nexus"],
+        #             self.output_filepaths["geography_bayestraits_data"]],
+        #         stdout=subprocess.PIPE,
+        #         stdin=subprocess.PIPE,
+        #         )
+        # stdout, stderr = processio.communicate(p, bt_commands)
+        # stdout = stdout.split("\n")
+        # result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
+        # rate = float(result['q01'])
+        # resultf = open(self.output_filepaths["geography_bayestraits_results"], "w")
+        # result_row = "BayesTrait estimate of dispersal rate = {}\n".format(rate)
+        # resultf.write(result_row)
+        # print(result_row)
+
+    def create_working_tree_file(self, tree):
+        with open(self.tree_file_name, "w") as tf:
+            tree.write_to_stream(
+                    tf,
+                    "nexus",
+                    suppress_leaf_taxon_labels=False,
+                    suppress_leaf_node_labels=True,
+                    suppress_internal_node_labels=True,
+                    suppress_internal_taxon_labels=False,
+                    translate_tree_taxa=True,
+                    )
+            tf.flush()
+            tf.close()
+
+    def create_geography_file(self, output_path):
+        dataf = open(output_path, "w")
+        for lineage in self.lineage_distributions:
+            dataf.write("{}\t{}\n".format(lineage, "\t".join(self.lineage_distributions[lineage])))
+        dataf.flush()
+        dataf.close()
+
+    def preprocess_tree_taxa(self, tree):
+        tree.original_taxon_namespace = tree.taxon_namespace
+        tree.taxon_namespace = dendropy.TaxonNamespace()
+        for node_idx, node in enumerate(tree.leaf_node_iter()):
+            node.original_taxon = node.taxon
+            node.taxon = tree.taxon_namespace.new_taxon(label=node.label)
+
+    def preprocess_edge_lengths(self, tree):
+        for nd in tree:
+            nd.edge.original_length = nd.edge.length
+            if nd.edge.length is None:
+                nd.edge.length = 0.0
+            elif nd.edge.length < 0.0:
+                self.send_message("Setting negative edge length of {} to 0.0".format(nd.edge.length))
+                nd.edge.length = 0.0
+
+    def restore_edge_lengths(self, tree):
+        for nd in tree:
+            nd.edge.length = nd.edge.original_length
+            del nd.edge.original_length
+
+    def restore_tree_taxa(self, tree):
+        tree.taxon_namespace = tree.original_taxon_namespace
+        del tree.original_taxon_namespace
+        for node_idx, node in enumerate(tree.leaf_node_iter()):
+            node.taxon = node.original_taxon
+            del node.original_taxon
 
 def main():
     parser = argparse.ArgumentParser()
