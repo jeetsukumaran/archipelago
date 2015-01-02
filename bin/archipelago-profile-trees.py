@@ -147,6 +147,20 @@ def main():
             tree.calc_node_ages()
             results[tree]["root.age"] = tree.seed_node.age
             results[tree]["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
+            # for nd in tree.postorder_node_iter():
+            #     if nd.edge.length is None:
+            #         nd.edge.length = 0.0
+            #     elif nd.edge.length < 0:
+            #         if not args.quiet:
+            #             sys.stderr.write("-profiler- Source {source_idx} of {num_sources}: Tree {tree_idx} of {num_trees}: setting negative branch length {brlen} for node {node} to 0.0\n".format(
+            #                     source_idx=source_idx+1,
+            #                     num_sources=len(source_filepaths),
+            #                     tree_idx=tree_idx+1,
+            #                     num_trees=len(trees),
+            #                     brlen=nd.edge.length,
+            #                     node=str(nd),
+            #                     ))
+            #         nd.edge.length = 0.0
         tree_profiler.estimate_pure_birth(
                 trees=trees,
                 tree_results_map=results,

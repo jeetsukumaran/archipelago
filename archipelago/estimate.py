@@ -99,6 +99,10 @@ class TraitTransitionRateEstimator(object):
                 node.taxon = tree.taxon_namespace.new_taxon(label=taxon_label)
                 for trait_idx in range(trees.num_trait_types):
                     tree.lineage_label_trait_state_set_map[trait_idx][node.taxon.label] = str(node.traits_vector[trait_idx])
+            for nd in tree:
+                nd.edge.original_length = nd.edge.length
+                if nd.edge.length < 0 or nd.edge.length is None:
+                    nd.edge.length = 0
         return trees
 
     def _estimate_trait_transition_rate_using_geiger(self,
@@ -237,5 +241,7 @@ class TraitTransitionRateEstimator(object):
             for lineage_idx, lineage in enumerate(tree.leaf_node_iter()):
                 lineage.taxon = lineage._original_taxon
                 del lineage._original_taxon
+            for nd in tree:
+                nd.edge.length = nd.edge.original_length
         return trees
 
