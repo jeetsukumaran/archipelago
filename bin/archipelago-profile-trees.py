@@ -41,32 +41,46 @@ class ArchipelagoProfiler(object):
         s = sep.join(str(a) for a in args)
         sys.stderr.write("-profiler- {}\n".format(s))
 
+    def write_profiles(self,
+            dest,
+            profiles,
+            suppress_headers=False):
+        fieldnames = list(profiles[0].keys())
+        writer = csv.DictWriter(dest, fieldnames=fieldnames)
+        if not suppress_headers:
+            writer.writeheader()
+        writer.writerows(profiles)
+
     def profile_trees_from_path(self,
             trees_filepath,
-            generating_model=None,
-            schema="newick"):
+            schema="newick",
+            generating_model=None):
         trees = dendropy.TreeList.get_from_path(
                 trees_filepath,
                 schema=schema,
                 suppress_internal_node_taxa=True,
                 suppress_external_node_taxa=True,
                 )
-        self.profile_trees(
+        profiles = self.profile_trees(
                 trees=trees,
                 generating_model=generating_model,
                 is_lineages_decoded=False,
-                decode_lineages_from="node")
+                decode_lineages_from="node",)
+        return profiles
 
     def profile_trees(self,
             trees,
             generating_model=None,
             is_lineages_decoded=False,
             decode_lineages_from="node"):
+        profiles = []
         for tree in trees:
-            self.profile_tree(
+            r = self.profile_tree(
                     tree=tree,
                     generating_model=generating_model,
                     is_lineages_decoded=is_lineages_decoded)
+            profiles.append(r)
+        return profiles
 
     def profile_tree(self,
             tree,
@@ -79,25 +93,28 @@ class ArchipelagoProfiler(object):
                     leaf_nodes_only=True,
                     encoded_source=decode_lineages_from)
 
-        # intitialize results
-        results = collections.OrderedDict()
+        # intitialize profile_results
+        profile_results = collections.OrderedDict()
 
         # prepopulate with params that are available
         if generating_model is not None:
-            self.store_generating_model_parameters(generating_model, results)
+            self.store_generating_model_parameters(generating_model, profile_results)
 
         # estimate birth rate
-        self.estimate_pure_birth_rate(tree, results)
+        self.estimate_pure_birth_rate(tree, profile_results)
 
         # process traits
         self.estimate_trait_evolution_rates(
                 tree,
-                results,
+                profile_results,
                 generating_model=generating_model)
 
 
         # process areas
         # num_areas = len(sample_node.distribution_vector)
+
+        # return
+        return profile_results
 
     # def preprocess_tree_lineages(self, tree):
     #     tree.lineage_label_trait_state_set_map = []
@@ -125,32 +142,32 @@ class ArchipelagoProfiler(object):
     #             nd.edge.length = nd.edge.original_length
     #     return trees
 
-    def store_generating_model_parameters(self, generating_model, results):
-        results["num.areas"] = len(generating_model.geography.areas)
-        results["num.focal.areas"] = len(generating_model.geography.focal_area_indexes)
-        results["num.supplemental.areas"] = len(generating_model.geography.supplemental_area_indexes)
-        results["lineage.birth.rate.definition"] = generating_model.lineage_birth_rate_function.definition_content
-        results["lineage.birth.rate.description"] = generating_model.lineage_birth_rate_function.description
-        results["lineage.death.rate.definition"] = generating_model.lineage_death_rate_function.definition_content
-        results["lineage.death.rate.description"] = generating_model.lineage_death_rate_function.description
-        results["lineage.dispersal.rate.definition"] = generating_model.lineage_dispersal_rate_function.definition_content
-        results["lineage.dispersal.rate.description"] = generating_model.lineage_dispersal_rate_function.description
+    def store_generating_model_parameters(self, generating_model, profile_results):
+        profile_results["num.areas"] = len(generating_model.geography.areas)
+        profile_results["num.focal.areas"] = len(generating_model.geography.focal_area_indexes)
+        profile_results["num.supplemental.areas"] = len(generating_model.geography.supplemental_area_indexes)
+        profile_results["lineage.birth.rate.definition"] = generating_model.lineage_birth_rate_function.definition_content
+        profile_results["lineage.birth.rate.description"] = generating_model.lineage_birth_rate_function.description
+        profile_results["lineage.death.rate.definition"] = generating_model.lineage_death_rate_function.definition_content
+        profile_results["lineage.death.rate.description"] = generating_model.lineage_death_rate_function.description
+        profile_results["lineage.dispersal.rate.definition"] = generating_model.lineage_dispersal_rate_function.definition_content
+        profile_results["lineage.dispersal.rate.description"] = generating_model.lineage_dispersal_rate_function.description
         for trait_idx, trait in enumerate(generating_model.trait_types):
-            results["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
-        return results
+            profile_results["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
+        return profile_results
 
-    def estimate_pure_birth_rate(self, tree, results):
+    def estimate_pure_birth_rate(self, tree, profile_results):
         try:
             bdfit = birthdeath.fit_pure_birth_model_to_tree(tree)
         except ZeroDivisionError:
             rate = 0.0
         else:
             rate = bdfit["birth_rate"]
-        results["pure.birth.rate"] = rate
+        profile_results["pure.birth.rate"] = rate
 
     def estimate_trait_evolution_rates(self,
             tree,
-            results,
+            profile_results,
             generating_model=None):
         for nd in tree:
             nd.edge.original_length = nd.edge.length
@@ -232,7 +249,7 @@ class ArchipelagoProfiler(object):
         assert len(rows) == num_trait_types, rows
         assert len(rows) == len(trait_names), rows
         for field_name, rate in zip(trait_names, rows):
-            results["trait.{}.est.transition.rate".format(field_name)] = rate
+            profile_results["trait.{}.est.transition.rate".format(field_name)] = rate
 
 def main():
     parser = argparse.ArgumentParser()
@@ -254,11 +271,11 @@ def main():
             default=None,
             help="Model file(s) for the input tree file(s)."
                  " Parameters of the model will be added to the"
-                 " profile results to facilitate analysis."
+                 " profile profile_results to facilitate analysis."
             )
     parser.add_argument("-o", "--output-file",
             default=None,
-            help="Path to results file (default: standard output)."
+            help="Path to profile_results file (default: standard output)."
             )
     parser.add_argument("-q", "--quiet",
             action="store_true",
@@ -284,6 +301,7 @@ def main():
     else:
         archipelago_model = None
     profiler = ArchipelagoProfiler()
+    profiles = []
     for source_idx, source_filepath in enumerate(source_filepaths):
         if not args.quiet:
             sys.stderr.write("-profiler- Source {source_idx} of {num_sources}: {source_filepath}\n".format(
@@ -291,13 +309,18 @@ def main():
                     num_sources=len(source_filepaths),
                     source_filepath=source_filepath,
                     ))
-        profiler.profile_trees_from_path(
+        results = profiler.profile_trees_from_path(
                 trees_filepath=source_filepath,
-                generating_model=archipelago_model,
-                schema=args.schema)
+                schema=args.schema,
+                generating_model=archipelago_model)
+        profiles.extend(results)
+    profiler.write_profiles(
+            dest=sys.stdout,
+            profiles=profiles,
+            suppress_headers=False)
 
 
-    # results = collections.OrderedDict()
+    # profile_results = collections.OrderedDict()
     # if not args.no_source_columns:
     #     source_fieldnames = [
     #         "source.path",
@@ -374,25 +397,25 @@ def main():
     #     for tree_idx, tree in enumerate(trees):
     #         if not args.quiet and (tree_idx == 0 or tree_idx % 10 == 0):
     #             sys.stderr.write("-profiler- Source {} of {}: Tree {} of {}\n".format(source_idx+1, len(source_filepaths), tree_idx+1, len(trees)))
-    #         results[tree] = {}
+    #         profile_results[tree] = {}
     #         if not args.no_source_columns:
-    #             results[tree]["source.path"] = source_filepath
-    #             results[tree]["tree.index"] = tree_idx
+    #             profile_results[tree]["source.path"] = source_filepath
+    #             profile_results[tree]["tree.index"] = tree_idx
     #         if archipelago_model:
-    #             results[tree]["num.areas"] = len(archipelago_model.geography.areas)
-    #             results[tree]["num.focal.areas"] = len(archipelago_model.geography.focal_area_indexes)
-    #             results[tree]["num.supplemental.areas"] = len(archipelago_model.geography.supplemental_area_indexes)
-    #             results[tree]["lineage.birth.rate.definition"] = archipelago_model.lineage_birth_rate_function.definition_content
-    #             results[tree]["lineage.birth.rate.description"] = archipelago_model.lineage_birth_rate_function.description
-    #             results[tree]["lineage.death.rate.definition"] = archipelago_model.lineage_death_rate_function.definition_content
-    #             results[tree]["lineage.death.rate.description"] = archipelago_model.lineage_death_rate_function.description
-    #             results[tree]["lineage.dispersal.rate.definition"] = archipelago_model.lineage_dispersal_rate_function.definition_content
-    #             results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
+    #             profile_results[tree]["num.areas"] = len(archipelago_model.geography.areas)
+    #             profile_results[tree]["num.focal.areas"] = len(archipelago_model.geography.focal_area_indexes)
+    #             profile_results[tree]["num.supplemental.areas"] = len(archipelago_model.geography.supplemental_area_indexes)
+    #             profile_results[tree]["lineage.birth.rate.definition"] = archipelago_model.lineage_birth_rate_function.definition_content
+    #             profile_results[tree]["lineage.birth.rate.description"] = archipelago_model.lineage_birth_rate_function.description
+    #             profile_results[tree]["lineage.death.rate.definition"] = archipelago_model.lineage_death_rate_function.definition_content
+    #             profile_results[tree]["lineage.death.rate.description"] = archipelago_model.lineage_death_rate_function.description
+    #             profile_results[tree]["lineage.dispersal.rate.definition"] = archipelago_model.lineage_dispersal_rate_function.definition_content
+    #             profile_results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
     #             for trait_idx, trait in enumerate(archipelago_model.trait_types):
-    #                 results[tree]["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
+    #                 profile_results[tree]["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
     #         tree.calc_node_ages()
-    #         results[tree]["root.age"] = tree.seed_node.age
-    #         results[tree]["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
+    #         profile_results[tree]["root.age"] = tree.seed_node.age
+    #         profile_results[tree]["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
     #         # for nd in tree.postorder_node_iter():
     #         #     if nd.edge.length is None:
     #         #         nd.edge.length = 0.0
@@ -409,16 +432,16 @@ def main():
     #         #         nd.edge.length = 0.0
     #     tree_profiler.estimate_pure_birth(
     #             trees=trees,
-    #             tree_results_map=results,
+    #             tree_profile_results_map=profile_results,
     #             )
     #     tree_profiler.estimate_trait_transition_rates(
     #             trees=trees,
-    #             tree_results_map=results,
+    #             tree_profile_results_map=profile_results,
     #             trait_estimated_transition_rate_field_names=trait_estimated_transition_rate_field_names,
     #             is_trees_decoded=False,
     #             is_suppressed_taxa=False,
     #             )
-    # for row in results.values():
+    # for row in profile_results.values():
     #     writer.writerow(row)
 
 if __name__ == "__main__":
