@@ -61,6 +61,7 @@ class ArchipelagoProfiler(object):
                 suppress_internal_node_taxa=True,
                 suppress_external_node_taxa=True,
                 )
+        trees.tree_filepath = trees_filepath
         profiles = self.profile_trees(
                 trees=trees,
                 generating_model=generating_model,
@@ -74,7 +75,10 @@ class ArchipelagoProfiler(object):
             is_lineages_decoded=False,
             decode_lineages_from="node"):
         profiles = []
-        for tree in trees:
+        for tree_idx, tree in enumerate(trees):
+            if hasattr(trees, "tree_filepath"):
+                tree.tree_filepath = trees.tree_filepath
+                tree.tree_offset = tree_idx
             r = self.profile_tree(
                     tree=tree,
                     generating_model=generating_model,
@@ -99,6 +103,15 @@ class ArchipelagoProfiler(object):
         # prepopulate with params that are available
         if generating_model is not None:
             self.store_generating_model_parameters(generating_model, profile_results)
+
+        # basic profile
+        if hasattr(tree, "tree_filepath"):
+            profile_results["tree.filepath"] = tree.tree_filepath
+            if hasattr(tree, "tree_offset"):
+                profile_results["tree.offset"] = tree.tree_offset
+        tree.calc_node_ages()
+        profile_results["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
+        profile_results["root.age"] = tree.seed_node.age
 
         # estimate birth rate
         self.estimate_pure_birth_rate(tree, profile_results)
