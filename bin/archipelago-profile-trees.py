@@ -21,21 +21,26 @@ class ArchipelagoProfiler(object):
 
     def __init__(self,
             quiet=False,
-            fail_on_estimation_error=True):
+            fail_on_estimation_error=True,
+            debug_mode=False):
         self.quiet = quiet
         self.fail_on_estimation_error = fail_on_estimation_error
-        # self.tree_file = tempfile.NamedTemporaryFile()
-        # self.data_file = tempfile.NamedTemporaryFile()
-        # self.work_file = tempfile.NamedTemporaryFile()
-        # self.output_file = tempfile.NamedTemporaryFile()
-        # self.tree_file_name = self.tree_file.name
-        # self.data_file_name = self.data_file.name
-        # self.work_file_name = self.work_file.name
-        # self.output_file_name = self.output_file.name
-        self.tree_file_name = "xx1.tre"
-        self.data_file_name = "xx1.txt"
-        self.work_file_name = "xx1.work"
-        self.output_file_name = "xx1.out"
+        self.debug_mode = debug_mode
+        if self.debug_mode:
+            self.tree_file_name = "profiler.tree.nexus"
+            self.traits_data_file_name = "profiler.traits.data.txt"
+            self.geography_data_file_name = "profiler.geography.data.txt"
+            self.commands_file_name = "profiler.commands.txt"
+        else:
+            self.tree_file = tempfile.NamedTemporaryFile()
+            self.traits_data_file = tempfile.NamedTemporaryFile()
+            self.geography_data_file = tempfile.NamedTemporaryFile()
+            self.commands_file = tempfile.NamedTemporaryFile()
+            self.output_file = tempfile.NamedTemporaryFile()
+            self.tree_file_name = self.tree_file.name
+            self.traits_data_file_name = self.traits_data_file.name
+            self.geography_data_file_name = self.geography_data_file.name
+            self.commands_file_name = self.commands_file.name
 
     def send_message(self, *args, **kwargs):
         if self.quiet:
@@ -125,19 +130,23 @@ class ArchipelagoProfiler(object):
         ## set up taxa
         self.preprocess_tree_taxa(tree)
         ## store tree
-        self.create_working_tree_file(tree)
+        self.create_working_tree_data(tree)
+        ## create traits
+        trait_names = self.create_traits_data(
+                tree=tree,
+                generating_model=generating_model)
 
         # process traits
         self.estimate_trait_evolution_rates(
                 tree=tree,
                 profile_results=profile_results,
-                generating_model=generating_model)
+                trait_names=trait_names)
 
         # process areas
-        self.estimate_pure_dispersal_rate(
-                tree=tree,
-                profile_results=profile_results,
-                generating_model=generating_model)
+        # self.estimate_pure_dispersal_rate(
+        #         tree=tree,
+        #         profile_results=profile_results,
+        #         generating_model=generating_model)
 
         # clean up
         self.restore_tree_taxa(tree)
@@ -198,51 +207,21 @@ class ArchipelagoProfiler(object):
     def estimate_trait_evolution_rates(self,
             tree,
             profile_results,
-            generating_model=None):
-        if generating_model is None:
-            sample_node = next(tree.leaf_node_iter())
-            num_trait_types = len(sample_node.traits_vector)
-            trait_names = ["trait{}".format(i+1) for i in range(num_trait_types)]
-        else:
-            num_trait_types = len(generating_model.geography.trait_types)
-            trait_names = [trait.label for trait in generating_model.geography.trait_types]
-        assert len(trait_names) == num_trait_types
-        lineage_trait_states = collections.OrderedDict()
-        for trait_idx in range(num_trait_types):
-            state_symbols = {}
-            for node in tree.leaf_node_iter():
-                lineage_label = node.label
-                state = node.traits_vector[trait_idx]
-                try:
-                    symbol = state_symbols[state]
-                except KeyError:
-                    symbol = ArchipelagoProfiler.GEIGER_STATE_SYMBOLS[len(state_symbols)]
-                    state_symbols[state] = symbol
-                try:
-                    lineage_trait_states[lineage_label].append(symbol)
-                except KeyError:
-                    lineage_trait_states[lineage_label] = [ symbol ]
-        with open(self.data_file_name, "w") as dataf:
-            for lineage_label in lineage_trait_states:
-                traits = ",".join(lineage_trait_states[lineage_label])
-                dataf.write("{},{}\n".format(lineage_label, traits))
-            dataf.flush()
-            dataf.close()
+            trait_names):
         rcmds = []
         rcmds.append("library(parallel, quietly=T)")
         rcmds.append("library(ape, quietly=T)")
         rcmds.append("library(geiger, quietly=T)")
-        # rcmds.append("sink('{}')".format(self.output_file_name))
         rcmds.append("tree1 <- read.nexus('{}')".format(self.tree_file_name))
-        rcmds.append("traits <- read.csv('{}', header=F, row.names=1)".format(self.data_file_name))
-        for trait_idx in range(num_trait_types):
+        rcmds.append("traits <- read.csv('{}', header=F, row.names=1)".format(self.traits_data_file_name))
+        for trait_idx, trait_name in enumerate(trait_names):
             trait_var = "trait{}".format(trait_idx)
             rcmds.append("{} <- traits[,{}]".format(trait_var, trait_idx+1))
             rcmds.append("names({}) <- row.names(traits)".format(trait_var))
             rcmds.append("m = fitDiscrete(tree1, {})".format(trait_var))
             rcmds.append(r"cat(c(m$opt$q12), sep='\n')")
         rcmds = "\n".join(rcmds)
-        rfile = open(self.work_file_name, "w")
+        rfile = open(self.commands_file_name, "w")
         rfile.write(rcmds + "\n")
         rfile.flush()
         rfile.close()
@@ -252,7 +231,7 @@ class ArchipelagoProfiler(object):
                 "--slave",
                 "--silent",
                 "-f",
-                self.work_file_name]
+                self.commands_file_name]
         p = subprocess.Popen(
                 shell_cmd,
                 stdout=subprocess.PIPE,
@@ -266,7 +245,6 @@ class ArchipelagoProfiler(object):
         else:
             rows = [row.strip() for row in stdout.split("\n")]
             rows = [float(row) for row in rows if row]
-            assert len(rows) == num_trait_types, rows
             assert len(rows) == len(trait_names), rows
         for field_name, rate in zip(trait_names, rows):
             profile_results["trait.{}.est.transition.rate".format(field_name)] = rate
@@ -274,8 +252,13 @@ class ArchipelagoProfiler(object):
     def estimate_pure_dispersal_rate(self,
             tree,
             profile_results,
-            generating_model=None):
-        pass
+            num_areas):
+
+        # cannot rely on generating model for number of
+        # areas because we do not know if supplemental
+        # areas are included in node data
+        sample_node = next(tree.leaf_node_iter())
+        num_areas = len(sample_node.distribution_vector)
         # self.create_geography_file(self.output_filepaths["geography_bayestraits_data"])
         # bt_commands = []
         # bt_commands.append("1") # multstate
@@ -300,7 +283,7 @@ class ArchipelagoProfiler(object):
         # resultf.write(result_row)
         # print(result_row)
 
-    def create_working_tree_file(self, tree):
+    def create_working_tree_data(self, tree):
         with open(self.tree_file_name, "w") as tf:
             tree.write_to_stream(
                     tf,
@@ -313,6 +296,40 @@ class ArchipelagoProfiler(object):
                     )
             tf.flush()
             tf.close()
+
+    def create_traits_data(self,
+            tree,
+            generating_model=None):
+        if generating_model is None:
+            sample_node = next(tree.leaf_node_iter())
+            num_trait_types = len(sample_node.traits_vector)
+            trait_names = ["trait{}".format(i+1) for i in range(num_trait_types)]
+        else:
+            num_trait_types = len(generating_model.geography.trait_types)
+            trait_names = [trait.label for trait in generating_model.geography.trait_types]
+        assert len(trait_names) == num_trait_types
+        lineage_trait_states = collections.OrderedDict()
+        for trait_idx in range(num_trait_types):
+            state_symbols = {}
+            for node in tree.leaf_node_iter():
+                lineage_label = node.label
+                state = node.traits_vector[trait_idx]
+                try:
+                    symbol = state_symbols[state]
+                except KeyError:
+                    symbol = ArchipelagoProfiler.GEIGER_STATE_SYMBOLS[len(state_symbols)]
+                    state_symbols[state] = symbol
+                try:
+                    lineage_trait_states[lineage_label].append(symbol)
+                except KeyError:
+                    lineage_trait_states[lineage_label] = [ symbol ]
+        with open(self.traits_data_file_name, "w") as dataf:
+            for lineage_label in lineage_trait_states:
+                traits = ",".join(lineage_trait_states[lineage_label])
+                dataf.write("{},{}\n".format(lineage_label, traits))
+            dataf.flush()
+            dataf.close()
+        return trait_names
 
     def create_geography_file(self, output_path):
         dataf = open(output_path, "w")
