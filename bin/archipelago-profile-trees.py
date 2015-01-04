@@ -216,32 +216,6 @@ class ArchipelagoProfiler(object):
         # return
         return profile_results
 
-    # def preprocess_tree_lineages(self, tree):
-    #     tree.lineage_label_trait_state_set_map = []
-    #     for trait_idx in range(trees.num_trait_types):
-    #         tree.lineage_label_trait_state_set_map.append({})
-    #     tree._original_taxon_namespace = tree.taxon_namespace
-    #     tree.taxon_namespace = dendropy.TaxonNamespace()
-    #     for node_idx, node in enumerate(tree.leaf_node_iter()):
-    #         node._original_taxon = node.taxon
-    #         taxon_label = "s{}".format(node_idx+1)
-    #         node._original_taxon = node.taxon
-    #         node.taxon = tree.taxon_namespace.new_taxon(label=taxon_label)
-    #         for trait_idx in range(trees.num_trait_types):
-    #             tree.lineage_label_trait_state_set_map[trait_idx][node.taxon.label] = str(node.traits_vector[trait_idx])
-
-    # def restore_tree_lineages(self, trees):
-    #     for tree_idx, tree in enumerate(trees):
-    #         tree.taxon_namespace = tree._original_taxon_namespace
-    #         del tree._original_taxon_namespace
-    #         lineage_label_trait_state_set_map = []
-    #         for lineage_idx, lineage in enumerate(tree.leaf_node_iter()):
-    #             lineage.taxon = lineage._original_taxon
-    #             del lineage._original_taxon
-    #         for nd in tree:
-    #             nd.edge.length = nd.edge.original_length
-    #     return trees
-
     def store_generating_model_parameters(self, generating_model, profile_results):
         profile_results["num.areas"] = len(generating_model.geography.areas)
         profile_results["num.focal.areas"] = len(generating_model.geography.focal_area_indexes)
@@ -313,12 +287,7 @@ class ArchipelagoProfiler(object):
     def estimate_pure_dispersal_rate(self,
             tree,
             profile_results,):
-        self.create_geography_file(
-                tree,
-                output_path=self.geography_data_file_name,
-                sep="\t",
-                area_names=None, # BayesTraits does not use header row
-                )
+        self.create_bayestraits_geography_file(tree, output_path=self.geography_data_file_name)
         bt_commands = []
         bt_commands.append("1") # multstate
         bt_commands.append("1") # ml; 2 == mcmc
@@ -339,6 +308,11 @@ class ArchipelagoProfiler(object):
         result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
         rate = float(result['q01'])
         profile_results["geographical.transition.rate"] = rate
+
+    def estimate_dec_rates(self,
+            tree,
+            profile_results):
+        self.create_biogeobears_geography_file(tree=tree)
 
     def estimate_lagrange_rates(self,
             tree,
@@ -375,8 +349,7 @@ class ArchipelagoProfiler(object):
             tree,
             generating_model=None):
         if generating_model is None:
-            sample_node = next(tree.leaf_node_iter())
-            num_trait_types = len(sample_node.traits_vector)
+            num_trait_types = len(tree.taxon_namespace[0].traits_vector)
             trait_names = ["trait{}".format(i+1) for i in range(num_trait_types)]
         else:
             num_trait_types = len(generating_model.geography.trait_types)
@@ -385,9 +358,9 @@ class ArchipelagoProfiler(object):
         lineage_trait_states = collections.OrderedDict()
         for trait_idx in range(num_trait_types):
             state_symbols = {}
-            for node in tree.leaf_node_iter():
-                lineage_label = node.label
-                state = node.traits_vector[trait_idx]
+            for taxon in tree.taxon_namespace:
+                lineage_label = taxon.label
+                state = taxon.traits_vector[trait_idx]
                 try:
                     symbol = state_symbols[state]
                 except KeyError:
@@ -405,19 +378,29 @@ class ArchipelagoProfiler(object):
             dataf.close()
         return trait_names
 
-    def create_geography_file(self,
-            tree,
-            output_path,
-            sep="\t",
-            area_names=None):
+    def create_bayestraits_geography_file(self, tree, output_path):
+        sep = "\t"
         dataf = open(output_path, "w")
-        if area_names:
-            dataf.write("{}{}{}\n".format("taxon", sep, sep.join(area_names)))
-        for node in tree.leaf_node_iter():
-            incidences = [str(i) for i in node.distribution_vector]
+        for taxon in tree.taxon_namespace:
+            incidences = [str(i) for i in taxon.distribution_vector]
+            dataf.write("{}{}{}\n".format(taxon.label, sep, sep.join(incidences)))
+        dataf.flush()
+        dataf.close()
+
+    def create_biogeobears_geography_file(self, tree, output_path):
+        sep = "\t"
+        area_labels = ["a{}".format(idx+1) for idx, a in tree.taxon_namespace[0].distribution_vector]
+        dataf = open(output_path, "w")
+        dataf.write("{num_lineages}\t{num_areas}\t({area_labels})\n".format(
+            len(tree.taxon_namespace),
+            len(area_labels),
+            " ".join(area_labels),
+            ))
+        for taxon in tree.taxon_namespace:
+            incidences = [str(i) for i in taxon.distribution_vector]
             if area_names:
                 assert len(area_names) == len(incidences)
-            dataf.write("{}{}{}\n".format(node.label, sep, sep.join(incidences)))
+            dataf.write("{}{}{}\n".format(taxon.label, sep, "".join(incidences)))
         dataf.flush()
         dataf.close()
 
@@ -436,9 +419,9 @@ class ArchipelagoProfiler(object):
         kwargs["taxon_name_list"] = [taxon.label for taxon in tree.taxon_namespace]
 
         taxon_range_data = {}
-        for node in tree.leaf_node_iter():
-            taxon_area_indexes = tuple([area_idx for area_idx, i in enumerate(node.distribution_vector) if str(i) == "1"])
-            taxon_range_data[node.label] = taxon_area_indexes
+        for taxon in tree.taxon_namespace:
+            taxon_area_indexes = tuple([area_idx for area_idx, i in enumerate(taxon.distribution_vector) if str(i) == "1"])
+            taxon_range_data[taxon.label] = taxon_area_indexes
         kwargs["taxon_range_data"] = taxon_range_data
 
         ## EVERY PERMUTATION OF AREAS
@@ -466,8 +449,7 @@ class ArchipelagoProfiler(object):
         # cannot rely on generating model for number of
         # areas because we do not know if supplemental
         # areas are included in node data
-        sample_node = next(tree.leaf_node_iter())
-        num_areas = len(sample_node.distribution_vector)
+        num_areas = len(tree.taxon_namespace[0].distribution_vector)
         area_names = ["a{}".format(i+1) for i in range(num_areas)]
         return area_names
 
@@ -477,6 +459,8 @@ class ArchipelagoProfiler(object):
         for node_idx, node in enumerate(tree.leaf_node_iter()):
             node.original_taxon = node.taxon
             node.taxon = tree.taxon_namespace.new_taxon(label=node.label)
+            node.taxon.traits_vector = node.traits_vector
+            node.taxon.distribution_vector = node.distribution_vector
 
     def preprocess_edge_lengths(self, tree):
         for nd in tree:
@@ -566,131 +550,6 @@ def main():
             dest=sys.stdout,
             profiles=profiles,
             suppress_headers=False)
-
-
-    # profile_results = collections.OrderedDict()
-    # if not args.no_source_columns:
-    #     source_fieldnames = [
-    #         "source.path",
-    #         "tree.index",
-    #     ]
-    # else:
-    #     source_fieldnames = []
-    # if archipelago_model is not None:
-    #     model_fieldnames = [
-    #         "num.areas",
-    #         "num.focal.areas",
-    #         "num.supplemental.areas",
-    #         "lineage.birth.rate.definition",
-    #         "lineage.birth.rate.description",
-    #         "lineage.death.rate.definition",
-    #         "lineage.death.rate.description",
-    #         "lineage.dispersal.rate.definition",
-    #         "lineage.dispersal.rate.description",
-    #     ]
-
-    # else:
-    #     model_fieldnames = [ ]
-    # data_fieldnames = [
-    #     "num.tips",
-    #     "root.age",
-    #     "pure.birth.rate",
-    # ]
-
-    # trait_labels = []
-    # trait_estimated_transition_rate_field_names = []
-    # if archipelago_model is not None:
-    #     for trait_idx, trait in enumerate(archipelago_model.trait_types):
-    #         trait_labels.append(trait.label)
-    #         model_fieldnames.append("trait.{}.true.transition.rate".format(trait.label))
-    #         data_fieldnames.append("trait.{}.est.transition.rate".format(trait.label))
-    #         trait_estimated_transition_rate_field_names.append(data_fieldnames[-1])
-    # else:
-    #     trees = dendropy.TreeList.get_from_path(source_filepaths[0], args.schema)
-    #     tree_profiler.diagnose_num_trait_types(trees)
-    #     for trait_idx in range(trees.num_trait_types):
-    #         trait_labels.append(str(trait_idx))
-    #         # model_fieldnames.append("trait.{}.true.transition.rate".format(trait_idx))
-    #         data_fieldnames.append("trait.{}.est.transition.rate".format(trait_idx))
-    #         trait_estimated_transition_rate_field_names.append(data_fieldnames[-1])
-    # fieldnames = source_fieldnames + model_fieldnames + data_fieldnames
-
-    # if args.output_file is None or args.output_file == "-":
-    #     out = sys.stdout
-    # else:
-    #     out = open(args.output_file, "w")
-    # writer = csv.DictWriter(out,
-    #         fieldnames=fieldnames)
-    # if not args.no_header_row:
-    #     writer.writeheader()
-    # if args.header_row_only:
-    #     sys.exit(0)
-    # for source_idx, source_filepath in enumerate(source_filepaths):
-    #     if not args.quiet:
-    #         sys.stderr.write("-profiler- Source {source_idx} of {num_sources}: {source_filepath}\n".format(
-    #                 source_idx=source_idx+1,
-    #                 num_sources=len(source_filepaths),
-    #                 source_filepath=source_filepath,
-    #                 ))
-    #     trees = dendropy.TreeList.get_from_path(
-    #             source_filepath,
-    #             args.schema,
-    #             suppress_internal_node_taxa=True,
-    #             suppress_external_node_taxa=True,
-    #             )
-    #     model.ArchipelagoModel.decode_tree_lineages_from_labels(
-    #             trees=trees,
-    #             is_suppressed_taxa=True,
-    #             leaf_nodes_only=True)
-    #     for tree_idx, tree in enumerate(trees):
-    #         if not args.quiet and (tree_idx == 0 or tree_idx % 10 == 0):
-    #             sys.stderr.write("-profiler- Source {} of {}: Tree {} of {}\n".format(source_idx+1, len(source_filepaths), tree_idx+1, len(trees)))
-    #         profile_results[tree] = {}
-    #         if not args.no_source_columns:
-    #             profile_results[tree]["source.path"] = source_filepath
-    #             profile_results[tree]["tree.index"] = tree_idx
-    #         if archipelago_model:
-    #             profile_results[tree]["num.areas"] = len(archipelago_model.geography.areas)
-    #             profile_results[tree]["num.focal.areas"] = len(archipelago_model.geography.focal_area_indexes)
-    #             profile_results[tree]["num.supplemental.areas"] = len(archipelago_model.geography.supplemental_area_indexes)
-    #             profile_results[tree]["lineage.birth.rate.definition"] = archipelago_model.lineage_birth_rate_function.definition_content
-    #             profile_results[tree]["lineage.birth.rate.description"] = archipelago_model.lineage_birth_rate_function.description
-    #             profile_results[tree]["lineage.death.rate.definition"] = archipelago_model.lineage_death_rate_function.definition_content
-    #             profile_results[tree]["lineage.death.rate.description"] = archipelago_model.lineage_death_rate_function.description
-    #             profile_results[tree]["lineage.dispersal.rate.definition"] = archipelago_model.lineage_dispersal_rate_function.definition_content
-    #             profile_results[tree]["lineage.dispersal.rate.description"] = archipelago_model.lineage_dispersal_rate_function.description
-    #             for trait_idx, trait in enumerate(archipelago_model.trait_types):
-    #                 profile_results[tree]["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
-    #         tree.calc_node_ages()
-    #         profile_results[tree]["root.age"] = tree.seed_node.age
-    #         profile_results[tree]["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
-    #         # for nd in tree.postorder_node_iter():
-    #         #     if nd.edge.length is None:
-    #         #         nd.edge.length = 0.0
-    #         #     elif nd.edge.length < 0:
-    #         #         if not args.quiet:
-    #         #             sys.stderr.write("-profiler- Source {source_idx} of {num_sources}: Tree {tree_idx} of {num_trees}: setting negative branch length {brlen} for node {node} to 0.0\n".format(
-    #         #                     source_idx=source_idx+1,
-    #         #                     num_sources=len(source_filepaths),
-    #         #                     tree_idx=tree_idx+1,
-    #         #                     num_trees=len(trees),
-    #         #                     brlen=nd.edge.length,
-    #         #                     node=str(nd),
-    #         #                     ))
-    #         #         nd.edge.length = 0.0
-    #     tree_profiler.estimate_pure_birth(
-    #             trees=trees,
-    #             tree_profile_results_map=profile_results,
-    #             )
-    #     tree_profiler.estimate_trait_transition_rates(
-    #             trees=trees,
-    #             tree_profile_results_map=profile_results,
-    #             trait_estimated_transition_rate_field_names=trait_estimated_transition_rate_field_names,
-    #             is_trees_decoded=False,
-    #             is_suppressed_taxa=False,
-    #             )
-    # for row in profile_results.values():
-    #     writer.writerow(row)
 
 if __name__ == "__main__":
     main()
