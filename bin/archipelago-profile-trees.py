@@ -10,10 +10,66 @@ import csv
 import collections
 import tempfile
 import subprocess
+try:
+    import lagrange
+    IS_LAGRANGE_AVAILABLE = True
+except ImportError:
+    IS_LAGRANGE_AVAILABLE = False
 import dendropy
 from dendropy.model import birthdeath
 from dendropy.utility import processio
 from archipelago import model
+
+LAGRANGE_CONFIGURATION_TEMPLATE = """\
+#!/usr/bin/env python
+import os
+import lagrange
+data = \"\"\"\
+### begin data
+{{
+ 'area_adjacency': {area_adjacency},
+ 'area_dispersal': {area_dispersal},
+ 'area_labels': {area_labels},
+ 'base_rates': '__estimate__',
+ 'dispersal_durations': [10000.0],
+ 'dm_symmetric_entry': True,
+ 'excluded_ranges': [],
+ 'lagrange_version': '20130526',
+ 'max_range_size': {max_range_size},
+ 'model_name': '{model_name}',
+ 'newick_trees': [{{'included': [],
+                   'name': 'Tree0',
+                   'newick': '{newick_tree_string}',
+                   'root_age': {root_age}}}],
+ 'ranges': {ranges},
+ 'taxa': {taxon_name_list},
+ 'taxon_range_data': {taxon_range_data},
+}}
+### end data
+\"\"\"
+
+i = 0
+while 1:
+    if not i:
+        outfname = "{model_name}.results.txt"
+    else:
+        outfname = "{model_name}.results-"+str(i)+".txt"
+    if not os.path.exists(outfname): break
+    i += 1
+outfile = open(outfname, "w")
+lagrange.output.log(lagrange.msg, outfile, tee=True)
+model, tree, data, nodelabels, base_rates = lagrange.input.eval_decmodel(data)
+lagrange.output.ascii_tree(outfile, tree, model, data, tee=True)
+if base_rates != "__estimate__":
+    d, e = base_rates
+else:
+    d, e = lagrange.output.optimize_dispersal_extinction(outfile, tree, model, tee=True)
+if nodelabels:
+    if nodelabels == "__all__":
+        nodelabels = None
+    lagrange.output.ancsplits(outfile, tree, model, d, e, nodelabels=nodelabels, tee=True)
+
+"""
 
 class ArchipelagoProfiler(object):
 
@@ -26,6 +82,7 @@ class ArchipelagoProfiler(object):
         self.quiet = quiet
         self.fail_on_estimation_error = fail_on_estimation_error
         self.debug_mode = debug_mode
+        self.lagrange_estimation = IS_LAGRANGE_AVAILABLE
         if self.debug_mode:
             self.tree_file_name = "profiler.tree.nexus"
             self.traits_data_file_name = "profiler.traits.data.txt"
@@ -117,9 +174,10 @@ class ArchipelagoProfiler(object):
             profile_results["tree.filepath"] = tree.tree_filepath
             if hasattr(tree, "tree_offset"):
                 profile_results["tree.offset"] = tree.tree_offset
-        tree.calc_node_ages()
         profile_results["num.tips"] = len(list(nd for nd in tree.leaf_node_iter()))
-        profile_results["root.age"] = tree.seed_node.age
+        tree.calc_node_ages()
+        root_age = tree.seed_node.age
+        profile_results["root.age"] = root_age
 
         # estimate birth rate
         self.estimate_pure_birth_rate(tree, profile_results)
@@ -137,7 +195,7 @@ class ArchipelagoProfiler(object):
                 tree=tree,
                 generating_model=generating_model)
 
-        # process traits
+        ## process traits
         self.estimate_trait_evolution_rates(
                 tree=tree,
                 profile_results=profile_results,
@@ -147,6 +205,9 @@ class ArchipelagoProfiler(object):
         self.estimate_pure_dispersal_rate(
                 tree=tree,
                 profile_results=profile_results)
+        # self.estimate_lagrange_rates(
+        #         tree=tree,
+        #         profile_results=profile_results)
 
         # clean up
         self.restore_tree_taxa(tree)
@@ -251,19 +312,12 @@ class ArchipelagoProfiler(object):
 
     def estimate_pure_dispersal_rate(self,
             tree,
-            profile_results):
-
-        # cannot rely on generating model for number of
-        # areas because we do not know if supplemental
-        # areas are included in node data
-        sample_node = next(tree.leaf_node_iter())
-        num_areas = len(sample_node.distribution_vector)
-
+            profile_results,):
         self.create_geography_file(
                 tree,
                 output_path=self.geography_data_file_name,
                 sep="\t",
-                area_names=None,
+                area_names=None, # BayesTraits does not use header row
                 )
         bt_commands = []
         bt_commands.append("1") # multstate
@@ -285,10 +339,23 @@ class ArchipelagoProfiler(object):
         result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
         rate = float(result['q01'])
         profile_results["geographical.transition.rate"] = rate
-        # resultf = open(self.output_filepaths["geography_bayestraits_results"], "w")
-        # result_row = "BayesTrait estimate of dispersal rate = {}\n".format(rate)
-        # resultf.write(result_row)
-        # print(result_row)
+
+    def estimate_lagrange_rates(self,
+            tree,
+            profile_results):
+        if not self.estimate_lagrange_rates:
+            return
+        lagrange_commands = self.compose_lagrange_template(tree=tree)
+        commandsf = open(self.commands_file_name, "w")
+        commandsf.write(lagrange_commands)
+        commandsf.flush()
+        commandsf.close()
+        shell_cmd = ["python", self.commands_file_name]
+        p = subprocess.Popen(
+                shell_cmd,
+                stdout=subprocess.PIPE,
+                )
+        stdout, stderr = processio.communicate(p)
 
     def create_working_tree_data(self, tree):
         with open(self.tree_file_name, "w") as tf:
@@ -353,6 +420,56 @@ class ArchipelagoProfiler(object):
             dataf.write("{}{}{}\n".format(node.label, sep, sep.join(incidences)))
         dataf.flush()
         dataf.close()
+
+    def compose_lagrange_template(self, tree):
+        area_names = sorted(self.reconstruct_areas(tree))
+        kwargs = {}
+        kwargs["area_adjacency"] = str([[1] * len(area_names)] * len(area_names))
+        kwargs["area_dispersal"] = str([[1.0] * len(area_names)] * len(area_names))
+        kwargs["area_labels"] = str(area_names)
+        kwargs["max_range_size"] = len(area_names)
+        kwargs["model_name"] = str(id(tree))
+        kwargs["newick_tree_string"] = tree.as_string("newick").replace("\n", "")
+        assert tree.seed_node.age
+        kwargs["root_age"] = tree.seed_node.age
+
+        kwargs["taxon_name_list"] = [taxon.label for taxon in tree.taxon_namespace]
+
+        taxon_range_data = {}
+        for node in tree.leaf_node_iter():
+            taxon_area_indexes = tuple([area_idx for area_idx, i in enumerate(node.distribution_vector) if str(i) == "1"])
+            taxon_range_data[node.label] = taxon_area_indexes
+        kwargs["taxon_range_data"] = taxon_range_data
+
+        ## EVERY PERMUTATION OF AREAS
+        # ranges = []
+        # for i in range(len(area_names)):
+        #     x = list(itertools.permutations(area_indexes, i))
+        #     ranges.extend(x)
+        # ranges = sorted(set(ranges))
+        # kwargs["ranges"] = str(ranges)
+
+        ranges = set()
+        for a in taxon_range_data.values():
+            ranges.add(a)
+        ranges = sorted(ranges)
+        kwargs["ranges"] = str(ranges)
+
+        return LAGRANGE_CONFIGURATION_TEMPLATE.format(**kwargs)
+
+    def get_root_age(self, tree):
+        tree.calc_node_ages()
+        root_age = tree.seed_node.age
+        return root_age
+
+    def reconstruct_areas(self, tree):
+        # cannot rely on generating model for number of
+        # areas because we do not know if supplemental
+        # areas are included in node data
+        sample_node = next(tree.leaf_node_iter())
+        num_areas = len(sample_node.distribution_vector)
+        area_names = ["a{}".format(i+1) for i in range(num_areas)]
+        return area_names
 
     def preprocess_tree_taxa(self, tree):
         tree.original_taxon_namespace = tree.taxon_namespace
