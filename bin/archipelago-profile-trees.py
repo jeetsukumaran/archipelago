@@ -131,6 +131,7 @@ class ArchipelagoProfiler(object):
         self.preprocess_tree_taxa(tree)
         ## store tree
         self.create_working_tree_data(tree)
+
         ## create traits
         trait_names = self.create_traits_data(
                 tree=tree,
@@ -143,10 +144,9 @@ class ArchipelagoProfiler(object):
                 trait_names=trait_names)
 
         # process areas
-        # self.estimate_pure_dispersal_rate(
-        #         tree=tree,
-        #         profile_results=profile_results,
-        #         generating_model=generating_model)
+        self.estimate_pure_dispersal_rate(
+                tree=tree,
+                profile_results=profile_results)
 
         # clean up
         self.restore_tree_taxa(tree)
@@ -251,33 +251,40 @@ class ArchipelagoProfiler(object):
 
     def estimate_pure_dispersal_rate(self,
             tree,
-            profile_results,
-            num_areas):
+            profile_results):
 
         # cannot rely on generating model for number of
         # areas because we do not know if supplemental
         # areas are included in node data
         sample_node = next(tree.leaf_node_iter())
         num_areas = len(sample_node.distribution_vector)
-        # self.create_geography_file(self.output_filepaths["geography_bayestraits_data"])
-        # bt_commands = []
-        # bt_commands.append("1") # multstate
-        # bt_commands.append("1") # ml; 2 == mcmc
-        # if True: #len(name_to_symbol_map.SYMBOLS) > 7:
-        #     bt_commands.append("restrictall q01")
-        # bt_commands.append("run")
-        # # bt_commands = "\n".join(bt_commands)
-        # p = subprocess.Popen(
-        #         ["BayesTraits",
-        #             self.output_filepaths["phylogeny_nexus"],
-        #             self.output_filepaths["geography_bayestraits_data"]],
-        #         stdout=subprocess.PIPE,
-        #         stdin=subprocess.PIPE,
-        #         )
-        # stdout, stderr = processio.communicate(p, bt_commands)
-        # stdout = stdout.split("\n")
-        # result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
-        # rate = float(result['q01'])
+
+        self.create_geography_file(
+                tree,
+                output_path=self.geography_data_file_name,
+                sep="\t",
+                area_names=None,
+                )
+        bt_commands = []
+        bt_commands.append("1") # multstate
+        bt_commands.append("1") # ml; 2 == mcmc
+        bt_commands.append("restrictall q01")
+        bt_commands.append("run")
+        bt_commands = "\n".join(bt_commands)
+        p = subprocess.Popen(
+                [
+                    "BayesTraits",
+                    self.tree_file_name,
+                    self.geography_data_file_name,
+                ],
+                stdout=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                )
+        stdout, stderr = processio.communicate(p, bt_commands)
+        stdout = stdout.split("\n")
+        result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
+        rate = float(result['q01'])
+        profile_results["geographical.transition.rate"] = rate
         # resultf = open(self.output_filepaths["geography_bayestraits_results"], "w")
         # result_row = "BayesTrait estimate of dispersal rate = {}\n".format(rate)
         # resultf.write(result_row)
@@ -331,10 +338,19 @@ class ArchipelagoProfiler(object):
             dataf.close()
         return trait_names
 
-    def create_geography_file(self, output_path):
+    def create_geography_file(self,
+            tree,
+            output_path,
+            sep="\t",
+            area_names=None):
         dataf = open(output_path, "w")
-        for lineage in self.lineage_distributions:
-            dataf.write("{}\t{}\n".format(lineage, "\t".join(self.lineage_distributions[lineage])))
+        if area_names:
+            dataf.write("{}{}{}\n".format("taxon", sep, sep.join(area_names)))
+        for node in tree.leaf_node_iter():
+            incidences = [str(i) for i in node.distribution_vector]
+            if area_names:
+                assert len(area_names) == len(incidences)
+            dataf.write("{}{}{}\n".format(node.label, sep, sep.join(incidences)))
         dataf.flush()
         dataf.close()
 
