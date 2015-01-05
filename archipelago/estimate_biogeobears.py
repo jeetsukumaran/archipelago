@@ -21,12 +21,15 @@ library(BioGeoBEARS)
 calc_loglike_sp = compiler::cmpfun(calc_loglike_sp_prebyte)    # crucial to fix bug in uppass calculations
 calc_independent_likelihoods_on_each_branch = compiler::cmpfun(calc_independent_likelihoods_on_each_branch_prebyte)
 BioGeoBEARS_run_object = define_BioGeoBEARS_run()
-{param_settings}
-BioGeoBEARS_run_object$speedup=TRUE
+BioGeoBEARS_run_object$use_optimx = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = FALSE
+BioGeoBEARS_run_object$speedup = TRUE
+BioGeoBEARS_run_object$force_sparse = FALSE
 BioGeoBEARS_run_object$num_cores_to_use = 1
 BioGeoBEARS_run_object$max_range_size = {max_range_size}
 BioGeoBEARS_run_object$geogfn = "{geography_filepath}"
 BioGeoBEARS_run_object$trfn = "{tree_filepath}"
+{param_settings}
 res = bears_optim_run(BioGeoBEARS_run_object)
 sink("{results_filepath}")
 res$outputs@params_table
