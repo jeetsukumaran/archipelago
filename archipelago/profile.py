@@ -63,7 +63,9 @@ class ArchipelagoProfiler(object):
     def profile_trees_from_path(self,
             trees_filepath,
             schema="newick",
-            generating_model=None):
+            estimate_dec=True,
+            generating_model=None,
+            ):
         trees = dendropy.TreeList.get_from_path(
                 trees_filepath,
                 schema=schema,
@@ -73,6 +75,7 @@ class ArchipelagoProfiler(object):
         trees.tree_filepath = trees_filepath
         profiles = self.profile_trees(
                 trees=trees,
+                estimate_dec=estimate_dec,
                 generating_model=generating_model,
                 is_lineages_decoded=False,
                 decode_lineages_from="node",)
@@ -80,6 +83,7 @@ class ArchipelagoProfiler(object):
 
     def profile_trees(self,
             trees,
+            estimate_dec=True,
             generating_model=None,
             is_lineages_decoded=False,
             decode_lineages_from="node"):
@@ -90,6 +94,7 @@ class ArchipelagoProfiler(object):
                 tree.tree_offset = tree_idx
             r = self.profile_tree(
                     tree=tree,
+                    estimate_dec=estimate_dec,
                     generating_model=generating_model,
                     is_lineages_decoded=is_lineages_decoded)
             profiles.append(r)
@@ -97,6 +102,7 @@ class ArchipelagoProfiler(object):
 
     def profile_tree(self,
             tree,
+            estimate_dec=True,
             generating_model=None,
             is_lineages_decoded=False,
             decode_lineages_from="node"):
@@ -149,9 +155,10 @@ class ArchipelagoProfiler(object):
         # self.estimate_pure_dispersal_rate(
         #         tree=tree,
         #         profile_results=profile_results)
-        self.estimate_dec_rates(
-                tree=tree,
-                profile_results=profile_results)
+        if estimate_dec:
+            self.estimate_dec_rates(
+                    tree=tree,
+                    profile_results=profile_results)
 
         # clean up
         self.restore_tree_taxa(tree)
@@ -256,8 +263,13 @@ class ArchipelagoProfiler(object):
     def estimate_dec_rates(self,
             tree,
             profile_results):
-        self.create_biogeobears_geography_file(tree=tree, output_path=self.geography_data_file_name)
         tree.write_to_path(self.newick_tree_file_name, "newick")
+        self.create_biogeobears_geography_file(tree=tree, output_path=self.geography_data_file_name)
+        dec_model = self.biogeobears_estimator.estimate_dec(
+                newick_tree_filepath=self.newick_tree_file_name,
+                geography_filepath=self.geography_data_file_name,
+                max_range_size=len(tree.taxon_namespace[0].distribution_vector),
+                )
 
     def create_working_tree_data(self, tree):
         with open(self.tree_file_name, "w") as tf:
