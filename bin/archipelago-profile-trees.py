@@ -45,6 +45,10 @@ def main():
             action="store_true",
             default=False,
             help="Estimate parameters under Lagrange's DEC model (using BioGeoBears).")
+    profile_options.add_argument("-b", "--minimum-branch-length",
+            default=profile.DEFAULT_MINIMUM_BRANCH_LENGTH,
+            type=float,
+            help="Minimum branch length (edges will be forced to this length).")
 
     output_options = parser.add_argument_group("Output Options")
     output_options.add_argument("-o", "--output-file",
@@ -77,6 +81,7 @@ def main():
     else:
         archipelago_model = None
     profiler = profile.ArchipelagoProfiler(
+            minimum_branch_length = args.minimum_branch_length,
             is_estimate_pure_birth_rate=not args.no_estimate_pure_birth,
             is_estimate_trait_transition_rates=not args.no_estimate_trait_transition,
             is_estimate_area_transition_rates=not args.no_estimate_area_transition,

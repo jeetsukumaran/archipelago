@@ -52,6 +52,7 @@ class BiogeobearsEstimator(object):
             commands_file_name=None,
             results_file_name=None,
             fail_on_estimation_error=True,
+            debug_mode=False,
             ):
         if commands_file_name is None:
             self.commands_file = tempfile.NamedTemporaryFile()
@@ -65,6 +66,7 @@ class BiogeobearsEstimator(object):
             self.results_file_name = results_file_name
         # self.results_file_name = "debugbgb.txt"
         self.fail_on_estimation_error = fail_on_estimation_error
+        self.debug_mode = debug_mode
         self.path_to_libexec = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "libexec")
         self.patch_filenames = [
                 "BioGeoBEARS_basics_v1.R",
@@ -119,13 +121,13 @@ class BiogeobearsEstimator(object):
                 self.commands_file_name]
         p = subprocess.Popen(
                 shell_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE if not self.debug_mode else None,
+                stderr=subprocess.PIPE if not self.debug_mode else None,
                 )
         stdout, stderr = processio.communicate(p)
         if p.returncode != 0:
             if self.fail_on_estimation_error:
-                raise Exception("Non-zero return code: {}\n\n{}\n{}".format(
+                raise Exception("Non-zero return code: {}\n{}\n{}".format(
                         p.returncode,
                         stdout,
                         stderr,

@@ -12,6 +12,8 @@ from dendropy.utility import processio
 from archipelago import model
 from archipelago.estimate_biogeobears import BiogeobearsEstimator
 
+DEFAULT_MINIMUM_BRANCH_LENGTH = 1e-6
+
 class ArchipelagoProfiler(object):
 
     GEIGER_STATE_SYMBOLS = "123456789"
@@ -21,9 +23,11 @@ class ArchipelagoProfiler(object):
             is_estimate_trait_transition_rates=True,
             is_estimate_area_transition_rates=True,
             is_estimate_dec=False,
+            minimum_branch_length=DEFAULT_MINIMUM_BRANCH_LENGTH,
             quiet=False,
             fail_on_estimation_error=True,
-            debug_mode=True):
+            debug_mode=False):
+        self.minimum_branch_length = minimum_branch_length
         self.is_estimate_pure_birth_rate = is_estimate_pure_birth_rate
         self.is_estimate_trait_transition_rates = is_estimate_trait_transition_rates
         self.is_estimate_area_transition_rates = is_estimate_area_transition_rates
@@ -54,6 +58,7 @@ class ArchipelagoProfiler(object):
         self.biogeobears_estimator = BiogeobearsEstimator(
                 commands_file_name=self.commands_file_name,
                 results_file_name=self.output_file_name,
+                debug_mode=self.debug_mode,
                 )
 
     def send_message(self, *args, **kwargs):
@@ -366,14 +371,13 @@ class ArchipelagoProfiler(object):
             node.taxon.distribution_vector = node.distribution_vector
 
     def preprocess_edge_lengths(self, tree):
-        fixed_edge_length = 0.00001
         for nd in tree:
             nd.edge.original_length = nd.edge.length
             if nd.edge.length is None:
-                nd.edge.length = fixed_edge_length
-            elif nd.edge.length <= 0.0:
-                self.send_message("Setting edge length of {} to {}".format(nd.edge.length, fixed_edge_length))
-                nd.edge.length = fixed_edge_length
+                nd.edge.length = self.minimum_branch_length
+            elif nd.edge.length <= self.minimum_branch_length:
+                self.send_message("Setting edge length of {} to {}".format(nd.edge.length, self.minimum_branch_length))
+                nd.edge.length = self.minimum_branch_length
 
     def restore_edge_lengths(self, tree):
         for nd in tree:
