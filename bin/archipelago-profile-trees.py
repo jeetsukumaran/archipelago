@@ -10,66 +10,11 @@ import csv
 import collections
 import tempfile
 import subprocess
-try:
-    import lagrange
-    IS_LAGRANGE_AVAILABLE = True
-except ImportError:
-    IS_LAGRANGE_AVAILABLE = False
 import dendropy
 from dendropy.model import birthdeath
 from dendropy.utility import processio
 from archipelago import model
-
-LAGRANGE_CONFIGURATION_TEMPLATE = """\
-#!/usr/bin/env python
-import os
-import lagrange
-data = \"\"\"\
-### begin data
-{{
- 'area_adjacency': {area_adjacency},
- 'area_dispersal': {area_dispersal},
- 'area_labels': {area_labels},
- 'base_rates': '__estimate__',
- 'dispersal_durations': [10000.0],
- 'dm_symmetric_entry': True,
- 'excluded_ranges': [],
- 'lagrange_version': '20130526',
- 'max_range_size': {max_range_size},
- 'model_name': '{model_name}',
- 'newick_trees': [{{'included': [],
-                   'name': 'Tree0',
-                   'newick': '{newick_tree_string}',
-                   'root_age': {root_age}}}],
- 'ranges': {ranges},
- 'taxa': {taxon_name_list},
- 'taxon_range_data': {taxon_range_data},
-}}
-### end data
-\"\"\"
-
-i = 0
-while 1:
-    if not i:
-        outfname = "{model_name}.results.txt"
-    else:
-        outfname = "{model_name}.results-"+str(i)+".txt"
-    if not os.path.exists(outfname): break
-    i += 1
-outfile = open(outfname, "w")
-lagrange.output.log(lagrange.msg, outfile, tee=True)
-model, tree, data, nodelabels, base_rates = lagrange.input.eval_decmodel(data)
-lagrange.output.ascii_tree(outfile, tree, model, data, tee=True)
-if base_rates != "__estimate__":
-    d, e = base_rates
-else:
-    d, e = lagrange.output.optimize_dispersal_extinction(outfile, tree, model, tee=True)
-if nodelabels:
-    if nodelabels == "__all__":
-        nodelabels = None
-    lagrange.output.ancsplits(outfile, tree, model, d, e, nodelabels=nodelabels, tee=True)
-
-"""
+from archipelago.estimate_biogeobears import BiogeobearsEstimator
 
 class ArchipelagoProfiler(object):
 
@@ -78,26 +23,29 @@ class ArchipelagoProfiler(object):
     def __init__(self,
             quiet=False,
             fail_on_estimation_error=True,
-            debug_mode=False):
+            debug_mode=True):
         self.quiet = quiet
         self.fail_on_estimation_error = fail_on_estimation_error
         self.debug_mode = debug_mode
-        self.lagrange_estimation = IS_LAGRANGE_AVAILABLE
         if self.debug_mode:
             self.tree_file_name = "profiler.tree.nexus"
+            self.newick_tree_file_name = "profiler.tree.newick"
             self.traits_data_file_name = "profiler.traits.data.txt"
             self.geography_data_file_name = "profiler.geography.data.txt"
             self.commands_file_name = "profiler.commands.txt"
         else:
             self.tree_file = tempfile.NamedTemporaryFile()
+            self.newick_tree_file = tempfile.NamedTemporaryFile()
             self.traits_data_file = tempfile.NamedTemporaryFile()
             self.geography_data_file = tempfile.NamedTemporaryFile()
             self.commands_file = tempfile.NamedTemporaryFile()
             self.output_file = tempfile.NamedTemporaryFile()
             self.tree_file_name = self.tree_file.name
+            self.newick_tree_file_name = self.newick_tree_file.name
             self.traits_data_file_name = self.traits_data_file.name
             self.geography_data_file_name = self.geography_data_file.name
             self.commands_file_name = self.commands_file.name
+        self.biogeobears_estimator = BiogeobearsEstimator()
 
     def send_message(self, *args, **kwargs):
         if self.quiet:
@@ -191,23 +139,23 @@ class ArchipelagoProfiler(object):
         self.create_working_tree_data(tree)
 
         ## create traits
-        trait_names = self.create_traits_data(
-                tree=tree,
-                generating_model=generating_model)
+        # trait_names = self.create_traits_data(
+        #         tree=tree,
+        #         generating_model=generating_model)
 
         ## process traits
-        self.estimate_trait_evolution_rates(
-                tree=tree,
-                profile_results=profile_results,
-                trait_names=trait_names)
+        # self.estimate_trait_evolution_rates(
+        #         tree=tree,
+        #         profile_results=profile_results,
+        #         trait_names=trait_names)
 
         # process areas
-        self.estimate_pure_dispersal_rate(
-                tree=tree,
-                profile_results=profile_results)
-        # self.estimate_lagrange_rates(
+        # self.estimate_pure_dispersal_rate(
         #         tree=tree,
         #         profile_results=profile_results)
+        self.estimate_dec_rates(
+                tree=tree,
+                profile_results=profile_results)
 
         # clean up
         self.restore_tree_taxa(tree)
@@ -312,24 +260,8 @@ class ArchipelagoProfiler(object):
     def estimate_dec_rates(self,
             tree,
             profile_results):
-        self.create_biogeobears_geography_file(tree=tree)
-
-    def estimate_lagrange_rates(self,
-            tree,
-            profile_results):
-        if not self.estimate_lagrange_rates:
-            return
-        lagrange_commands = self.compose_lagrange_template(tree=tree)
-        commandsf = open(self.commands_file_name, "w")
-        commandsf.write(lagrange_commands)
-        commandsf.flush()
-        commandsf.close()
-        shell_cmd = ["python", self.commands_file_name]
-        p = subprocess.Popen(
-                shell_cmd,
-                stdout=subprocess.PIPE,
-                )
-        stdout, stderr = processio.communicate(p)
+        self.create_biogeobears_geography_file(tree=tree, output_path=self.geography_data_file_name)
+        tree.write_to_path(self.newick_tree_file_name, "newick")
 
     def create_working_tree_data(self, tree):
         with open(self.tree_file_name, "w") as tf:
@@ -389,69 +321,18 @@ class ArchipelagoProfiler(object):
 
     def create_biogeobears_geography_file(self, tree, output_path):
         sep = "\t"
-        area_labels = ["a{}".format(idx+1) for idx, a in tree.taxon_namespace[0].distribution_vector]
+        area_labels = ["a{}".format(idx+1) for idx, a in enumerate(tree.taxon_namespace[0].distribution_vector)]
         dataf = open(output_path, "w")
         dataf.write("{num_lineages}\t{num_areas}\t({area_labels})\n".format(
-            len(tree.taxon_namespace),
-            len(area_labels),
-            " ".join(area_labels),
+            num_lineages=len(tree.taxon_namespace),
+            num_areas=len(area_labels),
+            area_labels=" ".join(area_labels),
             ))
         for taxon in tree.taxon_namespace:
             incidences = [str(i) for i in taxon.distribution_vector]
-            if area_names:
-                assert len(area_names) == len(incidences)
             dataf.write("{}{}{}\n".format(taxon.label, sep, "".join(incidences)))
         dataf.flush()
         dataf.close()
-
-    def compose_lagrange_template(self, tree):
-        area_names = sorted(self.reconstruct_areas(tree))
-        kwargs = {}
-        kwargs["area_adjacency"] = str([[1] * len(area_names)] * len(area_names))
-        kwargs["area_dispersal"] = str([[1.0] * len(area_names)] * len(area_names))
-        kwargs["area_labels"] = str(area_names)
-        kwargs["max_range_size"] = len(area_names)
-        kwargs["model_name"] = str(id(tree))
-        kwargs["newick_tree_string"] = tree.as_string("newick").replace("\n", "")
-        assert tree.seed_node.age
-        kwargs["root_age"] = tree.seed_node.age
-
-        kwargs["taxon_name_list"] = [taxon.label for taxon in tree.taxon_namespace]
-
-        taxon_range_data = {}
-        for taxon in tree.taxon_namespace:
-            taxon_area_indexes = tuple([area_idx for area_idx, i in enumerate(taxon.distribution_vector) if str(i) == "1"])
-            taxon_range_data[taxon.label] = taxon_area_indexes
-        kwargs["taxon_range_data"] = taxon_range_data
-
-        ## EVERY PERMUTATION OF AREAS
-        # ranges = []
-        # for i in range(len(area_names)):
-        #     x = list(itertools.permutations(area_indexes, i))
-        #     ranges.extend(x)
-        # ranges = sorted(set(ranges))
-        # kwargs["ranges"] = str(ranges)
-
-        ranges = set()
-        for a in taxon_range_data.values():
-            ranges.add(a)
-        ranges = sorted(ranges)
-        kwargs["ranges"] = str(ranges)
-
-        return LAGRANGE_CONFIGURATION_TEMPLATE.format(**kwargs)
-
-    def get_root_age(self, tree):
-        tree.calc_node_ages()
-        root_age = tree.seed_node.age
-        return root_age
-
-    def reconstruct_areas(self, tree):
-        # cannot rely on generating model for number of
-        # areas because we do not know if supplemental
-        # areas are included in node data
-        num_areas = len(tree.taxon_namespace[0].distribution_vector)
-        area_names = ["a{}".format(i+1) for i in range(num_areas)]
-        return area_names
 
     def preprocess_tree_taxa(self, tree):
         tree.original_taxon_namespace = tree.taxon_namespace
@@ -463,13 +344,14 @@ class ArchipelagoProfiler(object):
             node.taxon.distribution_vector = node.distribution_vector
 
     def preprocess_edge_lengths(self, tree):
+        fixed_edge_length = 0.00001
         for nd in tree:
             nd.edge.original_length = nd.edge.length
             if nd.edge.length is None:
-                nd.edge.length = 0.0
-            elif nd.edge.length < 0.0:
-                self.send_message("Setting negative edge length of {} to 0.0".format(nd.edge.length))
-                nd.edge.length = 0.0
+                nd.edge.length = fixed_edge_length
+            elif nd.edge.length <= 0.0:
+                self.send_message("Setting edge length of {} to {}".format(nd.edge.length, fixed_edge_length))
+                nd.edge.length = fixed_edge_length
 
     def restore_edge_lengths(self, tree):
         for nd in tree:
