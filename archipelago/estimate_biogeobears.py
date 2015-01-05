@@ -33,6 +33,12 @@ res$outputs@params_table
 sink()
 """
 
+## e.g.
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","type"] = "fixed"
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","min"] = 0.005449
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","max"] = 0.005449
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = 0.005449
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = 0.005449
 PARAM_SETTING_TEMPLATE = """\
 BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["{param_name}","{param_aspect}"] = {value}
 """
@@ -84,14 +90,16 @@ class BiogeobearsEstimator(object):
         param_settings = []
         for param_name in ("b", "e", "d"):
             if "fixed_" + param_name in kwargs:
+                param_settings.append(PARAM_SETTING_TEMPLATE.format(
+                        param_name=param_name, param_aspect="type", value='"fixed"'))
                 for param_aspect in ("min", "max", "init", "est"):
                     param_settings.append(PARAM_SETTING_TEMPLATE.format(
-                        param_name="b", param_aspect=param_aspect, value=kwargs["fixed_"+param_name]))
+                        param_name=param_name, param_aspect=param_aspect, value=kwargs["fixed_"+param_name]))
             else:
                 for param_aspect in ("min_", "max_", "init_", "est_"):
                     if param_aspect + param_name in kwargs:
                         param_settings.append(PARAM_SETTING_TEMPLATE.format(
-                            param_name="b", param_aspect=param_aspect[:-1], value=kwargs[param_aspect+param_name]))
+                            param_name=param_name, param_aspect=param_aspect[:-1], value=kwargs[param_aspect+param_name]))
         param_settings = "\n".join(param_settings)
         rcmds = R_TEMPLATE.format(
             patch_code=self.patch_code,
