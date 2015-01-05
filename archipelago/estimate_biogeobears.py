@@ -17,16 +17,7 @@ library(FD)
 # library(snow)
 library(parallel)
 library(BioGeoBEARS)
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_basics_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_generics_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_classes_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_models_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_plots_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_readwrite_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_simulate_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_stratified_v1.R")
-source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_univ_model_v1.R")
-source("http://phylo.wikidot.com/local--files/biogeobears/calc_loglike_sp_v01.R")
+{patch_code}
 calc_loglike_sp = compiler::cmpfun(calc_loglike_sp_prebyte)    # crucial to fix bug in uppass calculations
 calc_independent_likelihoods_on_each_branch = compiler::cmpfun(calc_independent_likelihoods_on_each_branch_prebyte)
 BioGeoBEARS_run_object = define_BioGeoBEARS_run()
@@ -79,8 +70,9 @@ class BiogeobearsEstimator(object):
                 "BioGeoBEARS_stratified_v1.R",
                 "BioGeoBEARS_univ_model_v1.R",
                 "calc_loglike_sp_v01.R",
-        ]
+                ]
         self.patch_filepaths = [os.path.join(self.path_to_libexec, f) for f in self.patch_filenames]
+        self.patch_code = "\n".join(["source('{}')".format(f) for f in self.patch_filepaths])
 
     def estimate_dec(self,
             newick_tree_filepath,
@@ -102,12 +94,13 @@ class BiogeobearsEstimator(object):
                             param_name="b", param_aspect=param_aspect[:-1], value=kwargs[param_aspect+param_name]))
         param_settings = "\n".join(param_settings)
         rcmds = R_TEMPLATE.format(
-                param_settings=param_settings,
-                tree_filepath=newick_tree_filepath,
-                geography_filepath=geography_filepath,
-                max_range_size=max_range_size,
-                results_filepath=self.results_file_name,
-                )
+            patch_code=self.patch_code,
+            param_settings=param_settings,
+            tree_filepath=newick_tree_filepath,
+            geography_filepath=geography_filepath,
+            max_range_size=max_range_size,
+            results_filepath=self.results_file_name,
+            )
         rfile = open(self.commands_file_name, "w")
         rfile.write(rcmds + "\n")
         rfile.flush()
