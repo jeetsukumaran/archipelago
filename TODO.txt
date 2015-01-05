@@ -1,0 +1,8 @@
+
+-   Compose output prefix based on name of model file
+-   Provide default model file
+-   Provide example model files
+-   Document model
+-   Provide model configurator
+-   "is_lineage_death_global": lineage extirpation rate = extinction_rate/lineage presences
+-   annotate nodes with: 'traits=001010,distribution=10031,' or 'habitat=1,color=2,distribution={t1,t2,t3,t4}'
