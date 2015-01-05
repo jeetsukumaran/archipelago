@@ -29,17 +29,21 @@ source("http://phylo.wdfiles.com/local--files/biogeobears/BioGeoBEARS_univ_model
 source("http://phylo.wikidot.com/local--files/biogeobears/calc_loglike_sp_v01.R")
 calc_loglike_sp = compiler::cmpfun(calc_loglike_sp_prebyte)    # crucial to fix bug in uppass calculations
 calc_independent_likelihoods_on_each_branch = compiler::cmpfun(calc_independent_likelihoods_on_each_branch_prebyte)
-
 BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+{param_settings}
 BioGeoBEARS_run_object$speedup=TRUE
 BioGeoBEARS_run_object$num_cores_to_use = 1
 BioGeoBEARS_run_object$max_range_size = {max_range_size}
 BioGeoBEARS_run_object$geogfn = "{geography_filepath}"
 BioGeoBEARS_run_object$trfn = "{tree_filepath}"
-
-# run
 res = bears_optim_run(BioGeoBEARS_run_object)
-save(res, file="results.txt")
+sink("{results_filepath}")
+res$outputs@params_table
+sink()
+"""
+
+PARAM_SETTING_TEMPLATE = """\
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["{param_name}","{param_aspect}"] = {value}
 """
 
 class BiogeobearsEstimator(object):
@@ -59,6 +63,7 @@ class BiogeobearsEstimator(object):
             self.results_file_name = self.results_file.name
         else:
             self.results_file_name = results_file_name
+        # self.results_file_name = "debugbgb.txt"
         self.fail_on_estimation_error = fail_on_estimation_error
         self.path_to_libexec = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "libexec")
         self.patch_filenames = [
@@ -79,11 +84,28 @@ class BiogeobearsEstimator(object):
             newick_tree_filepath,
             geography_filepath,
             max_range_size,
+            **kwargs
             ):
+
+        param_settings = []
+        for param_name in ("b", "e", "d"):
+            if "fixed_" + param_name in kwargs:
+                for param_aspect in ("min", "max", "init", "est"):
+                    param_settings.append(PARAM_SETTING_TEMPLATE.format(
+                        param_name="b", param_aspect=param_aspect, value=kwargs["fixed_"+param_name]))
+            else:
+                for param_aspect in ("min_", "max_", "init_", "est_"):
+                    if param_aspect + param_name in kwargs:
+                        param_settings.append(PARAM_SETTING_TEMPLATE.format(
+                            param_name="b", param_aspect=param_aspect[:-1], value=kwargs[param_aspect+param_name]))
+        param_settings = "\n".join(param_settings)
         rcmds = R_TEMPLATE.format(
+                param_settings=param_settings,
                 tree_filepath=newick_tree_filepath,
                 geography_filepath=geography_filepath,
-                max_range_size=max_range_size)
+                max_range_size=max_range_size,
+                results_filepath=self.results_file_name,
+                )
         rfile = open(self.commands_file_name, "w")
         rfile.write(rcmds + "\n")
         rfile.flush()
@@ -103,9 +125,22 @@ class BiogeobearsEstimator(object):
         stdout, stderr = processio.communicate(p)
         if p.returncode != 0:
             if self.fail_on_estimation_error:
-                raise Exception(p.returncode)
+                raise Exception("Non-zero return code: {}\n\n{}\n{}".format(
+                        p.returncode,
+                        stdout,
+                        stderr,
+                        ))
             else:
-                pass
-        else:
-            print(stdout)
+                return None
+        results_rows = open(self.results_file_name, "r").read().split("\n")
+        results_table = collections.OrderedDict()
+        for row in results_rows[1:21]:
+            cols = row.split()
+            if cols[0] == "desc" or cols[0] == "note":
+                break
+            try:
+                results_table[cols[0]] = float(cols[5])
+            except IndexError:
+                raise IndexError(cols)
+        return results_table
 

@@ -41,7 +41,9 @@ class ArchipelagoProfiler(object):
             self.traits_data_file_name = self.traits_data_file.name
             self.geography_data_file_name = self.geography_data_file.name
             self.commands_file_name = self.commands_file.name
-        self.biogeobears_estimator = BiogeobearsEstimator()
+        self.biogeobears_estimator = BiogeobearsEstimator(
+                commands_file_name=self.commands_file_name,
+                )
 
     def send_message(self, *args, **kwargs):
         if self.quiet:
@@ -130,7 +132,7 @@ class ArchipelagoProfiler(object):
         profile_results["root.age"] = root_age
 
         # estimate birth rate
-        self.estimate_pure_birth_rate(tree, profile_results)
+        birth_rate = self.estimate_pure_birth_rate(tree, profile_results)
 
         # set up for external processing
         ## fix negative edge lengths
@@ -158,7 +160,8 @@ class ArchipelagoProfiler(object):
         if estimate_dec:
             self.estimate_dec_rates(
                     tree=tree,
-                    profile_results=profile_results)
+                    profile_results=profile_results,
+                    fixed_b=birth_rate)
 
         # clean up
         self.restore_tree_taxa(tree)
@@ -189,6 +192,7 @@ class ArchipelagoProfiler(object):
         else:
             rate = bdfit["birth_rate"]
         profile_results["pure.birth.rate"] = rate
+        return rate
 
     def estimate_trait_evolution_rates(self,
             tree,
@@ -262,13 +266,15 @@ class ArchipelagoProfiler(object):
 
     def estimate_dec_rates(self,
             tree,
-            profile_results):
+            profile_results,
+            **kwargs):
         tree.write_to_path(self.newick_tree_file_name, "newick")
         self.create_biogeobears_geography_file(tree=tree, output_path=self.geography_data_file_name)
         dec_model = self.biogeobears_estimator.estimate_dec(
                 newick_tree_filepath=self.newick_tree_file_name,
                 geography_filepath=self.geography_data_file_name,
                 max_range_size=len(tree.taxon_namespace[0].distribution_vector),
+                **kwargs
                 )
 
     def create_working_tree_data(self, tree):
