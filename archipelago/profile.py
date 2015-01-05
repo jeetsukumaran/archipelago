@@ -17,9 +17,17 @@ class ArchipelagoProfiler(object):
     GEIGER_STATE_SYMBOLS = "123456789"
 
     def __init__(self,
+            is_estimate_pure_birth_rate=True,
+            is_estimate_trait_transition_rates=True,
+            is_estimate_area_transition_rates=True,
+            is_estimate_dec=False,
             quiet=False,
             fail_on_estimation_error=True,
             debug_mode=True):
+        self.is_estimate_pure_birth_rate = is_estimate_pure_birth_rate
+        self.is_estimate_trait_transition_rates = is_estimate_trait_transition_rates
+        self.is_estimate_area_transition_rates = is_estimate_area_transition_rates
+        self.is_estimate_dec = is_estimate_dec
         self.quiet = quiet
         self.fail_on_estimation_error = fail_on_estimation_error
         self.debug_mode = debug_mode
@@ -29,6 +37,7 @@ class ArchipelagoProfiler(object):
             self.traits_data_file_name = "profiler.traits.data.txt"
             self.geography_data_file_name = "profiler.geography.data.txt"
             self.commands_file_name = "profiler.commands.txt"
+            self.output_file_name = "profiler.output.txt"
         else:
             self.tree_file = tempfile.NamedTemporaryFile()
             self.newick_tree_file = tempfile.NamedTemporaryFile()
@@ -41,8 +50,10 @@ class ArchipelagoProfiler(object):
             self.traits_data_file_name = self.traits_data_file.name
             self.geography_data_file_name = self.geography_data_file.name
             self.commands_file_name = self.commands_file.name
+            self.output_file_name = self.output_file.name
         self.biogeobears_estimator = BiogeobearsEstimator(
                 commands_file_name=self.commands_file_name,
+                results_file_name=self.output_file_name,
                 )
 
     def send_message(self, *args, **kwargs):
@@ -65,7 +76,6 @@ class ArchipelagoProfiler(object):
     def profile_trees_from_path(self,
             trees_filepath,
             schema="newick",
-            estimate_dec=True,
             generating_model=None,
             ):
         trees = dendropy.TreeList.get_from_path(
@@ -77,7 +87,6 @@ class ArchipelagoProfiler(object):
         trees.tree_filepath = trees_filepath
         profiles = self.profile_trees(
                 trees=trees,
-                estimate_dec=estimate_dec,
                 generating_model=generating_model,
                 is_lineages_decoded=False,
                 decode_lineages_from="node",)
@@ -85,7 +94,6 @@ class ArchipelagoProfiler(object):
 
     def profile_trees(self,
             trees,
-            estimate_dec=True,
             generating_model=None,
             is_lineages_decoded=False,
             decode_lineages_from="node"):
@@ -96,7 +104,6 @@ class ArchipelagoProfiler(object):
                 tree.tree_offset = tree_idx
             r = self.profile_tree(
                     tree=tree,
-                    estimate_dec=estimate_dec,
                     generating_model=generating_model,
                     is_lineages_decoded=is_lineages_decoded)
             profiles.append(r)
@@ -104,7 +111,6 @@ class ArchipelagoProfiler(object):
 
     def profile_tree(self,
             tree,
-            estimate_dec=True,
             generating_model=None,
             is_lineages_decoded=False,
             decode_lineages_from="node"):
@@ -132,36 +138,36 @@ class ArchipelagoProfiler(object):
         profile_results["root.age"] = root_age
 
         # estimate birth rate
-        birth_rate = self.estimate_pure_birth_rate(tree, profile_results)
+        if self.is_estimate_pure_birth_rate:
+            birth_rate = self.estimate_pure_birth_rate(tree, profile_results)
 
         # set up for external processing
-        ## fix negative edge lengths
+        ## fix zero or negative edge lengths
         self.preprocess_edge_lengths(tree)
         ## set up taxa
         self.preprocess_tree_taxa(tree)
         ## store tree
         self.create_working_tree_data(tree)
 
-        ## create traits
-        # trait_names = self.create_traits_data(
-        #         tree=tree,
-        #         generating_model=generating_model)
-
         ## process traits
-        # self.estimate_trait_evolution_rates(
-        #         tree=tree,
-        #         profile_results=profile_results,
-        #         trait_names=trait_names)
-
-        # process areas
-        # self.estimate_pure_dispersal_rate(
-        #         tree=tree,
-        #         profile_results=profile_results)
-        if estimate_dec:
-            self.estimate_dec_rates(
+        if self.is_estimate_trait_transition_rates:
+            trait_names = self.create_traits_data(
+                    tree=tree,
+                    generating_model=generating_model)
+            self.estimate_trait_transition_rates(
                     tree=tree,
                     profile_results=profile_results,
-                    fixed_b=birth_rate)
+                    trait_names=trait_names)
+
+        # process areas
+        if self.is_estimate_area_transition_rates:
+            self.estimate_pure_dispersal_rate(
+                    tree=tree,
+                    profile_results=profile_results)
+        if self.is_estimate_dec:
+            self.estimate_dec_rates(
+                    tree=tree,
+                    profile_results=profile_results,)
 
         # clean up
         self.restore_tree_taxa(tree)
@@ -194,7 +200,7 @@ class ArchipelagoProfiler(object):
         profile_results["pure.birth.rate"] = rate
         return rate
 
-    def estimate_trait_evolution_rates(self,
+    def estimate_trait_transition_rates(self,
             tree,
             profile_results,
             trait_names):
@@ -262,7 +268,7 @@ class ArchipelagoProfiler(object):
         stdout = stdout.split("\n")
         result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
         rate = float(result['q01'])
-        profile_results["geographical.transition.rate"] = rate
+        profile_results["area.est.transition.rate"] = rate
 
     def estimate_dec_rates(self,
             tree,
@@ -270,12 +276,14 @@ class ArchipelagoProfiler(object):
             **kwargs):
         tree.write_to_path(self.newick_tree_file_name, "newick")
         self.create_biogeobears_geography_file(tree=tree, output_path=self.geography_data_file_name)
-        dec_model = self.biogeobears_estimator.estimate_dec(
+        dec_results = self.biogeobears_estimator.estimate_dec(
                 newick_tree_filepath=self.newick_tree_file_name,
                 geography_filepath=self.geography_data_file_name,
                 max_range_size=len(tree.taxon_namespace[0].distribution_vector),
                 **kwargs
                 )
+        profile_results["dec.dispersal.rate"] = dec_results["d"]
+        profile_results["dec.extinction.rate"] = dec_results["e"]
 
     def create_working_tree_data(self, tree):
         with open(self.tree_file_name, "w") as tf:

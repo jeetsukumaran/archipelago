@@ -8,46 +8,67 @@ from archipelago import profile
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+
+    source_options = parser.add_argument_group("Source Options")
+    source_options.add_argument(
             "source_paths",
             nargs="+",
             help="Path(s) to tree files.")
-    # parser.add_argument(
-    #         "-o", "--output-prefix",
-    #         default='archipelago-validation',
-    #         help="Output prefix (default: '%(default)s').")
-    parser.add_argument("-f", "--format",
+    source_options.add_argument("-f", "--format",
             dest="schema",
             type=str,
             default="newick",
             choices=["nexus", "newick"],
             help="Input data format (default: '%(default)s').")
-    parser.add_argument("-m", "--model-file",
+    source_options.add_argument("-m", "--model-file",
             default=None,
             help="Model file(s) for the input tree file(s)."
                  " Parameters of the model will be added to the"
                  " profile profile_results to facilitate analysis."
             )
-    parser.add_argument("-o", "--output-file",
+
+    profile_options = parser.add_argument_group("Profile Options")
+
+    profile_options.add_argument("--no-estimate-pure-birth",
+            action="store_true",
+            default=False,
+            help="Do NOT estimate birth rate under a pure-birth model.")
+    profile_options.add_argument("--no-estimate-trait-transition",
+            action="store_true",
+            default=False,
+            help="Do NOT estimate trait transition rate.")
+    profile_options.add_argument("--no-estimate-area-transition",
+            action="store_true",
+            default=False,
+            help="Do NOT estimate area transition rate.")
+    profile_options.add_argument("--estimate-dec",
+            action="store_true",
+            default=False,
+            help="Estimate parameters under Lagrange's DEC model (using BioGeoBears).")
+
+    output_options = parser.add_argument_group("Output Options")
+    output_options.add_argument("-o", "--output-file",
             default=None,
             help="Path to profile_results file (default: standard output)."
             )
-    parser.add_argument("-q", "--quiet",
-            action="store_true",
-            default=False,
-            help="Suppress progress messages.")
-    parser.add_argument( "--no-source-columns",
-            action="store_true",
-            default=False,
-            help="Do not include columns indicating source path(s) and tree indexes.")
-    parser.add_argument( "--no-header-row",
+    output_options.add_argument( "--no-header-row",
             action="store_true",
             default=False,
             help="Do not write a header row.")
-    parser.add_argument( "--header-row-only",
+
+    run_options = parser.add_argument_group("Run Options")
+    run_options.add_argument("-q", "--quiet",
             action="store_true",
             default=False,
-            help="Write header row only and exit.")
+            help="Suppress progress messages.")
+    run_options.add_argument("--debug-mode",
+            action="store_true",
+            default=False,
+            help="Run in debug mode (work files will not be deleted).")
+    run_options.add_argument("--ignore-estimation-errors",
+            action="store_true",
+            default=False,
+            help="Ignore errors raised by estimation internally or by external programs")
     args = parser.parse_args()
     source_filepaths = list(args.source_paths)
 
@@ -55,7 +76,15 @@ def main():
         archipelago_model = model.ArchipelagoModel.from_path(args.model_file)
     else:
         archipelago_model = None
-    profiler = profile.ArchipelagoProfiler()
+    profiler = profile.ArchipelagoProfiler(
+            is_estimate_pure_birth_rate=not args.no_estimate_pure_birth,
+            is_estimate_trait_transition_rates=not args.no_estimate_trait_transition,
+            is_estimate_area_transition_rates=not args.no_estimate_area_transition,
+            is_estimate_dec=args.estimate_dec,
+            quiet=args.quiet,
+            fail_on_estimation_error=not args.ignore_estimation_errors,
+            debug_mode=args.debug_mode,
+            )
     profiles = []
     for source_idx, source_filepath in enumerate(source_filepaths):
         if not args.quiet:
@@ -67,7 +96,8 @@ def main():
         results = profiler.profile_trees_from_path(
                 trees_filepath=source_filepath,
                 schema=args.schema,
-                generating_model=archipelago_model)
+                generating_model=archipelago_model,
+                )
         profiles.extend(results)
     profiler.write_profiles(
             dest=sys.stdout,
