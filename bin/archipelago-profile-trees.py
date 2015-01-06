@@ -41,10 +41,14 @@ def main():
             action="store_true",
             default=False,
             help="Do NOT estimate area transition rate.")
-    profile_options.add_argument("--estimate-dec",
+    profile_options.add_argument("--estimate-dec-biogeobears",
             action="store_true",
             default=False,
             help="Estimate parameters under Lagrange's DEC model (using BioGeoBears).")
+    profile_options.add_argument("--estimate-dec-lagrange",
+            action="store_true",
+            default=False,
+            help="Estimate parameters under Lagrange's DEC model (using Lagrange).")
     profile_options.add_argument("-b", "--minimum-branch-length",
             default=profile.DEFAULT_MINIMUM_BRANCH_LENGTH,
             type=float,
@@ -85,7 +89,8 @@ def main():
             is_estimate_pure_birth_rate=not args.no_estimate_pure_birth,
             is_estimate_trait_transition_rates=not args.no_estimate_trait_transition,
             is_estimate_area_transition_rates=not args.no_estimate_area_transition,
-            is_estimate_dec=args.estimate_dec,
+            is_estimate_dec_biogeobears=args.estimate_dec_biogeobears,
+            is_estimate_dec_lagrange=args.estimate_dec_lagrange,
             quiet=args.quiet,
             fail_on_estimation_error=not args.ignore_estimation_errors,
             debug_mode=args.debug_mode,

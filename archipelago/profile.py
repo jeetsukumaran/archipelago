@@ -22,7 +22,8 @@ class ArchipelagoProfiler(object):
             is_estimate_pure_birth_rate=True,
             is_estimate_trait_transition_rates=True,
             is_estimate_area_transition_rates=True,
-            is_estimate_dec=False,
+            is_estimate_dec_biogeobears=False,
+            is_estimate_dec_lagrange=False,
             minimum_branch_length=DEFAULT_MINIMUM_BRANCH_LENGTH,
             quiet=False,
             fail_on_estimation_error=True,
@@ -31,7 +32,8 @@ class ArchipelagoProfiler(object):
         self.is_estimate_pure_birth_rate = is_estimate_pure_birth_rate
         self.is_estimate_trait_transition_rates = is_estimate_trait_transition_rates
         self.is_estimate_area_transition_rates = is_estimate_area_transition_rates
-        self.is_estimate_dec = is_estimate_dec
+        self.is_estimate_dec_biogeobears = is_estimate_dec_biogeobears
+        self.is_estimate_dec_lagrange = is_estimate_dec_lagrange
         self.quiet = quiet
         self.fail_on_estimation_error = fail_on_estimation_error
         self.debug_mode = debug_mode
@@ -169,8 +171,12 @@ class ArchipelagoProfiler(object):
             self.estimate_pure_dispersal_rate(
                     tree=tree,
                     profile_results=profile_results)
-        if self.is_estimate_dec:
-            self.estimate_dec_rates(
+        if self.is_estimate_dec_biogeobears:
+            self.estimate_dec_rates_biogeobears(
+                    tree=tree,
+                    profile_results=profile_results,)
+        if self.is_estimate_dec_lagrange:
+            self.estimate_dec_rates_lagrange(
                     tree=tree,
                     profile_results=profile_results,)
 
@@ -275,7 +281,7 @@ class ArchipelagoProfiler(object):
         rate = float(result['q01'])
         profile_results["area.est.transition.rate"] = rate
 
-    def estimate_dec_rates(self,
+    def estimate_dec_rates_biogeobears(self,
             tree,
             profile_results,
             **kwargs):
@@ -287,8 +293,40 @@ class ArchipelagoProfiler(object):
                 max_range_size=len(tree.taxon_namespace[0].distribution_vector),
                 **kwargs
                 )
-        profile_results["dec.dispersal.rate"] = dec_results["d"]
-        profile_results["dec.extinction.rate"] = dec_results["e"]
+        profile_results["biogeobears.dec.dispersal.rate"] = dec_results["d"]
+        profile_results["biogeobears.dec.extinction.rate"] = dec_results["e"]
+
+    def estimate_dec_rates_lagrange(self,
+            tree,
+            profile_results,
+            **kwargs):
+        tree.write_to_path(
+                self.newick_tree_file_name,
+                "newick",
+                suppress_rooting=True,
+                )
+        self.create_lagrangecpp_geography_file(tree=tree, output_path=self.geography_data_file_name)
+        configf = open(self.commands_file_name, "w")
+        configf.write("treefile = {}\n".format(self.newick_tree_file_name))
+        configf.write("datafile = {}\n".format(self.geography_data_file_name))
+        configf.flush()
+        configf.close()
+        shell_cmd = ["lagrange_cpp", self.commands_file_name]
+        p = subprocess.Popen(
+                shell_cmd,
+                stdout=subprocess.PIPE,
+                )
+        stdout, stderr = processio.communicate(p)
+        print(stdout)
+        if p.returncode != 0:
+            if self.fail_on_estimation_error:
+                raise Exception(p.returncode)
+            # else:
+            #     rows = ["NA" for i in range(len(trait_names))]
+        # else:
+            # rows = [row.strip() for row in stdout.split("\n")]
+            # rows = [float(row) for row in rows if row]
+            # assert len(rows) == len(trait_names), rows
 
     def create_working_tree_data(self, tree):
         with open(self.tree_file_name, "w") as tf:
@@ -354,6 +392,19 @@ class ArchipelagoProfiler(object):
             num_lineages=len(tree.taxon_namespace),
             num_areas=len(area_labels),
             area_labels=" ".join(area_labels),
+            ))
+        for taxon in tree.taxon_namespace:
+            incidences = [str(i) for i in taxon.distribution_vector]
+            dataf.write("{}{}{}\n".format(taxon.label, sep, "".join(incidences)))
+        dataf.flush()
+        dataf.close()
+
+    def create_lagrangecpp_geography_file(self, tree, output_path):
+        sep = "\t"
+        dataf = open(output_path, "w")
+        dataf.write("{num_lineages}\t{num_areas})\n".format(
+            num_lineages=len(tree.taxon_namespace),
+            num_areas=len(tree.taxon_namespace[0].distribution_vector),
             ))
         for taxon in tree.taxon_namespace:
             incidences = [str(i) for i in taxon.distribution_vector]
