@@ -163,10 +163,11 @@ class ArchipelagoProfiler(object):
             trait_names = self.create_traits_data(
                     tree=tree,
                     generating_model=generating_model)
-            self.estimate_trait_transition_rates(
-                    tree=tree,
-                    profile_results=profile_results,
-                    trait_names=trait_names)
+            if trait_names is not None:
+                self.estimate_trait_transition_rates(
+                        tree=tree,
+                        profile_results=profile_results,
+                        trait_names=trait_names)
 
         # process areas
         if self.is_estimate_area_transition_rates:
@@ -364,6 +365,8 @@ class ArchipelagoProfiler(object):
         else:
             num_trait_types = len(generating_model.geography.trait_types)
             trait_names = [trait.label for trait in generating_model.geography.trait_types]
+        if num_trait_types == 0:
+            return None
         assert len(trait_names) == num_trait_types
         lineage_trait_states = collections.OrderedDict()
         for trait_idx in range(num_trait_types):
