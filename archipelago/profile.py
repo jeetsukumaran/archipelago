@@ -314,10 +314,13 @@ class ArchipelagoProfiler(object):
         configf.flush()
         configf.close()
         shell_cmd = ["lagrange_cpp", self.commands_file_name]
-        p = subprocess.Popen(
-                shell_cmd,
-                stdout=subprocess.PIPE,
-                )
+        try:
+            p = subprocess.Popen(
+                    shell_cmd,
+                    stdout=subprocess.PIPE,
+                    )
+        except OSError, e:
+            raise OSError("Failed to execute command: {}".format(" ".join(shell_cmd)))
         stdout, stderr = processio.communicate(p)
         if p.returncode != 0:
             if self.fail_on_estimation_error:
