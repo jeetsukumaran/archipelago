@@ -6,6 +6,7 @@ import csv
 import collections
 import tempfile
 import subprocess
+import re
 import dendropy
 from dendropy.model import birthdeath
 from dendropy.utility import processio
@@ -17,6 +18,7 @@ DEFAULT_MINIMUM_BRANCH_LENGTH = 1e-6
 class ArchipelagoProfiler(object):
 
     GEIGER_STATE_SYMBOLS = "123456789"
+    LAGRANGE_CPP_EXTRACT_PATTERN = re.compile(r".*^dis: ([0-9eE\-\.]+) ext: ([0-9eE\-\.]+).*", re.MULTILINE | re.DOTALL)
 
     def __init__(self,
             is_estimate_pure_birth_rate=True,
@@ -317,16 +319,24 @@ class ArchipelagoProfiler(object):
                 stdout=subprocess.PIPE,
                 )
         stdout, stderr = processio.communicate(p)
-        print(stdout)
         if p.returncode != 0:
             if self.fail_on_estimation_error:
                 raise Exception(p.returncode)
-            # else:
-            #     rows = ["NA" for i in range(len(trait_names))]
-        # else:
-            # rows = [row.strip() for row in stdout.split("\n")]
-            # rows = [float(row) for row in rows if row]
-            # assert len(rows) == len(trait_names), rows
+            else:
+                profile_results["lagrange.dec.dispersal.rate"] = "NA"
+                profile_results["lagrange.dec.extinction.rate"] = "NA"
+        else:
+            match = ArchipelagoProfiler.LAGRANGE_CPP_EXTRACT_PATTERN.match(stdout)
+            if not match:
+                if self.fail_on_estimation_error:
+                    raise Exception("Failed to extract results from Lagrange estimation")
+                else:
+                    profile_results["lagrange.dec.dispersal.rate"] = "NA"
+                    profile_results["lagrange.dec.extinction.rate"] = "NA"
+            else:
+                results = match.groups(1)
+                profile_results["lagrange.dec.dispersal.rate"] = float(results[0])
+                profile_results["lagrange.dec.extinction.rate"] = float(results[1])
 
     def create_working_tree_data(self, tree):
         with open(self.tree_file_name, "w") as tf:
