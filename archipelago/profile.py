@@ -279,9 +279,21 @@ class ArchipelagoProfiler(object):
                 stdin=subprocess.PIPE,
                 )
         stdout, stderr = processio.communicate(p, bt_commands)
-        stdout = stdout.split("\n")
-        result = dict(zip(stdout[-3].split("\t"), stdout[-2].split("\t")))
-        rate = float(result['q01'])
+        stdout_rows = stdout.split("\n")
+        targeted_row_idx = None
+        for row_idx, row in enumerate(stdout_rows):
+            # if "q01" in row and "q10" in row:
+            if row.startswith("Tree No\tLh\tq"):
+                targeted_row_idx = row_idx + 1
+                break
+        if targeted_row_idx is None:
+            if self.fail_on_estimation_error:
+                raise Exception("Failed to extract results from BayesTraits estimation")
+            else:
+                rate = "NA"
+        else:
+            result = dict(zip(stdout_rows[targeted_row_idx-1].split("\t"), stdout_rows[targeted_row_idx].split("\t")))
+            rate = float(result['q01'])
         profile_results["area.est.transition.rate"] = rate
 
     def estimate_dec_rates_biogeobears(self,
