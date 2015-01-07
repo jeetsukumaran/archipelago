@@ -332,7 +332,7 @@ class ArchipelagoProfiler(object):
                     shell_cmd,
                     stdout=subprocess.PIPE,
                     )
-        except OSError, e:
+        except OSError as e:
             raise OSError("Failed to execute command: {}".format(" ".join(shell_cmd)))
         stdout, stderr = processio.communicate(p)
         if p.returncode != 0:
