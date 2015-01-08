@@ -7,18 +7,49 @@ import collections
 import tempfile
 import subprocess
 import re
+import argparse
 import dendropy
 from dendropy.model import birthdeath
 from dendropy.utility import processio
 from archipelago import model
 from archipelago.estimate_biogeobears import BiogeobearsEstimator
 
-DEFAULT_MINIMUM_BRANCH_LENGTH = 1e-6
-
 class ArchipelagoProfiler(object):
 
     GEIGER_STATE_SYMBOLS = "123456789"
     LAGRANGE_CPP_EXTRACT_PATTERN = re.compile(r".*^dis: ([0-9eE\-\.]+) ext: ([0-9eE\-\.]+).*", re.MULTILINE | re.DOTALL)
+    DEFAULT_MINIMUM_BRANCH_LENGTH = 1e-6
+
+
+    @staticmethod
+    def get_profile_options_parser():
+        parser = argparse.ArgumentParser(add_help=False)
+        profile_options = parser.add_argument_group("Profile Options")
+        profile_options.add_argument("--no-estimate-pure-birth",
+                action="store_true",
+                default=False,
+                help="Do NOT estimate birth rate under a pure-birth model.")
+        profile_options.add_argument("--no-estimate-trait-transition",
+                action="store_true",
+                default=False,
+                help="Do NOT estimate trait transition rate.")
+        profile_options.add_argument("--no-estimate-area-transition",
+                action="store_true",
+                default=False,
+                help="Do NOT estimate area transition rate.")
+        profile_options.add_argument("--estimate-dec-biogeobears",
+                action="store_true",
+                default=False,
+                help="Estimate parameters under Lagrange's DEC model (using BioGeoBears).")
+        profile_options.add_argument("--estimate-dec-lagrange",
+                action="store_true",
+                default=False,
+                help="Estimate parameters under Lagrange's DEC model (using Lagrange).")
+        profile_options.add_argument("-b", "--minimum-branch-length",
+                default=ArchipelagoProfiler.DEFAULT_MINIMUM_BRANCH_LENGTH,
+                type=float,
+                help="Minimum branch length (edges will be forced to this length).")
+        return parser
 
     def __init__(self,
             is_estimate_pure_birth_rate=True,

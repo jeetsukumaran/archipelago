@@ -7,7 +7,11 @@ from archipelago import model
 from archipelago import profile
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+            parents=[
+                profile.ArchipelagoProfiler.get_profile_options_parser(),
+                ],
+            )
 
     source_options = parser.add_argument_group("Source Options")
     source_options.add_argument(
@@ -26,33 +30,6 @@ def main():
                  " Parameters of the model will be added to the"
                  " profile profile_results to facilitate analysis."
             )
-
-    profile_options = parser.add_argument_group("Profile Options")
-
-    profile_options.add_argument("--no-estimate-pure-birth",
-            action="store_true",
-            default=False,
-            help="Do NOT estimate birth rate under a pure-birth model.")
-    profile_options.add_argument("--no-estimate-trait-transition",
-            action="store_true",
-            default=False,
-            help="Do NOT estimate trait transition rate.")
-    profile_options.add_argument("--no-estimate-area-transition",
-            action="store_true",
-            default=False,
-            help="Do NOT estimate area transition rate.")
-    profile_options.add_argument("--estimate-dec-biogeobears",
-            action="store_true",
-            default=False,
-            help="Estimate parameters under Lagrange's DEC model (using BioGeoBears).")
-    profile_options.add_argument("--estimate-dec-lagrange",
-            action="store_true",
-            default=False,
-            help="Estimate parameters under Lagrange's DEC model (using Lagrange).")
-    profile_options.add_argument("-b", "--minimum-branch-length",
-            default=profile.DEFAULT_MINIMUM_BRANCH_LENGTH,
-            type=float,
-            help="Minimum branch length (edges will be forced to this length).")
 
     output_options = parser.add_argument_group("Output Options")
     output_options.add_argument("-o", "--output-file",
