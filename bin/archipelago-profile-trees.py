@@ -38,6 +38,10 @@ def main():
             action="store_true",
             default=False,
             help="Do not write a header row.")
+    output_options.add_argument( "--append",
+            action="store_true",
+            default=False,
+            help="Append to output file if it already exists instead of overwriting.")
 
     args = parser.parse_args()
     source_filepaths = list(args.source_paths)
@@ -61,8 +65,16 @@ def main():
                 generating_model=archipelago_model,
                 )
         profiles.extend(results)
+    if args.append:
+        output_file_open_mode = "a"
+    else:
+        output_file_open_mode = "w"
+    if args.output_file is None:
+        out = sys.stdout
+    else:
+        out = open(args.output_file, output_file_open_mode)
     profiler.write_profiles(
-            dest=sys.stdout,
+            dest=out,
             profiles=profiles,
             suppress_headers=False)
 
