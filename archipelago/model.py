@@ -328,7 +328,7 @@ class RateFunction(object):
         rate_function_d = dict(rate_function_d)
         self.definition_type = rate_function_d.pop("definition_type").replace("-", "_")
         self.definition_content = rate_function_d.pop("definition")
-        self.description = rate_function_d.pop("description")
+        self.description = rate_function_d.pop("description", "")
         if rate_function_d:
             raise TypeError("Unsupported function definition keywords: {}".format(rate_function_d))
         self.compile_function(trait_types)
