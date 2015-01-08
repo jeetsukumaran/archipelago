@@ -12,7 +12,6 @@ def main():
                 profile.ArchipelagoProfiler.get_profile_options_parser(),
                 ],
             )
-
     source_options = parser.add_argument_group("Source Options")
     source_options.add_argument(
             "source_paths",
@@ -30,7 +29,6 @@ def main():
                  " Parameters of the model will be added to the"
                  " profile profile_results to facilitate analysis."
             )
-
     output_options = parser.add_argument_group("Output Options")
     output_options.add_argument("-o", "--output-file",
             default=None,
@@ -41,19 +39,6 @@ def main():
             default=False,
             help="Do not write a header row.")
 
-    run_options = parser.add_argument_group("Run Options")
-    run_options.add_argument("-q", "--quiet",
-            action="store_true",
-            default=False,
-            help="Suppress progress messages.")
-    run_options.add_argument("--debug-mode",
-            action="store_true",
-            default=False,
-            help="Run in debug mode (work files will not be deleted).")
-    run_options.add_argument("--ignore-estimation-errors",
-            action="store_true",
-            default=False,
-            help="Ignore errors raised by estimation internally or by external programs")
     args = parser.parse_args()
     source_filepaths = list(args.source_paths)
 
@@ -61,17 +46,7 @@ def main():
         archipelago_model = model.ArchipelagoModel.from_path(args.model_file)
     else:
         archipelago_model = None
-    profiler = profile.ArchipelagoProfiler(
-            minimum_branch_length = args.minimum_branch_length,
-            is_estimate_pure_birth_rate=not args.no_estimate_pure_birth,
-            is_estimate_trait_transition_rates=not args.no_estimate_trait_transition,
-            is_estimate_area_transition_rates=not args.no_estimate_area_transition,
-            is_estimate_dec_biogeobears=args.estimate_dec_biogeobears,
-            is_estimate_dec_lagrange=args.estimate_dec_lagrange,
-            quiet=args.quiet,
-            fail_on_estimation_error=not args.ignore_estimation_errors,
-            debug_mode=args.debug_mode,
-            )
+    profiler = profile.ArchipelagoProfiler.from_option_args(args)
     profiles = []
     for source_idx, source_filepath in enumerate(source_filepaths):
         if not args.quiet:

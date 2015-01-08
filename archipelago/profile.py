@@ -20,36 +20,64 @@ class ArchipelagoProfiler(object):
     LAGRANGE_CPP_EXTRACT_PATTERN = re.compile(r".*^dis: ([0-9eE\-\.]+) ext: ([0-9eE\-\.]+).*", re.MULTILINE | re.DOTALL)
     DEFAULT_MINIMUM_BRANCH_LENGTH = 1e-6
 
-
     @staticmethod
     def get_profile_options_parser():
         parser = argparse.ArgumentParser(add_help=False)
-        profile_options = parser.add_argument_group("Profile Options")
-        profile_options.add_argument("--no-estimate-pure-birth",
+        profile_metric_options = parser.add_argument_group("Profile Metrics")
+        profile_metric_options.add_argument("--no-estimate-pure-birth",
                 action="store_true",
                 default=False,
                 help="Do NOT estimate birth rate under a pure-birth model.")
-        profile_options.add_argument("--no-estimate-trait-transition",
+        profile_metric_options.add_argument("--no-estimate-trait-transition",
                 action="store_true",
                 default=False,
                 help="Do NOT estimate trait transition rate.")
-        profile_options.add_argument("--no-estimate-area-transition",
+        profile_metric_options.add_argument("--no-estimate-area-transition",
                 action="store_true",
                 default=False,
                 help="Do NOT estimate area transition rate.")
-        profile_options.add_argument("--estimate-dec-biogeobears",
+        profile_metric_options.add_argument("--estimate-dec-biogeobears",
                 action="store_true",
                 default=False,
                 help="Estimate parameters under Lagrange's DEC model (using BioGeoBears).")
-        profile_options.add_argument("--estimate-dec-lagrange",
+        profile_metric_options.add_argument("--estimate-dec-lagrange",
                 action="store_true",
                 default=False,
                 help="Estimate parameters under Lagrange's DEC model (using Lagrange).")
-        profile_options.add_argument("-b", "--minimum-branch-length",
+        profile_metric_options.add_argument("-b", "--minimum-branch-length",
                 default=ArchipelagoProfiler.DEFAULT_MINIMUM_BRANCH_LENGTH,
                 type=float,
                 help="Minimum branch length (edges will be forced to this length).")
+
+        profile_run_options = parser.add_argument_group("Profile Run Options")
+        profile_run_options.add_argument("-v", "--verbosity",
+                default=1,
+                type=int,
+                help="Progress noisiness")
+        profile_run_options.add_argument("--debug-mode",
+                action="store_true",
+                default=False,
+                help="Run in debug mode (work files will not be deleted).")
+        profile_run_options.add_argument("--ignore-estimation-errors",
+                action="store_true",
+                default=False,
+                help="Ignore errors raised by estimation internally or by external programs")
         return parser
+
+    @staticmethod
+    def from_option_args(args):
+        profiler = profile.ArchipelagoProfiler(
+                minimum_branch_length = args.minimum_branch_length,
+                is_estimate_pure_birth_rate=not args.no_estimate_pure_birth,
+                is_estimate_trait_transition_rates=not args.no_estimate_trait_transition,
+                is_estimate_area_transition_rates=not args.no_estimate_area_transition,
+                is_estimate_dec_biogeobears=args.estimate_dec_biogeobears,
+                is_estimate_dec_lagrange=args.estimate_dec_lagrange,
+                quiet=args.quiet,
+                fail_on_estimation_error=not args.ignore_estimation_errors,
+                debug_mode=args.debug_mode,
+                )
+        return profiler
 
     def __init__(self,
             is_estimate_pure_birth_rate=True,
