@@ -49,7 +49,7 @@ def main():
     profiler = profile.ArchipelagoProfiler.from_option_args(args)
     profiles = []
     for source_idx, source_filepath in enumerate(source_filepaths):
-        if not args.quiet:
+        if not args.verbosity >= 2:
             sys.stderr.write("-profiler- Source {source_idx} of {num_sources}: {source_filepath}\n".format(
                     source_idx=source_idx+1,
                     num_sources=len(source_filepaths),

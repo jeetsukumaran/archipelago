@@ -66,14 +66,14 @@ class ArchipelagoProfiler(object):
 
     @staticmethod
     def from_option_args(args):
-        profiler = profile.ArchipelagoProfiler(
+        profiler = ArchipelagoProfiler(
                 minimum_branch_length = args.minimum_branch_length,
                 is_estimate_pure_birth_rate=not args.no_estimate_pure_birth,
                 is_estimate_trait_transition_rates=not args.no_estimate_trait_transition,
                 is_estimate_area_transition_rates=not args.no_estimate_area_transition,
                 is_estimate_dec_biogeobears=args.estimate_dec_biogeobears,
                 is_estimate_dec_lagrange=args.estimate_dec_lagrange,
-                quiet=args.quiet,
+                verbosity=args.verbosity,
                 fail_on_estimation_error=not args.ignore_estimation_errors,
                 debug_mode=args.debug_mode,
                 )
@@ -86,7 +86,7 @@ class ArchipelagoProfiler(object):
             is_estimate_dec_biogeobears=False,
             is_estimate_dec_lagrange=False,
             minimum_branch_length=DEFAULT_MINIMUM_BRANCH_LENGTH,
-            quiet=False,
+            verbosity=2,
             fail_on_estimation_error=True,
             debug_mode=False):
         self.minimum_branch_length = minimum_branch_length
@@ -95,7 +95,7 @@ class ArchipelagoProfiler(object):
         self.is_estimate_area_transition_rates = is_estimate_area_transition_rates
         self.is_estimate_dec_biogeobears = is_estimate_dec_biogeobears
         self.is_estimate_dec_lagrange = is_estimate_dec_lagrange
-        self.quiet = quiet
+        self.quiet = verbosity <= 1
         self.fail_on_estimation_error = fail_on_estimation_error
         self.debug_mode = debug_mode
         if self.debug_mode:
@@ -434,8 +434,8 @@ class ArchipelagoProfiler(object):
             num_trait_types = len(tree.taxon_namespace[0].traits_vector)
             trait_names = ["trait{}".format(i+1) for i in range(num_trait_types)]
         else:
-            num_trait_types = len(generating_model.geography.trait_types)
-            trait_names = [trait.label for trait in generating_model.geography.trait_types]
+            num_trait_types = len(generating_model.trait_types)
+            trait_names = [trait.label for trait in generating_model.trait_types]
         if num_trait_types == 0:
             return None
         assert len(trait_names) == num_trait_types

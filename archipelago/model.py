@@ -490,6 +490,9 @@ class TraitTypes(object):
     def __init__(self):
         self.normalize_transition_weights = True
 
+    def __len__(self):
+        return len(self.trait_types)
+
     def __iter__(self):
         return iter(self.trait_types)
 
