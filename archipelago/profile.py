@@ -229,18 +229,19 @@ class ArchipelagoProfiler(object):
                         trait_names=trait_names)
 
         # process areas
-        if self.is_estimate_area_transition_rates:
-            self.estimate_pure_dispersal_rate(
-                    tree=tree,
-                    profile_results=profile_results)
-        if self.is_estimate_dec_biogeobears:
-            self.estimate_dec_rates_biogeobears(
-                    tree=tree,
-                    profile_results=profile_results,)
-        if self.is_estimate_dec_lagrange:
-            self.estimate_dec_rates_lagrange(
-                    tree=tree,
-                    profile_results=profile_results,)
+        if len(tree.taxon_namespace[0].distribution_vector) > 1:
+            if self.is_estimate_area_transition_rates:
+                self.estimate_pure_dispersal_rate(
+                        tree=tree,
+                        profile_results=profile_results)
+            if self.is_estimate_dec_biogeobears:
+                self.estimate_dec_rates_biogeobears(
+                        tree=tree,
+                        profile_results=profile_results,)
+            if self.is_estimate_dec_lagrange:
+                self.estimate_dec_rates_lagrange(
+                        tree=tree,
+                        profile_results=profile_results,)
 
         # clean up
         self.restore_tree_taxa(tree)
