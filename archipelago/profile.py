@@ -191,10 +191,6 @@ class ArchipelagoProfiler(object):
         # intitialize profile_results
         profile_results = collections.OrderedDict()
 
-        # prepopulate with params that are available
-        if generating_model is not None:
-            self.store_generating_model_parameters(generating_model, profile_results)
-
         # basic profile
         if hasattr(tree, "tree_filepath"):
             profile_results["tree.filepath"] = tree.tree_filepath
@@ -204,6 +200,10 @@ class ArchipelagoProfiler(object):
         tree.calc_node_ages()
         root_age = tree.seed_node.age
         profile_results["root.age"] = root_age
+
+        # prepopulate with params that are available
+        if generating_model is not None:
+            self.store_generating_model_parameters(generating_model, profile_results)
 
         # estimate birth rate
         if self.is_estimate_pure_birth_rate:
