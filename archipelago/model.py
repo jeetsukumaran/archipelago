@@ -603,7 +603,7 @@ class Area(object):
 class Geography(object):
 
     def __init__(self):
-        self.normalize_dispersal_weights = True
+        self.normalize_dispersal_weights = False
 
     def __iter__(self):
         return iter(self.areas)
