@@ -340,15 +340,15 @@ class RateFunction(object):
             self._compute_rate = lambda lineage: self.definition_content
         elif self.definition_type == "lambda_definition":
             self._compute_rate = eval(self.definition_content)
-        elif self.definition_type == "trait_state_index_map":
-            parts = self.definition_content.split(":")
+        elif self.definition_type.starts_with("trait_state_index_map"):
+            parts = self.definition_type.split(":")
             if len(parts) != 2:
-                raise ValueError("Expecting definition in form of '<trait-label>: <rate-for-state-0>, <rate-for-state-1>, ..., <rate-for-state-n>' but found: '{}'".format(self.definition_content))
-            trait_label = parts[0]
+                raise ValueError("Expecting definition type in form of 'trait_state_index_map:<TRAIT-LABEL>' but found: '{}'".format(self.definition_type))
+            trait_label = parts[1]
             if trait_label not in trait_types.trait_label_index_map:
                 raise ValueError("Trait '{}' not defined: {}".format(trait_label, trait_types.trait_label_index_map.keys()))
             trait = trait_types.get_by_label(trait_label)
-            rate_list = [p.strip() for p in parts[1].split(",") if p.strip()]
+            rate_list = list(self.definition_content)
             if len(rate_list) != trait.nstates:
                 raise ValueError("Trait '{}' has {} states, but rate mapping only provides {} values".format(
                     trait_label, trait.nstates, len(rate_list)))
