@@ -203,7 +203,7 @@ class ArchipelagoModel(object):
             self.lineage_dispersal_rate_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_rate"), self.trait_types)
         else:
             self.lineage_dispersal_rate_function = RateFunction(
-                    definition_type="lambda",
+                    definition_type="lambda_definition",
                     definition_content="lambda lineage: 0.01",
                     description="fixed: 0.01",
                     trait_types=self.trait_types,
@@ -340,7 +340,7 @@ class RateFunction(object):
             self._compute_rate = lambda lineage: self.definition_content
         elif self.definition_type == "lambda_definition":
             self._compute_rate = eval(self.definition_content)
-        elif self.definition_type.starts_with("trait_state_index_map"):
+        elif self.definition_type.startswith("trait_state_index_map"):
             parts = self.definition_type.split(":")
             if len(parts) != 2:
                 raise ValueError("Expecting definition type in form of 'trait_state_index_map:<TRAIT-LABEL>' but found: '{}'".format(self.definition_type))
