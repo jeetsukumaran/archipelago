@@ -39,7 +39,7 @@ def main():
             help="Labels to append to output (in format <FIELD-NAME>:value;)")
     parser.add_argument(
             "-o", "--output-filepath",
-            default='processed',
+            default='summary.csv',
             help="Path to output file.")
     parser.add_argument( "--no-header-row",
             action="store_true",
@@ -94,7 +94,7 @@ def main():
         writer = csv.DictWriter(out,
                 fieldnames=all_fields,
                 restval="NA",
-                delimiter="\t")
+                delimiter=",")
         if not args.no_header_row:
             writer.writeheader()
         writer.writerows(summaries)

@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-
+from __future__ import division
 import sys
 import os
 import collections
@@ -253,10 +253,17 @@ class TreeSummarizer(object):
         if len(area_taxa) < num_areas and self.drop_trees_not_occupying_all_islands:
             raise IncompleteAreaRadiationException()
 
+        # print("---")
+        # for a in area_taxa:
+        #     print("{}: {}".format(a, [x.label for x in area_taxa[a]]))
+        # print("---")
+        # for t in trait_taxa[0]:
+        #     print("{}: {}".format(t, [x.label for x in trait_taxa[0][t]]))
+
         pdm = treemeasure.PatristicDistanceMatrix(tree=tree)
         tree.stats = collections.defaultdict(lambda:"NA")
         total_tree_length = 0.0
-        total_tree_edges = 0
+        total_tree_edges = 0.0
         for nd in tree:
             total_tree_edges += 1
             total_tree_length += nd.edge.length
