@@ -262,7 +262,9 @@ class TreeSummarizer(object):
         total_tree_length = 0.0
         total_tree_edges = 0.0
         for nd in tree:
-            total_tree_edges += 1
+            total_tree_edges += 1.0
+            if nd.edge.length is None:
+                nd.edge.length = 0.0
             total_tree_length += nd.edge.length
         # weighted_disturbed, unweighted_disturbed = self.get_mean_patristic_distance(pdm, disturbed_habitat_nodes)
         # weighted_interior, unweighted_interior = self.get_mean_patristic_distance(pdm, interior_habitat_nodes)
