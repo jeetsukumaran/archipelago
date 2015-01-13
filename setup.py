@@ -14,7 +14,7 @@ setup(
         ],
     scripts=["bin/archipelago-simulate.py",
     #         "bin/archipelago-generate-jobs.py",
-    #         "bin/archipelago-summarize-jobs.py",
+            "bin/archipelago-summarize.py",
     #         "bin/archipelago-summarize-trees.py",
             "bin/archipelago-profile-trees.py",
             ],
