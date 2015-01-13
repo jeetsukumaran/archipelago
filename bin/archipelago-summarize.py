@@ -7,26 +7,21 @@ import json
 import collections
 import csv
 import dendropy
+import re
 
 from archipelago import summarize
 
-# library(adegenet)
-# summary.df = read.table("processed/summary.txt", header=T)
-# summary.df = na.omit(summary.df)
-# groups = summary.df$dispersal.model
-# cols.to.drop <- c(
-#                   "dispersal.model",
-#                   "birth.rate",
-#                   "death.rate",
-#                   "dispersal.rate",
-#                   "niche.evolution.prob",
-#                   "edges",
-#                   "est.birth.rate",
-#                   "length",
-#                   "size"
-#                   )
-# predictors = summary.df[,!(names(summary.df) %in% cols.to.drop)]
-# result = dapc(predictors, groups)
+def parse_fieldname_and_value(labels):
+    if not labels:
+        return collections.OrderedDict()
+    fieldname_value_map = collections.OrderedDict()
+    for label in labels:
+        match = re.match(r"\s*(.*)\s*:\s*(.*)\s*", label)
+        if not match:
+            raise ValueError("Cannot parse fieldname and label (format required: fieldname:value): {}".format(label))
+        fieldname, value = match.groups(0)
+        fieldname_value_map[fieldname] = value
+    return fieldname_value_map
 
 def main():
     parser = argparse.ArgumentParser()
@@ -52,18 +47,17 @@ def main():
     args = parser.parse_args()
     args.quiet = False
     args.group_processed_trees_by_model = False
-
     tree_summarizer = summarize.TreeSummarizer(
         drop_trees_not_occupying_all_islands=True,
         drop_trees_not_occupying_all_habitats=True,
         drop_stunted_trees=True,
     )
-    param_keys = collections.OrderedDict()
-    summaries = []
+    summary_results = []
     output_root_dir = "."
     output_dir = output_root_dir
     # if not os.path.exists(output_dir):
     #     os.makedirs(output_dir)
+    extra_fields = parse_fieldname_and_value(args.labels)
     stats_fields = set()
     try:
         for source_idx, tree_filepath in enumerate(args.source_paths):
@@ -75,16 +69,17 @@ def main():
                     suppress_internal_node_taxa=True,
                     suppress_external_node_taxa=True,
                     )
-            processed_trees, sub_stats_fields = tree_summarizer.summarize_trees(
-                    trees,
-                    summaries=summaries)
+            processed_trees, sub_stats_fields, sub_results = tree_summarizer.summarize_trees(trees)
             stats_fields.update(sub_stats_fields)
+            if extra_fields:
+                for r in sub_results:
+                    r.update(extra_fields)
+            summary_results.extend(sub_results)
     except KeyboardInterrupt:
         pass
 
-    param_fields = list(param_keys.keys())
     stats_fields = sorted(list(stats_fields))
-    all_fields = param_fields + stats_fields
+    all_fields = list(extra_fields.keys()) + stats_fields
     if args.output_filepath:
         out = open(args.output_filepath,
                 "a" if args.append else "w")
@@ -97,7 +92,7 @@ def main():
                 delimiter=",")
         if not args.no_header_row:
             writer.writeheader()
-        writer.writerows(summaries)
+        writer.writerows(summary_results)
 
 if __name__ == "__main__":
     main()

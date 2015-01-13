@@ -225,19 +225,16 @@ class TreeSummarizer(object):
                 ncomps += 1
         return weighted_dist/ncomps, unweighted_dist/ncomps
 
-    def summarize_trees(self,
-            trees,
-            summaries=None):
+    def summarize_trees(self, trees):
         processed_trees = []
-        stats_fields = set()
+        summary_fieldnames = set()
+        summary_results = []
         for tree in list(trees):
             self.summarize_tree(tree)
             processed_trees.append(tree)
-            stats_fields.update(tree.stats.keys())
-            if summaries is not None:
-                sss = tree.stats.copy()
-                summaries.append(sss)
-        return processed_trees, stats_fields
+            summary_fieldnames.update(tree.stats.keys())
+            summary_results.append(collections.OrderedDict(tree.stats))
+        return processed_trees, summary_fieldnames, summary_results
 
     def summarize_tree(self, tree):
         self.preprocess_tree_taxa(tree)
