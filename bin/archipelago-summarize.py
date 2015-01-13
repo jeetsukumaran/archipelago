@@ -34,7 +34,7 @@ def main():
             help="Labels to append to output (in format <FIELD-NAME>:value;)")
     parser.add_argument(
             "-o", "--output-filepath",
-            default='summary.csv',
+            default=None,
             help="Path to output file.")
     parser.add_argument( "--no-header-row",
             action="store_true",
