@@ -44,8 +44,11 @@ def main():
             action="store_true",
             default=False,
             help="Append to output file if it already exists instead of overwriting.")
+    parser.add_argument("-q", "--quiet",
+            action="store_true",
+            default=False,
+            help="Suppress progress messages.")
     args = parser.parse_args()
-    args.quiet = False
     args.group_processed_trees_by_model = False
     tree_summarizer = summarize.TreeSummarizer(
         drop_trees_not_occupying_all_islands=True,
