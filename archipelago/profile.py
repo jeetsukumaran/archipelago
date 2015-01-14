@@ -136,7 +136,10 @@ class ArchipelagoProfiler(object):
             profiles,
             suppress_headers=False):
         fieldnames = list(profiles[0].keys())
-        writer = csv.DictWriter(dest, fieldnames=fieldnames)
+        writer = csv.DictWriter(dest,
+                fieldnames=fieldnames,
+                lineterminator=os.linesep,
+                )
         if not suppress_headers:
             writer.writeheader()
         writer.writerows(profiles)

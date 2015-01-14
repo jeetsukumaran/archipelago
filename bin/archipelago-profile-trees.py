@@ -5,6 +5,7 @@ import os
 import argparse
 from archipelago import model
 from archipelago import profile
+from archipelago import utility
 
 def main():
     parser = argparse.ArgumentParser(
@@ -30,7 +31,7 @@ def main():
                  " profile profile_results to facilitate analysis."
             )
     output_options = parser.add_argument_group("Output Options")
-    output_options.add_argument("-o", "--output-file",
+    output_options.add_argument("-o", "--output-filepath",
             default=None,
             help="Path to profile_results file (default: standard output)."
             )
@@ -65,14 +66,9 @@ def main():
                 generating_model=archipelago_model,
                 )
         profiles.extend(results)
-    if args.append:
-        output_file_open_mode = "a"
-    else:
-        output_file_open_mode = "w"
-    if args.output_file is None:
-        out = sys.stdout
-    else:
-        out = open(args.output_file, output_file_open_mode)
+    out = utility.open_output_file_for_csv_writer(
+            filepath=args.output_filepath,
+            append=args.append)
     profiler.write_profiles(
             dest=out,
             profiles=profiles,

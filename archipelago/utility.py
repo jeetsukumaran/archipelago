@@ -31,6 +31,7 @@
 ##
 ##############################################################################
 
+import sys
 import os
 import logging
 import inspect
@@ -42,6 +43,17 @@ import json
 
 _LOGGING_LEVEL_ENVAR = "ARCHIPELAGO_LOGGING_LEVEL"
 _LOGGING_FORMAT_ENVAR = "ARCHIPELAGO_LOGGING_FORMAT"
+
+def open_output_file_for_csv_writer(filepath, append=False):
+    if filepath is None:
+        out = sys.stdout
+    elif sys.version_info >= (3,0,0):
+        out = open(filepath,
+                "a" if append else "w",
+                newline='')
+    else:
+        out = open(filepath, "ab" if append else "wb")
+    return out
 
 def dump_stack():
     for frame, filename, line_num, func, source_code, source_index in inspect.stack()[2:]:

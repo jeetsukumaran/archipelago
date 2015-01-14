@@ -10,6 +10,7 @@ import dendropy
 import re
 
 from archipelago import summarize
+from archipelago import utility
 
 def parse_fieldname_and_value(labels):
     if not labels:
@@ -83,16 +84,17 @@ def main():
 
     stats_fields = sorted(list(stats_fields))
     all_fields = list(extra_fields.keys()) + stats_fields
-    if args.output_filepath:
-        out = open(args.output_filepath,
-                "a" if args.append else "w")
-    else:
-        out = sys.stdout
+    out = utility.open_output_file_for_csv_writer(
+            filepath=args.output_filepath,
+            append=args.append)
     with out:
-        writer = csv.DictWriter(out,
+        writer = csv.DictWriter(
+                out,
                 fieldnames=all_fields,
                 restval="NA",
-                delimiter=",")
+                delimiter=",",
+                lineterminator=os.linesep,
+                )
         if not args.no_header_row:
             writer.writeheader()
         writer.writerows(summary_results)
