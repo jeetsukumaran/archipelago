@@ -36,6 +36,9 @@ class ArchipelagoProfiler(object):
                 action="store_true",
                 default=False,
                 help="Do NOT estimate area transition rate.")
+        profile_metric_options.add_argument("--trait-transition-rate-estimation-method",
+                default="geiger",
+                help="Estimate trait transition rates using 'geiger' or 'bayestraits'")
         profile_metric_options.add_argument("--estimate-dec-biogeobears",
                 action="store_true",
                 default=False,
@@ -70,6 +73,7 @@ class ArchipelagoProfiler(object):
                 minimum_branch_length = args.minimum_branch_length,
                 is_estimate_pure_birth_rate=not args.no_estimate_pure_birth,
                 is_estimate_trait_transition_rates=not args.no_estimate_trait_transition,
+                trait_transition_rate_estimation_method=args.trait_transition_rate_estimation_method,
                 is_estimate_area_transition_rates=not args.no_estimate_area_transition,
                 is_estimate_dec_biogeobears=args.estimate_dec_biogeobears,
                 is_estimate_dec_lagrange=args.estimate_dec_lagrange,
@@ -83,6 +87,7 @@ class ArchipelagoProfiler(object):
             is_estimate_pure_birth_rate=True,
             is_estimate_trait_transition_rates=True,
             is_estimate_area_transition_rates=True,
+            trait_transition_rate_estimation_method="geiger",
             is_estimate_dec_biogeobears=False,
             is_estimate_dec_lagrange=False,
             minimum_branch_length=DEFAULT_MINIMUM_BRANCH_LENGTH,
@@ -93,6 +98,7 @@ class ArchipelagoProfiler(object):
         self.is_estimate_pure_birth_rate = is_estimate_pure_birth_rate
         self.is_estimate_trait_transition_rates = is_estimate_trait_transition_rates
         self.is_estimate_area_transition_rates = is_estimate_area_transition_rates
+        self.trait_transition_rate_estimation_method = trait_transition_rate_estimation_method
         self.is_estimate_dec_biogeobears = is_estimate_dec_biogeobears
         self.is_estimate_dec_lagrange = is_estimate_dec_lagrange
         self.quiet = verbosity <= 1
@@ -221,15 +227,10 @@ class ArchipelagoProfiler(object):
         self.create_working_tree_data(tree)
 
         ## process traits
-        if self.is_estimate_trait_transition_rates:
-            trait_names = self.create_traits_data(
-                    tree=tree,
-                    generating_model=generating_model)
-            if trait_names is not None:
-                self.estimate_trait_transition_rates(
-                        tree=tree,
-                        profile_results=profile_results,
-                        trait_names=trait_names)
+        self.estimate_trait_transition_rates(
+                tree=tree,
+                profile_results=profile_results,
+                generating_model=generating_model)
 
         # process areas
         if len(tree.taxon_namespace[0].distribution_vector) > 1:
@@ -280,7 +281,81 @@ class ArchipelagoProfiler(object):
     def estimate_trait_transition_rates(self,
             tree,
             profile_results,
+            generating_model):
+
+        if not self.is_estimate_trait_transition_rates:
+            return None
+
+        if generating_model is None:
+            num_trait_types = len(tree.taxon_namespace[0].traits_vector)
+            trait_names = ["trait{}".format(i+1) for i in range(num_trait_types)]
+        else:
+            num_trait_types = len(generating_model.trait_types)
+            trait_names = [trait.label for trait in generating_model.trait_types]
+        if num_trait_types == 0:
+            return None
+
+        if self.trait_transition_rate_estimation_method == "geiger":
+            return self.estimate_trait_transition_rates_using_geiger(
+                    tree=tree,
+                    profile_results=profile_results,
+                    trait_names=trait_names)
+        elif self.trait_transition_rate_estimation_method == "bayestraits":
+            return self.estimate_trait_transition_rates_using_bayestraits(
+                    tree=tree,
+                    profile_results=profile_results,
+                    trait_names=trait_names)
+        else:
+            raise ValueError("Expecting 'geiger' or 'bayestraits', but instead found: '{}'".format(self.trait_transition_rate_estimation_method))
+
+    def estimate_trait_transition_rates_using_bayestraits(self,
+            tree,
+            profile_results,
             trait_names):
+        for trait_idx, trait_name in enumerate(trait_names):
+            symbols = self.create_bayestraits_traits_data(
+                    tree,
+                    trait_idx,
+                    output_path=self.traits_data_file_name)
+            master_rate = "q{}{}".format(symbols[0],symbols[1])
+            bt_commands = []
+            bt_commands.append("1") # multstate
+            bt_commands.append("1") # ml; 2 == mcmc
+            bt_commands.append("restrictall {}".format(master_rate))
+            bt_commands.append("run")
+            bt_commands = "\n".join(bt_commands)
+            p = subprocess.Popen(
+                    [
+                        "BayesTraits",
+                        self.tree_file_name,
+                        self.traits_data_file_name,
+                    ],
+                    stdout=subprocess.PIPE,
+                    stdin=subprocess.PIPE,
+                    )
+            stdout, stderr = processio.communicate(p, bt_commands)
+            stdout_rows = stdout.split("\n")
+            targeted_row_idx = None
+            for row_idx, row in enumerate(stdout_rows):
+                # if "q01" in row and "q10" in row:
+                if row.startswith("Tree No\tLh\tq"):
+                    targeted_row_idx = row_idx + 1
+                    break
+            if targeted_row_idx is None:
+                if self.fail_on_estimation_error:
+                    raise Exception("Failed to extract results from BayesTraits estimation")
+                else:
+                    rate = "NA"
+            else:
+                result = dict(zip(stdout_rows[targeted_row_idx-1].split("\t"), stdout_rows[targeted_row_idx].split("\t")))
+                rate = float(result[master_rate])
+            profile_results["trait.{}.est.transition.rate".format(trait_name)] = rate
+
+    def estimate_trait_transition_rates_using_geiger(self,
+            tree,
+            profile_results,
+            trait_names):
+        self.create_geiger_traits_data(tree=tree, num_trait_types=len(trait_names))
         rcmds = []
         rcmds.append("library(parallel, quietly=T)")
         rcmds.append("library(ape, quietly=T)")
@@ -431,18 +506,7 @@ class ArchipelagoProfiler(object):
             tf.flush()
             tf.close()
 
-    def create_traits_data(self,
-            tree,
-            generating_model=None):
-        if generating_model is None:
-            num_trait_types = len(tree.taxon_namespace[0].traits_vector)
-            trait_names = ["trait{}".format(i+1) for i in range(num_trait_types)]
-        else:
-            num_trait_types = len(generating_model.trait_types)
-            trait_names = [trait.label for trait in generating_model.trait_types]
-        if num_trait_types == 0:
-            return None
-        assert len(trait_names) == num_trait_types
+    def create_geiger_traits_data(self, tree, num_trait_types):
         lineage_trait_states = collections.OrderedDict()
         for trait_idx in range(num_trait_types):
             state_symbols = {}
@@ -464,7 +528,21 @@ class ArchipelagoProfiler(object):
                 dataf.write("{},{}\n".format(lineage_label, traits))
             dataf.flush()
             dataf.close()
-        return trait_names
+
+    def create_bayestraits_traits_data(self,
+            tree,
+            trait_idx,
+            output_path):
+        sep = "\t"
+        dataf = open(output_path, "w")
+        symbols = set()
+        for taxon in tree.taxon_namespace:
+            trait_state = str(taxon.traits_vector[trait_idx])
+            symbols.add(trait_state)
+            dataf.write("{}{}{}\n".format(taxon.label, sep, trait_state))
+        dataf.flush()
+        dataf.close()
+        return sorted(symbols)
 
     def create_bayestraits_geography_file(self, tree, output_path):
         sep = "\t"

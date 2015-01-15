@@ -107,7 +107,8 @@ class ArchipelagoModel(object):
         else:
             traits_vector = StatesVector(
                     nchar=len(traits_string),
-                    values=[int(i) for i in traits_string],
+                    # values=[int(i) for i in traits_string],
+                    values=[i for i in traits_string],
                     )
         distribution_string = parts[2]
         distribution_vector = DistributionVector(
