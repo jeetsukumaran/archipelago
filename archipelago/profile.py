@@ -37,7 +37,7 @@ class ArchipelagoProfiler(object):
                 default=False,
                 help="Do NOT estimate area transition rate.")
         profile_metric_options.add_argument("--trait-transition-rate-estimation-method",
-                default="geiger",
+                default="bayestraits",
                 help="Estimate trait transition rates using 'geiger' or 'bayestraits'")
         profile_metric_options.add_argument("--estimate-dec-biogeobears",
                 action="store_true",
@@ -87,7 +87,7 @@ class ArchipelagoProfiler(object):
             is_estimate_pure_birth_rate=True,
             is_estimate_trait_transition_rates=True,
             is_estimate_area_transition_rates=True,
-            trait_transition_rate_estimation_method="geiger",
+            trait_transition_rate_estimation_method="bayestraits",
             is_estimate_dec_biogeobears=False,
             is_estimate_dec_lagrange=False,
             minimum_branch_length=DEFAULT_MINIMUM_BRANCH_LENGTH,
