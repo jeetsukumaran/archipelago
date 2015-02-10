@@ -409,7 +409,7 @@ class ArchipelagoSimulator(object):
                 out,
                 schema="newick",
                 suppress_annotations=False,
-                node_label_compose_func=labelf,
+                node_label_compose_fn=labelf,
                 suppress_internal_node_labels=self.is_suppress_internal_node_labels,
                 )
 
@@ -425,7 +425,7 @@ class ArchipelagoSimulator(object):
                 out,
                 schema="newick",
                 suppress_annotations=False,
-                node_label_compose_func=labelf,
+                node_label_compose_fn=labelf,
                 suppress_internal_node_labels=self.is_suppress_internal_node_labels,
                 )
 
@@ -436,7 +436,7 @@ class ArchipelagoSimulator(object):
                 exclude_supplemental_areas=False)
         s = tree.as_string(
                 "newick",
-                node_label_compose_func=self.model.encode_all_areas_lineage,
+                node_label_compose_fn=self.model.encode_all_areas_lineage,
                 suppress_edge_lengths=True)
         return s.replace("\n", "")
 
