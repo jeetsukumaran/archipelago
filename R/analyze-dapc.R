@@ -28,13 +28,13 @@ data.regimes <- function(summary.df) {
 filter.data <- function(summary.df,
                         filter.for.birth.rate=NULL,
                         filter.for.dispersal.rate=NULL,
-                        filter.for.niche.evolution.prob=NULL) {
+                        filter.for.trait.transition.rate=NULL) {
     summary.df.copy = summary.df
     if (!is.null(filter.for.birth.rate)) {
         summary.df.copy = subset(summary.df.copy, birth.rate==filter.for.birth.rate)
     }
-    if (!is.null(filter.for.niche.evolution.prob)) {
-        summary.df.copy = subset(summary.df.copy, niche.evolution.prob==filter.for.niche.evolution.prob)
+    if (!is.null(filter.for.trait.transition.rate)) {
+        summary.df.copy = subset(summary.df.copy, trait.transition.rate==filter.for.trait.transition.rate)
     }
     if (!is.null(filter.for.dispersal.rate)) {
         summary.df.copy = subset(summary.df.copy, dispersal.rate==filter.for.dispersal.rate)
@@ -50,11 +50,11 @@ filter.data <- function(summary.df,
 create.groups.and.predictors = function(summary.df,
                                        filter.for.birth.rate=NULL,
                                        filter.for.dispersal.rate=NULL,
-                                       filter.for.niche.evolution.prob=NULL) {
+                                       filter.for.trait.transition.rate=NULL) {
     source.df = filter.data(summary.df=summary.df,
                             filter.for.birth.rate=filter.for.birth.rate,
                             filter.for.dispersal.rate=filter.for.dispersal.rate,
-                            filter.for.niche.evolution.prob=filter.for.niche.evolution.prob)
+                            filter.for.trait.transition.rate=filter.for.trait.transition.rate)
     source.df = na.omit(source.df)
     groups = source.df[[GROUPING.FIELD.NAME]]
     predictors = source.df[,!(names(source.df) %in% NON.PREDICTOR.FIELD.NAMES)]
@@ -96,11 +96,11 @@ calculate.dapc = function(predictors, groups, n.pca, n.da) {
 assess.predictor.performance = function(summary.df,
                                         filter.for.birth.rate=NULL,
                                         filter.for.dispersal.rate=NULL,
-                                        filter.for.niche.evolution.prob=NULL) {
+                                        filter.for.trait.transition.rate=NULL) {
     x = create.groups.and.predictors.for.regime(summary.df=summary.df,
                                                 filter.for.birth.rate=filter.for.birth.rate,
                                                 filter.for.dispersal.rate=filter.for.dispersal.rate,
-                                                filter.for.niche.evolution.prob=filter.for.niche.evolution.prob)
+                                                filter.for.trait.transition.rate=filter.for.trait.transition.rate)
     groups = x$groups
     predictors = x$predictors
     result = data.frame()
@@ -133,11 +133,11 @@ analyze.dapc = function(
                         n.da,
                         filter.for.birth.rate=NULL,
                         filter.for.dispersal.rate=NULL,
-                        filter.for.niche.evolution.prob=NULL) {
+                        filter.for.trait.transition.rate=NULL) {
     x = create.groups.and.predictors(summary.df=summary.df,
                                      filter.for.birth.rate=filter.for.birth.rate,
                                      filter.for.dispersal.rate=filter.for.dispersal.rate,
-                                     filter.for.niche.evolution.prob=filter.for.niche.evolution.prob)
+                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate)
     groups = x$groups
     predictors = x$predictors
     rv = calculate.dapc(
@@ -146,6 +146,41 @@ analyze.dapc = function(
             n.pca=n.pca,
             n.da=n.da)
     # rv
+}
+
+analyze.parameter.space.discrete = function(summary.df) {
+    birth.rates = sort(unique(summary.df[,"birth.rate"]))
+    dispersal.rates = sort(unique(summary.df[,"dispersal.rate"]))
+    trait.transition.rates = sort(unique(summary.df[,"trait.transition.rate"]))
+    result = data.frame()
+    n.pca = 47
+    n.da = 10
+    for (dispersal.rate in dispersal.rates) {
+        for (trait.transition.rate in trait.transition.rates) {
+            x = analyze.dapc(summary.df=summary.df,
+                             n.pca=n.pca,
+                             n.da=n.da,
+                             filter.for.dispersal.rate=dispersal.rate,
+                             filter.for.trait.transition.rate=trait.transition.rate,
+                             )
+            cat(paste(
+                        dispersal.rate=dispersal.rate,
+                        trait.transition.rate=trait.transition.rate,
+                        x$mean.pp.for.correct.model,
+                        x$mean.prop.correct.model.preferred,
+                        "\n",
+                        sep="\t\t"
+                        ))
+            subresult = data.frame(
+                        dispersal.rate=dispersal.rate,
+                        trait.transition.rate=trait.transition.rate,
+                        mean.pp.for.correct.model=x$mean.pp.for.correct.model,
+                        mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred
+                        )
+            result = rbind(result, subresult)
+        }
+    }
+    result
 }
 
 classify.trees = function(path.to.trees.summary, path.to.simulation.summary) {
