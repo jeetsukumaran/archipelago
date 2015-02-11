@@ -18,7 +18,9 @@ GROUPING.FIELD.NAME = "dispersal.model"
 # Reports the levels/values in each of non-predictor fields.
 data.regimes <- function(summary.df) {
     for (field.name in NON.PREDICTOR.FIELD.NAMES) {
-        cat(field.name, ": ", sort(unique(summary.df[,field.name])), "\n")
+        if (field.name %in% colnames(summary.df)) {
+            cat(field.name, ": ", sort(unique(summary.df[,field.name])), "\n")
+        }
     }
 }
 
