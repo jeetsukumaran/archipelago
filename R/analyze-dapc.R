@@ -24,6 +24,10 @@ data.regimes <- function(summary.df) {
     }
 }
 
+num.predictors <-function(summary.df) {
+    x = create.group.and.predictors(summary.df=summary.df)
+    ncol(x$predictors)
+}
 
 filter.data <- function(summary.df,
                         filter.for.birth.rate=NULL,
@@ -127,10 +131,10 @@ assess.predictor.performance = function(summary.df,
                                         filter.for.birth.rate=NULL,
                                         filter.for.dispersal.rate=NULL,
                                         filter.for.trait.transition.rate=NULL) {
-    x = create.group.and.predictors.for.regime(summary.df=summary.df,
-                                                filter.for.birth.rate=filter.for.birth.rate,
-                                                filter.for.dispersal.rate=filter.for.dispersal.rate,
-                                                filter.for.trait.transition.rate=filter.for.trait.transition.rate)
+    x = create.group.and.predictors(summary.df=summary.df,
+                                    filter.for.birth.rate=filter.for.birth.rate,
+                                    filter.for.dispersal.rate=filter.for.dispersal.rate,
+                                    filter.for.trait.transition.rate=filter.for.trait.transition.rate)
     group = x$group
     predictors = x$predictors
     result = data.frame()
@@ -178,43 +182,45 @@ analyze.dapc = function(
     # rv
 }
 
-analyze.parameter.space.discrete = function(summary.df) {
+analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NULL) {
     birth.rates = sort(unique(summary.df[,"birth.rate"]))
+    extinction.rates = sort(unique(summary.df[,"death.rate"]))
     dispersal.rates = sort(unique(summary.df[,"dispersal.rate"]))
     trait.transition.rates = sort(unique(summary.df[,"trait.transition.rate"]))
     result = data.frame()
-    n.pca = 47
-    n.da = 10
     for (birth.rate in birth.rates) {
-        for (dispersal.rate in dispersal.rates) {
-            for (trait.transition.rate in trait.transition.rates) {
-                x = analyze.dapc(summary.df=summary.df,
-                                n.pca=n.pca,
-                                n.da=n.da,
-                                filter.for.birth.rate=birth.rate,
-                                filter.for.dispersal.rate=dispersal.rate,
-                                filter.for.trait.transition.rate=trait.transition.rate
-                                )
-                i1 = dispersal.rate / trait.transition.rate
-                cat(paste(
-                            birth.rate=birth.rate,
-                            dispersal.rate=dispersal.rate,
-                            trait.transition.rate=trait.transition.rate,
-                            i1,
-                            x$mean.pp.of.correct.model,
-                            x$mean.prop.correct.model.preferred,
-                            "\n",
-                            sep="\t\t"
-                            ))
-                subresult = data.frame(
-                                       birth.rate=birth.rate,
-                                       dispersal.rate=dispersal.rate,
-                                       trait.transition.rate=trait.transition.rate,
-                                       i1=i1,
-                                       mean.pp.of.correct.model=x$mean.pp.of.correct.model,
-                                       mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred
-                                       )
-                result = rbind(result, subresult)
+        for (birth.rate in birth.rates) {
+            for (dispersal.rate in dispersal.rates) {
+                for (trait.transition.rate in trait.transition.rates) {
+                    x = analyze.dapc(summary.df=summary.df,
+                                     n.pca=n.pca,
+                                     n.da=n.da,
+                                     filter.for.birth.rate=birth.rate,
+                                     filter.for.dispersal.rate=dispersal.rate,
+                                     filter.for.trait.transition.rate=trait.transition.rate
+                                     )
+                    if (!is.null(verbose) && verbose) {
+                        cat(paste(
+                                    birth.rate=birth.rate,
+                                    dispersal.rate=dispersal.rate,
+                                    trait.transition.rate=trait.transition.rate,
+                                    x$mean.pp.of.correct.model,
+                                    x$mean.prop.correct.model.preferred,
+                                    "\n",
+                                    sep="\t\t"
+                                    ))
+                    }
+                    subresult = data.frame(
+                                        birth.rate=birth.rate,
+                                        dispersal.rate=dispersal.rate,
+                                        trait.transition.rate=trait.transition.rate,
+                                        mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred,
+                                        mean.pp.of.correct.model=x$mean.pp.of.correct.model,
+                                        data.frame(x$misassigns.prop),
+                                        data.frame(x$correct.assigns.prop)
+                                        )
+                    result = rbind(result, subresult)
+                }
             }
         }
     }
