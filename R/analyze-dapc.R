@@ -155,29 +155,37 @@ analyze.parameter.space.discrete = function(summary.df) {
     result = data.frame()
     n.pca = 47
     n.da = 10
-    for (dispersal.rate in dispersal.rates) {
-        for (trait.transition.rate in trait.transition.rates) {
-            x = analyze.dapc(summary.df=summary.df,
-                             n.pca=n.pca,
-                             n.da=n.da,
-                             filter.for.dispersal.rate=dispersal.rate,
-                             filter.for.trait.transition.rate=trait.transition.rate,
-                             )
-            cat(paste(
-                        dispersal.rate=dispersal.rate,
-                        trait.transition.rate=trait.transition.rate,
-                        x$mean.pp.for.correct.model,
-                        x$mean.prop.correct.model.preferred,
-                        "\n",
-                        sep="\t\t"
-                        ))
-            subresult = data.frame(
-                        dispersal.rate=dispersal.rate,
-                        trait.transition.rate=trait.transition.rate,
-                        mean.pp.for.correct.model=x$mean.pp.for.correct.model,
-                        mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred
-                        )
-            result = rbind(result, subresult)
+    for (birth.rate in birth.rates) {
+        for (dispersal.rate in dispersal.rates) {
+            for (trait.transition.rate in trait.transition.rates) {
+                x = analyze.dapc(summary.df=summary.df,
+                                n.pca=n.pca,
+                                n.da=n.da,
+                                filter.for.birth.rate=birth.rate,
+                                filter.for.dispersal.rate=dispersal.rate,
+                                filter.for.trait.transition.rate=trait.transition.rate
+                                )
+                i1 = dispersal.rate / trait.transition.rate
+                cat(paste(
+                            birth.rate=birth.rate,
+                            dispersal.rate=dispersal.rate,
+                            trait.transition.rate=trait.transition.rate,
+                            i1,
+                            x$mean.pp.for.correct.model,
+                            x$mean.prop.correct.model.preferred,
+                            "\n",
+                            sep="\t\t"
+                            ))
+                subresult = data.frame(
+                                       birth.rate=birth.rate,
+                                       dispersal.rate=dispersal.rate,
+                                       trait.transition.rate=trait.transition.rate,
+                                       i1=i1,
+                                       mean.pp.for.correct.model=x$mean.pp.for.correct.model,
+                                       mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred
+                                       )
+                result = rbind(result, subresult)
+            }
         }
     }
     result
