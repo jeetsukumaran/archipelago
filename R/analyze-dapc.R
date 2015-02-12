@@ -110,11 +110,11 @@ calculate.dapc = function(predictors, group, n.pca, n.da) {
               # mean.pp.of.correct.model=mean.pp.of.correct.model,
               # mean.count.correct.model.preferred=mean.count.correct.model.preferred,
               # mean.prop.correct.model.preferred=mean.prop.correct.model.preferred,
+              correct.assigns=correct.assigns,
+              correct.assigns.prop=correct.assigns.prop,
               misassigns=misassigns,
               misassigns.prop=misassigns.prop,
-              correct.assigns=correct.assigns,
               mean.prop.wrong.model.preferred=mean.prop.wrong.model.preferred,
-              correct.assigns.prop=correct.assigns.prop,
               mean.prop.correct.model.preferred=mean.prop.correct.model.preferred,
               mean.pp.of.correct.model=mean.pp.of.correct.model
               )
