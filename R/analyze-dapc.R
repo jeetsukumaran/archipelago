@@ -153,7 +153,9 @@ assess.predictor.performance = function(summary.df,
                         n.pca = n.pca,
                         n.da = n.da,
                         mean.pp.of.correct.model=x$mean.pp.of.correct.model,
-                        mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred
+                        mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred,
+                        correct.assigns=as.list(x$correct.assigns.prop),
+                        misassigns=as.list(x$misassigns.prop)
                         )
             result = rbind(result, subresult)
         # }
@@ -184,12 +186,16 @@ analyze.dapc = function(
 
 analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NULL) {
     birth.rates = sort(unique(summary.df[,"birth.rate"]))
-    extinction.rates = sort(unique(summary.df[,"death.rate"]))
+    if ("death.rate" %in% colnames(summary.df)) {
+        death.rates = sort(unique(summary.df[,"death.rate"]))
+    } else {
+        death.rates = sort(unique(summary.df[,"extinction.rate"]))
+    }
     dispersal.rates = sort(unique(summary.df[,"dispersal.rate"]))
     trait.transition.rates = sort(unique(summary.df[,"trait.transition.rate"]))
     result = data.frame()
     for (birth.rate in birth.rates) {
-        for (birth.rate in birth.rates) {
+        for (death.rate in death.rates) {
             for (dispersal.rate in dispersal.rates) {
                 for (trait.transition.rate in trait.transition.rates) {
                     x = analyze.dapc(summary.df=summary.df,
@@ -202,6 +208,7 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
                     if (!is.null(verbose) && verbose) {
                         cat(paste(
                                     birth.rate=birth.rate,
+                                    death.rate=death.rate,
                                     dispersal.rate=dispersal.rate,
                                     trait.transition.rate=trait.transition.rate,
                                     x$mean.pp.of.correct.model,
@@ -212,12 +219,13 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
                     }
                     subresult = data.frame(
                                         birth.rate=birth.rate,
+                                        death.rate=death.rate,
                                         dispersal.rate=dispersal.rate,
                                         trait.transition.rate=trait.transition.rate,
                                         mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred,
                                         mean.pp.of.correct.model=x$mean.pp.of.correct.model,
-                                        data.frame(x$misassigns.prop),
-                                        data.frame(x$correct.assigns.prop)
+                                        correct.assigns=as.list(x$correct.assigns.prop),
+                                        misassigns=as.list(x$misassigns.prop)
                                         )
                     result = rbind(result, subresult)
                 }
