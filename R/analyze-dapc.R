@@ -72,7 +72,15 @@ create.group.and.predictors = function(summary.df,
 # Primary workhorse function.
 # Carries out the DAPC analysis, and packages the results.
 # TODO: generalize from "constrained"/"unconstrained"
-calculate.dapc = function(predictors, group, n.pca, n.da) {
+calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=NULL) {
+    num.groups = length(unique(group))
+    if (num.groups < 2) {
+        if (verbose.on.insufficient.groups) {
+            warning(paste("Aborting: Only", num.groups, "groups:", group, "\n"))
+        }
+        return(NULL)
+    }
+
     dapc.result = dapc(predictors, group, n.pca=n.pca, n.da=n.da)
     var.contr = data.frame(var=rownames(dapc.result$var.contr),
                         LD1=as.vector(dapc.result$var.contr)
@@ -169,19 +177,19 @@ analyze.dapc = function(
                         n.da,
                         filter.for.birth.rate=NULL,
                         filter.for.dispersal.rate=NULL,
-                        filter.for.trait.transition.rate=NULL) {
+                        filter.for.trait.transition.rate=NULL,
+                        verbose.on.insufficient.groups=NULL) {
     x = create.group.and.predictors(summary.df=summary.df,
                                      filter.for.birth.rate=filter.for.birth.rate,
                                      filter.for.dispersal.rate=filter.for.dispersal.rate,
-                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate)
-    group = x$group
-    predictors = x$predictors
+                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate
+                                    )
     rv = calculate.dapc(
-            predictors=predictors,
-            group=group,
+            predictors=x$predictors,
+            group=x$group,
             n.pca=n.pca,
-            n.da=n.da)
-    # rv
+            n.da=n.da,
+            verbose.on.insufficient.groups=verbose.on.insufficient.groups)
 }
 
 analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NULL) {
@@ -203,31 +211,47 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
                                      n.da=n.da,
                                      filter.for.birth.rate=birth.rate,
                                      filter.for.dispersal.rate=dispersal.rate,
-                                     filter.for.trait.transition.rate=trait.transition.rate
+                                     filter.for.trait.transition.rate=trait.transition.rate,
+                                     verbose.on.insufficient.groups=F
                                      )
-                    if (!is.null(verbose) && verbose) {
-                        cat(paste(
-                                    birth.rate=birth.rate,
-                                    death.rate=death.rate,
-                                    dispersal.rate=dispersal.rate,
-                                    trait.transition.rate=trait.transition.rate,
-                                    x$mean.pp.of.correct.model,
-                                    x$mean.prop.correct.model.preferred,
-                                    "\n",
-                                    sep="\t\t"
-                                    ))
+                    if (is.null(x)) {
+                        warning(paste("NULL result:",
+                                  "birth.rate=",
+                                  birth.rate,
+                                  "death.rate=",
+                                  death.rate,
+                                  "dispersal.rate=",
+                                  dispersal.rate,
+                                  "trait.transition.rate=",
+                                  trait.transition.rate,
+                                  "\n",
+                                  sep=","
+                                  ))
+                    } else {
+                        if (!is.null(verbose) && verbose) {
+                            cat(paste(
+                                        birth.rate,
+                                        death.rate,
+                                        dispersal.rate,
+                                        trait.transition.rate,
+                                        x$mean.pp.of.correct.model,
+                                        x$mean.prop.correct.model.preferred,
+                                        "\n",
+                                        sep="\t\t"
+                                        ))
+                        }
+                        subresult = data.frame(
+                                            birth.rate=birth.rate,
+                                            death.rate=death.rate,
+                                            dispersal.rate=dispersal.rate,
+                                            trait.transition.rate=trait.transition.rate,
+                                            mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred,
+                                            mean.pp.of.correct.model=x$mean.pp.of.correct.model,
+                                            correct.assigns=as.list(x$correct.assigns.prop),
+                                            misassigns=as.list(x$misassigns.prop)
+                                            )
+                        result = rbind(result, subresult)
                     }
-                    subresult = data.frame(
-                                        birth.rate=birth.rate,
-                                        death.rate=death.rate,
-                                        dispersal.rate=dispersal.rate,
-                                        trait.transition.rate=trait.transition.rate,
-                                        mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred,
-                                        mean.pp.of.correct.model=x$mean.pp.of.correct.model,
-                                        correct.assigns=as.list(x$correct.assigns.prop),
-                                        misassigns=as.list(x$misassigns.prop)
-                                        )
-                    result = rbind(result, subresult)
                 }
             }
         }
