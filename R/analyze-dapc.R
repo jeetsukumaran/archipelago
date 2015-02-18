@@ -1,4 +1,5 @@
 library(adegenet)
+library(ggplot2)
 
 # These columns will be dropped from the training data set (they are
 # typically parameters used to generate/simulate data).
@@ -200,6 +201,31 @@ analyze.dapc = function(
             n.pca=n.pca,
             n.da=n.da,
             verbose.on.insufficient.groups=verbose.on.insufficient.groups)
+}
+
+# plot space, `parameter.space.df` is a data.frame returned by
+# `analyze.parameter.space.discrete`, either directly or as loaded from a file.
+plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter") {
+    performance.field = "mean.pp.of.correct.model"
+    parameter.space.df$performance = cut(
+                                       a[[performance.field]],
+                                       breaks=c(0.0, 0.5, 0.9, 1.0),
+                                       # labels=c("a", "b"),
+                                       right=F,
+                                       )
+    # ggplot(a, aes(a$dispersal.rate, a$trait.transition.rate,colour=a$mean.pp.of.correct.model)) + geom_point() + scale_colour_gradient(low="red", high="green") + scale_x_log10() + scale_y_log10()
+    # ggplot(a, aes(a$dispersal.rate, a$trait.transition.rate))  + stat_density2d(aes(fill=..level..), geom="polygon") + scale_fill_gradient(low="red", high="green") + scale_x_log10() + scale_y_log10()
+    p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
+    p = p + scale_x_log10() + scale_y_log10()
+    if (plot.type == "scatter") {
+        p = p + geom_point(aes(colour=performance))
+    } else if (plot.type == "heatmap") {
+        # p = p + geom_tile(aes(fill=performance))
+        p = p + geom_tile(aes_string(fill=performance.field))
+    } else {
+        stop(paste("Unrecognized plot type '", plot.type, "'"))
+    }
+    p
 }
 
 analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NULL) {
