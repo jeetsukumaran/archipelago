@@ -4,6 +4,7 @@ library(adegenet)
 # typically parameters used to generate/simulate data).
 NON.PREDICTOR.FIELD.NAMES <- c(
                "dispersal.model",
+               "model.category",
                "birth.rate",
                "death.rate",
                "extinction.rate",
@@ -12,8 +13,17 @@ NON.PREDICTOR.FIELD.NAMES <- c(
                "trait.evolution.rate",
                "ntax"
                )
+
 # This column has the model label or category as the value.
-GROUPING.FIELD.NAME = "dispersal.model"
+CANDIDATE.GROUPING.FIELD.NAMES = c( "model.category", "dispersal.model")
+get.grouping.field.name = function(summary.df) {
+    fieldnames = colnames(summary.df)
+    for (field.name in CANDIDATE.GROUPING.FIELD.NAMES) {
+        if (field.name %in% fieldnames) {
+            return(field.name)
+        }
+    }
+}
 
 # Reports the levels/values in each of non-predictor fields.
 data.regimes <- function(summary.df) {
@@ -60,7 +70,7 @@ create.group.and.predictors = function(summary.df,
                             filter.for.dispersal.rate=filter.for.dispersal.rate,
                             filter.for.trait.transition.rate=filter.for.trait.transition.rate)
     source.df = na.omit(source.df)
-    group = source.df[[GROUPING.FIELD.NAME]]
+    group = source.df[[get.grouping.field.name(summary.df)]]
     predictors = source.df[,!(names(source.df) %in% NON.PREDICTOR.FIELD.NAMES)]
     rv = list(
         group=group,
