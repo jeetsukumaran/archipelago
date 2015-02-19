@@ -239,13 +239,15 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
         p = p + geom_point(aes(
                             color=mean.prop.correct.model.preferred.factor,
                             shape=mean.pp.of.correct.model.factor,
-                            ), size=2.5)
+                            ),
+                           size=2.5 # here, instead of in aes() because it is not a mapping
+                           )
         color_legend = prop_legend_title
         shape_legend = posterior_legend_title
     }
     p = p + scale_shape_manual(values=c(24, 25), name=shape_legend)
     p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"), name=color_legend)
-    p = p + scale_size(guide="none")
+    # p = p + scale_size(guide="none") # only needed if size is a mapping
     p = p + facet_wrap(~birth.rate + death.rate)
     p = p + theme(legend.position = "bottom")
     p
