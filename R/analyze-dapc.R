@@ -208,6 +208,7 @@ analyze.dapc = function(
 # plot space, `parameter.space.df` is a data.frame returned by
 # `analyze.parameter.space.discrete`, either directly or as loaded from a file.
 plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter") {
+    color_by_posterior = F
 
     f1 = cut(
             parameter.space.df[["mean.prop.correct.model.preferred"]],
@@ -225,16 +226,26 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
     p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
     p = p + scale_x_log10() + scale_y_log10()
 
-    p = p + geom_point(aes(
-                           shape=mean.pp.of.correct.model.factor,
-                           color=mean.prop.correct.model.preferred.factor,))
+    posterior_legend_title = "Mean Posterior of True Model"
+    prop_legend_title = "Mean Proportion True Model Preferred"
+    if (color_by_posterior) {
+        p = p + geom_point(aes(
+                            color=mean.pp.correct.model.preferred.factor,
+                            shape=mean.prop.of.correct.model.factor
+                            ))
+        color_legend = posterior_legend_title
+        shape_legend = prop_legend_title
+    } else {
+        p = p + geom_point(aes(
+                            color=mean.prop.correct.model.preferred.factor,
+                            shape=mean.pp.of.correct.model.factor
+                            ))
+        color_legend = prop_legend_title
+        shape_legend = posterior_legend_title
+    }
+    p = p + scale_shape_manual(values=c(24, 25), name=shape_legend)
+    p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"), name=color_legend)
     p = p + facet_wrap(~birth.rate + death.rate)
-
-    # p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"))
-    # p = p + geom_point(aes(size=mean.pp.of.correct.model))
-    p = p + guides(shape=guide_legend("Mean Posterior of True Model"),
-                   color=guide_legend("Mean Proportion True Model Preferred")
-                   )
     p = p + theme(legend.position = "bottom")
     p
 
