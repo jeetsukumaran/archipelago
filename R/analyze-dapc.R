@@ -230,10 +230,10 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
                            color=mean.prop.correct.model.preferred.factor,))
     p = p + facet_wrap(~birth.rate + death.rate)
 
-    p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"))
+    # p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"))
     # p = p + geom_point(aes(size=mean.pp.of.correct.model))
-    p = p + guides(color=guide_legend("Mean Posterior of True Model"),
-                   shape=guide_legend("Mean Proportion True Model Preferred")
+    p = p + guides(shape=guide_legend("Mean Posterior of True Model"),
+                   color=guide_legend("Mean Proportion True Model Preferred")
                    )
     p = p + theme(legend.position = "bottom")
     p
