@@ -208,7 +208,7 @@ analyze.dapc = function(
 # plot space, `parameter.space.df` is a data.frame returned by
 # `analyze.parameter.space.discrete`, either directly or as loaded from a file.
 plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter") {
-    characterization_schema = "color-by-proportion-preferred"
+    characterization_schema = "both"
 
     f1 = cut(
             parameter.space.df[["mean.prop.correct.model.preferred"]],
@@ -225,15 +225,16 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
 
     parameter.space.df$sweet.spot = factor(
                                            ifelse(parameter.space.df$mean.prop.correct.model.preferred >= 0.90 & parameter.space.df$mean.pp.of.correct.model >= 0.90,
-                                                "sweet",
+                                                "yes",
                                                 ifelse(parameter.space.df$mean.prop.correct.model.preferred < 0.90 & parameter.space.df$mean.pp.of.correct.model < 0.90,
-                                                "sour", "meh")
+                                                "no", "partial")
                                                 )
                                            )
     p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
     p = p + scale_x_log10() + scale_y_log10()
     if (characterization_schema == "both") {
         p = p + geom_point(aes(color=sweet.spot))
+        # p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"), breaks=c("yes","partial","no"))
     } else  {
         posterior_legend_title = "Mean Posterior of True Model"
         prop_legend_title = "Mean Proportion True Model Preferred"
