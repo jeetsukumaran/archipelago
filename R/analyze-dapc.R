@@ -208,7 +208,7 @@ analyze.dapc = function(
 # plot space, `parameter.space.df` is a data.frame returned by
 # `analyze.parameter.space.discrete`, either directly or as loaded from a file.
 plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter") {
-    color_by_posterior = F
+    characterization_schema = "color-by-proportion-preferred"
 
     f1 = cut(
             parameter.space.df[["mean.prop.correct.model.preferred"]],
@@ -223,35 +223,50 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
             )
     parameter.space.df$mean.pp.of.correct.model.factor = factor(f2, levels=rev(levels(f2)))
 
+    parameter.space.df$sweet.spot = factor(
+                                           ifelse(parameter.space.df$mean.prop.correct.model.preferred >= 0.90 & parameter.space.df$mean.pp.of.correct.model >= 0.90,
+                                                "sweet",
+                                                ifelse(parameter.space.df$mean.prop.correct.model.preferred < 0.90 & parameter.space.df$mean.pp.of.correct.model < 0.90,
+                                                "sour", "meh")
+                                                )
+                                           )
     p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
     p = p + scale_x_log10() + scale_y_log10()
-
-    posterior_legend_title = "Mean Posterior of True Model"
-    prop_legend_title = "Mean Proportion True Model Preferred"
-    if (color_by_posterior) {
-        p = p + geom_point(aes(
-                            color=mean.pp.correct.model.preferred.factor,
-                            shape=mean.prop.of.correct.model.factor
-                            ))
-        color_legend = posterior_legend_title
-        shape_legend = prop_legend_title
-    } else {
-        p = p + geom_point(aes(
-                            color=mean.prop.correct.model.preferred.factor,
-                            shape=mean.pp.of.correct.model.factor,
-                            ),
-                           size=2.5 # here, instead of in aes() because it is not a mapping
-                           )
-        color_legend = prop_legend_title
-        shape_legend = posterior_legend_title
+    if (characterization_schema == "both") {
+        p = p + geom_point(aes(color=sweet.spot))
+    } else  {
+        posterior_legend_title = "Mean Posterior of True Model"
+        prop_legend_title = "Mean Proportion True Model Preferred"
+        if (characterization_schema == "color-by-posterior") {
+            p = p + geom_point(aes(
+                                fill=mean.pp.of.correct.model.factor,
+                                shape=mean.prop.correct.model.preferred.factor
+                                ))
+            fill_legend = posterior_legend_title
+            shape_legend = prop_legend_title
+        } else if (characterization_schema == "color-by-proportion-preferred") {
+            p = p + geom_point(aes(
+                                fill=mean.prop.correct.model.preferred.factor,
+                                shape=mean.pp.of.correct.model.factor,
+                                ),
+                               size=2.5 # here, instead of in aes() because it is not a mapping
+                               )
+            fill_legend = prop_legend_title
+            shape_legend = posterior_legend_title
+        } else {
+            stop(paste("Unrecognized characterization schema:'", characterization_schema, "'"))
+        }
+        p = p + scale_shape_manual(values=c(24, 25), name=shape_legend)
+        p = p + scale_fill_manual(values=c("dodgerblue", "orange", "red"), name=fill_legend)
+        # override to allow for fill-support shape
+        # see: http://stackoverflow.com/questions/12488905/why-wont-the-ggplot2-legend-combine-manual-fill-and-scale-values
+        # see: https://cloud.github.com/downloads/hadley/ggplot2/guide-col.pdf
+        p = p + guides(fill=guide_legend(override.aes = list(shape = 21)))
+        # p = p + scale_size(guide="none") # only needed if size is a mapping
     }
-    p = p + scale_shape_manual(values=c(24, 25), name=shape_legend)
-    p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"), name=color_legend)
-    # p = p + scale_size(guide="none") # only needed if size is a mapping
-    p = p + facet_wrap(~birth.rate + death.rate)
     p = p + theme(legend.position = "bottom")
+    p = p + facet_wrap(~birth.rate + death.rate)
     p
-
 }
 
 analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NULL) {
