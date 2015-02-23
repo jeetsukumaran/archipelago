@@ -208,7 +208,7 @@ analyze.dapc = function(
 # plot space, `parameter.space.df` is a data.frame returned by
 # `analyze.parameter.space.discrete`, either directly or as loaded from a file.
 plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter") {
-    characterization_schema = "both"
+    characterization_schema = "color-by-proportion-preferred"
 
     f1 = cut(
             parameter.space.df[["mean.prop.correct.model.preferred"]],
