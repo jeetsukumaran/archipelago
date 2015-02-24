@@ -37,18 +37,17 @@ data.regimes <- function(summary.df) {
     }
 }
 
-num.predictors <-function(summary.df) {
-    x = create.group.and.predictors(summary.df=summary.df)
-    ncol(x$predictors)
-}
-
 filter.data <- function(summary.df,
                         filter.for.birth.rate=NULL,
+                        filter.for.death.rate=NULL,
                         filter.for.dispersal.rate=NULL,
                         filter.for.trait.transition.rate=NULL) {
     summary.df.copy = summary.df
     if (!is.null(filter.for.birth.rate)) {
         summary.df.copy = subset(summary.df.copy, birth.rate==filter.for.birth.rate)
+    }
+    if (!is.null(filter.for.death.rate)) {
+        summary.df.copy = subset(summary.df.copy, death.rate==filter.for.death.rate)
     }
     if (!is.null(filter.for.trait.transition.rate)) {
         summary.df.copy = subset(summary.df.copy, trait.transition.rate==filter.for.trait.transition.rate)
@@ -56,7 +55,13 @@ filter.data <- function(summary.df,
     if (!is.null(filter.for.dispersal.rate)) {
         summary.df.copy = subset(summary.df.copy, dispersal.rate==filter.for.dispersal.rate)
     }
-    summary.df.copy
+    # stopifnot(nrow(summary.df.copy) > 0)
+    if (nrow(summary.df.copy) > 0) {
+        return(summary.df.copy)
+    } else {
+        return(NULL)
+    }
+
 }
 
 # Given a data.frame, returns a list with two named elements:
@@ -66,12 +71,17 @@ filter.data <- function(summary.df,
 #   A data.frame consisting of (just) the predictor variables.
 create.group.and.predictors = function(summary.df,
                                        filter.for.birth.rate=NULL,
+                                       filter.for.death.rate=NULL,
                                        filter.for.dispersal.rate=NULL,
                                        filter.for.trait.transition.rate=NULL) {
     source.df = filter.data(summary.df=summary.df,
                             filter.for.birth.rate=filter.for.birth.rate,
+                            filter.for.death.rate=filter.for.death.rate,
                             filter.for.dispersal.rate=filter.for.dispersal.rate,
                             filter.for.trait.transition.rate=filter.for.trait.transition.rate)
+    if (is.null(source.df)) {
+        return(NULL)
+    }
     source.df = na.omit(source.df)
     group = source.df[[get.grouping.field.name(summary.df)]]
     predictors = source.df[,!(names(source.df) %in% NON.PREDICTOR.FIELD.NAMES)]
@@ -80,6 +90,15 @@ create.group.and.predictors = function(summary.df,
         predictors=predictors
         )
     rv
+}
+
+num.predictors <-function(summary.df) {
+    x = create.group.and.predictors(summary.df=summary.df)
+    if (is.null(x)) {
+        return(NULL)
+    } else {
+        return(ncol(x$predictors))
+    }
 }
 
 # Primary workhorse function.
@@ -150,12 +169,18 @@ calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficien
 # Returns efficacy of summary stastitics
 assess.predictor.performance = function(summary.df,
                                         filter.for.birth.rate=NULL,
+                                        filter.for.death.rate=NULL,
                                         filter.for.dispersal.rate=NULL,
                                         filter.for.trait.transition.rate=NULL) {
     x = create.group.and.predictors(summary.df=summary.df,
                                     filter.for.birth.rate=filter.for.birth.rate,
+                                    filter.for.death.rate=filter.for.death.rate,
                                     filter.for.dispersal.rate=filter.for.dispersal.rate,
                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate)
+    if (is.null(x)) {
+        return(NULL)
+    }
+
     group = x$group
     predictors = x$predictors
     result = data.frame()
@@ -189,14 +214,20 @@ analyze.dapc = function(
                         n.pca,
                         n.da,
                         filter.for.birth.rate=NULL,
+                        filter.for.death.rate=NULL,
                         filter.for.dispersal.rate=NULL,
                         filter.for.trait.transition.rate=NULL,
                         verbose.on.insufficient.groups=NULL) {
     x = create.group.and.predictors(summary.df=summary.df,
                                      filter.for.birth.rate=filter.for.birth.rate,
+                                     filter.for.death.rate=filter.for.death.rate,
                                      filter.for.dispersal.rate=filter.for.dispersal.rate,
                                      filter.for.trait.transition.rate=filter.for.trait.transition.rate
                                     )
+    if (is.null(x)) {
+        return(NULL)
+    }
+
     rv = calculate.dapc(
             predictors=x$predictors,
             group=x$group,
@@ -230,6 +261,8 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
                                                 "no", "partial")
                                                 )
                                            )
+    parameter.space.df$birth.rate.factor = factor(parameter.space.df$birth.rate)
+    parameter.space.df$death.rate.factor = factor(parameter.space.df$death.rate)
     p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
     p = p + scale_x_log10() + scale_y_log10()
     if (characterization_schema == "both") {
@@ -250,7 +283,7 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
                                 fill=mean.prop.correct.model.preferred.factor,
                                 shape=mean.pp.of.correct.model.factor,
                                 ),
-                               size=2.5 # here, instead of in aes() because it is not a mapping
+                               # size=2.5 # here, instead of in aes() because it is not a mapping
                                )
             fill_legend = prop_legend_title
             shape_legend = posterior_legend_title
@@ -266,7 +299,7 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
         # p = p + scale_size(guide="none") # only needed if size is a mapping
     }
     p = p + theme(legend.position = "bottom")
-    p = p + facet_wrap(~birth.rate + death.rate)
+    p = p + facet_wrap(birth.rate.factor ~ death.rate.factor)
     p
 }
 
@@ -288,6 +321,7 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
                                      n.pca=n.pca,
                                      n.da=n.da,
                                      filter.for.birth.rate=birth.rate,
+                                     filter.for.death.rate=death.rate,
                                      filter.for.dispersal.rate=dispersal.rate,
                                      filter.for.trait.transition.rate=trait.transition.rate,
                                      verbose.on.insufficient.groups=F
