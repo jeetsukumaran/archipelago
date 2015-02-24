@@ -262,7 +262,9 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
                                                 )
                                            )
     parameter.space.df$birth.rate.factor = factor(parameter.space.df$birth.rate)
-    parameter.space.df$death.rate.factor = factor(parameter.space.df$death.rate)
+
+    parameter.space.df$death.rate.factor = factor(parameter.space.df$death.rate / parameter.space.df$birth.rate)
+
     p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
     p = p + scale_x_log10() + scale_y_log10()
     if (characterization_schema == "both") {
@@ -299,7 +301,9 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
         # p = p + scale_size(guide="none") # only needed if size is a mapping
     }
     p = p + theme(legend.position = "bottom")
-    p = p + facet_grid(birth.rate.factor ~ death.rate.factor)
+    if (levels(p$death.rate.factor) > 1) {
+        p = p + facet_grid(birth.rate.factor ~ death.rate.factor)
+    }
     p
 }
 
