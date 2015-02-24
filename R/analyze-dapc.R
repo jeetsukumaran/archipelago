@@ -299,7 +299,7 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
         # p = p + scale_size(guide="none") # only needed if size is a mapping
     }
     p = p + theme(legend.position = "bottom")
-    p = p + facet_wrap(birth.rate.factor ~ death.rate.factor)
+    p = p + facet_grid(birth.rate.factor ~ death.rate.factor)
     p
 }
 
