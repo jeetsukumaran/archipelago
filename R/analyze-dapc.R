@@ -238,9 +238,12 @@ analyze.dapc = function(
 
 # plot space, `parameter.space.df` is a data.frame returned by
 # `analyze.parameter.space.discrete`, either directly or as loaded from a file.
-plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter") {
-    signficance.threshold = 0.95
-    characterization_schema = "color-by-proportion-preferred"
+plot.parameter.space.discrete = function(
+                                         parameter.space.df,
+                                         plot.type="scatter",
+                                         characterization.schema="color-by-proportion-preferred",
+                                         signficance.threshold=0.95
+                                         ) {
 
     f1 = cut(
             parameter.space.df[["mean.prop.correct.model.preferred"]],
@@ -262,55 +265,77 @@ plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter"
                                                 "no", "partial")
                                                 )
                                            )
-    parameter.space.df$birth.rate.factor = factor(parameter.space.df$birth.rate)
+    parameter.space.df$birth.rate.factor = factor(paste("b = ", parameter.space.df$birth.rate, sep=""))
     # parameter.space.df$birth.rate.factor = factor(paste("b=", parameter.space.df$birth.rate, sep=""))
 
     # parameter.space.df$death.rate.factor = factor(parameter.space.df$death.rate/parameter.space.df$birth.rate)
 
+    ### requires labeler="parsed"
     # parameter.space.df$death.rate.factor = factor(
     #         factor(ifelse(parameter.space.df$death.rate==0, "0", paste("frac(b,", parameter.space.df$birth.rate/parameter.space.df$death.rate,")", sep="")))
 
-    parameter.space.df$death.rate.factor = factor(ifelse(parameter.space.df$death.rate==0, "0", paste(format(round(parameter.space.df$death.rate/parameter.space.df$birth.rate, 2), nsmall=2), "*", "b", sep="")))
+    parameter.space.df$death.rate.factor = factor(paste("e = ",
+                                                        ifelse(parameter.space.df$death.rate==0, "0", paste(format(round(parameter.space.df$death.rate/parameter.space.df$birth.rate, 2), nsmall=2), " x b", sep="")),
+                                                        sep=""
+                                                        ))
 
     p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
     p = p + scale_x_log10() + scale_y_log10()
-    if (characterization_schema == "both") {
-        p = p + geom_point(aes(color=sweet.spot))
-        # p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"), breaks=c("yes","partial","no"))
-    } else  {
-        posterior_legend_title = "Mean Posterior of True Model"
-        prop_legend_title = "Mean Proportion True Model Preferred"
-        if (characterization_schema == "color-by-posterior") {
-            p = p + geom_point(aes(
-                                fill=mean.pp.of.correct.model.factor,
-                                shape=mean.prop.correct.model.preferred.factor
-                                ))
-            fill_legend = posterior_legend_title
-            shape_legend = prop_legend_title
-        } else if (characterization_schema == "color-by-proportion-preferred") {
-            p = p + geom_point(aes(
-                                fill=mean.prop.correct.model.preferred.factor,
-                                shape=mean.pp.of.correct.model.factor,
-                                ),
-                               # size=2.5 # here, instead of in aes() because it is not a mapping
-                               )
-            fill_legend = prop_legend_title
-            shape_legend = posterior_legend_title
-        } else {
-            stop(paste("Unrecognized characterization schema:'", characterization_schema, "'"))
+    if (plot.type == "scatter") {
+        if (characterization.schema == "both") {
+            p = p + geom_point(aes(color=sweet.spot))
+            # p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"), breaks=c("yes","partial","no"))
+        } else  {
+            posterior_legend_title = "Mean Posterior of True Model"
+            prop_legend_title = "Mean Proportion True Model Preferred"
+            if (characterization.schema == "color-by-posterior") {
+                p = p + geom_point(aes(
+                                    fill=mean.pp.of.correct.model.factor,
+                                    shape=mean.prop.correct.model.preferred.factor
+                                    ))
+                fill_legend = posterior_legend_title
+                shape_legend = prop_legend_title
+            } else if (characterization.schema == "color-by-proportion-preferred") {
+                p = p + geom_point(aes(
+                                    fill=mean.prop.correct.model.preferred.factor,
+                                    shape=mean.pp.of.correct.model.factor,
+                                    ),
+                                # size=2.5 # here, instead of in aes() because it is not a mapping
+                                )
+                fill_legend = prop_legend_title
+                shape_legend = posterior_legend_title
+            } else {
+                stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
+            }
+            p = p + scale_shape_manual(values=c(24, 25), name=shape_legend)
+            p = p + scale_fill_manual(values=c("dodgerblue", "orange", "red"), name=fill_legend)
+            # override to allow for fill-support shape
+            # see: http://stackoverflow.com/questions/12488905/why-wont-the-ggplot2-legend-combine-manual-fill-and-scale-values
+            # see: https://cloud.github.com/downloads/hadley/ggplot2/guide-col.pdf
+            p = p + guides(fill=guide_legend(override.aes = list(shape = 21)))
+            # p = p + scale_size(guide="none") # only needed if size is a mapping
         }
-        p = p + scale_shape_manual(values=c(24, 25), name=shape_legend)
-        p = p + scale_fill_manual(values=c("dodgerblue", "orange", "red"), name=fill_legend)
-        # override to allow for fill-support shape
-        # see: http://stackoverflow.com/questions/12488905/why-wont-the-ggplot2-legend-combine-manual-fill-and-scale-values
-        # see: https://cloud.github.com/downloads/hadley/ggplot2/guide-col.pdf
-        p = p + guides(fill=guide_legend(override.aes = list(shape = 21)))
-        # p = p + scale_size(guide="none") # only needed if size is a mapping
+    } else if (plot.type == "tile") {
+
+        # ggplot(df,aes(x = Var1,y = Var2,fill = factor(grp),alpha = z)) +
+        #     geom_tile() +
+        #     scale_fill_manual(values = c('red','blue'))
+        if (characterization.schema == "both") {
+            p = p + geom_tile(aes(fill=sweet.spot))
+        } else if (characterization.schema == "color-by-posterior") {
+            p = p + geom_tile(aes(fill=mean.pp.of.correct.model.factor))
+        } else if (characterization.schema == "color-by-proportion-preferred") {
+            p = p + geom_tile(aes(fill=mean.prop.correct.model.preferred.factor))
+        } else {
+        }
+    } else {
+        stop(paste("Unrecognized plot type:'", plot.type, "'"))
     }
     p = p + theme(legend.position = "bottom")
     p = p + labs(x="Trait Transition Rate", y="Dispersal Rate")
     if (length(levels(parameter.space.df$death.rate.factor)) > 1) {
-        p = p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
+        # p = p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
+        p = p + facet_grid(birth.rate.factor ~ death.rate.factor)
     }
     p
 }
