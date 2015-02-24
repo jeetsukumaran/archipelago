@@ -239,25 +239,26 @@ analyze.dapc = function(
 # plot space, `parameter.space.df` is a data.frame returned by
 # `analyze.parameter.space.discrete`, either directly or as loaded from a file.
 plot.parameter.space.discrete = function(parameter.space.df, plot.type="scatter") {
+    signficance.threshold = 0.95
     characterization_schema = "color-by-proportion-preferred"
 
     f1 = cut(
             parameter.space.df[["mean.prop.correct.model.preferred"]],
-            breaks=c(0.0, 0.5, 0.9, 1.0),
+            breaks=c(0.0, 0.5, signficance.threshold, 1.0),
             right=F,
             )
     parameter.space.df$mean.prop.correct.model.preferred.factor = factor(f1, levels=rev(levels(f1)))
     f2 = cut(
             parameter.space.df[["mean.pp.of.correct.model"]],
-            breaks=c(0.0, 0.5, 0.9, 1.0),
+            breaks=c(0.0, 0.5, signficance.threshold, 1.0),
             right=F,
             )
     parameter.space.df$mean.pp.of.correct.model.factor = factor(f2, levels=rev(levels(f2)))
 
     parameter.space.df$sweet.spot = factor(
-                                           ifelse(parameter.space.df$mean.prop.correct.model.preferred >= 0.90 & parameter.space.df$mean.pp.of.correct.model >= 0.90,
+                                           ifelse(parameter.space.df$mean.prop.correct.model.preferred >= signficance.threshold & parameter.space.df$mean.pp.of.correct.model >= signficance.threshold,
                                                 "yes",
-                                                ifelse(parameter.space.df$mean.prop.correct.model.preferred < 0.90 & parameter.space.df$mean.pp.of.correct.model < 0.90,
+                                                ifelse(parameter.space.df$mean.prop.correct.model.preferred < signficance.threshold & parameter.space.df$mean.pp.of.correct.model < signficance.threshold,
                                                 "no", "partial")
                                                 )
                                            )
