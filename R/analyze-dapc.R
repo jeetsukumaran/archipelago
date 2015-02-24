@@ -258,22 +258,19 @@ plot.parameter.space.discrete = function(
             )
     parameter.space.df$mean.pp.of.correct.model.factor = factor(f2, levels=rev(levels(f2)))
 
-    parameter.space.df$sweet.spot = factor(
-                                           ifelse(parameter.space.df$mean.prop.correct.model.preferred >= signficance.threshold & parameter.space.df$mean.pp.of.correct.model >= signficance.threshold,
-                                                "yes",
-                                                ifelse(parameter.space.df$mean.prop.correct.model.preferred < signficance.threshold & parameter.space.df$mean.pp.of.correct.model < signficance.threshold,
-                                                "no", "partial")
-                                                )
-                                           )
+    sweet.spot.data = factor(ifelse(parameter.space.df$mean.prop.correct.model.preferred >= signficance.threshold & parameter.space.df$mean.pp.of.correct.model >= signficance.threshold,
+                             "yes",
+                             ifelse(parameter.space.df$mean.prop.correct.model.preferred < signficance.threshold & parameter.space.df$mean.pp.of.correct.model < signficance.threshold,
+                                    "no", "partial")
+                             ))
+    parameter.space.df$sweet.spot = factor(sweet.spot.data, levels=rev(levels(sweet.spot.data)))
+
     parameter.space.df$birth.rate.factor = factor(paste("b = ", parameter.space.df$birth.rate, sep=""))
+
     # parameter.space.df$birth.rate.factor = factor(paste("b=", parameter.space.df$birth.rate, sep=""))
-
     # parameter.space.df$death.rate.factor = factor(parameter.space.df$death.rate/parameter.space.df$birth.rate)
-
     ### requires labeler="parsed"
-    # parameter.space.df$death.rate.factor = factor(
-    #         factor(ifelse(parameter.space.df$death.rate==0, "0", paste("frac(b,", parameter.space.df$birth.rate/parameter.space.df$death.rate,")", sep="")))
-
+    # parameter.space.df$death.rate.factor = factor(factor(ifelse(parameter.space.df$death.rate==0, "0", paste("frac(b,", parameter.space.df$birth.rate/parameter.space.df$death.rate,")", sep="")))
     parameter.space.df$death.rate.factor = factor(paste("e = ",
                                                         ifelse(parameter.space.df$death.rate==0, "0", paste(format(round(parameter.space.df$death.rate/parameter.space.df$birth.rate, 2), nsmall=2), " x b", sep="")),
                                                         sep=""
@@ -281,13 +278,22 @@ plot.parameter.space.discrete = function(
 
     p = ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
     p = p + scale_x_log10() + scale_y_log10()
+    posterior_legend_title = "Mean Posterior of True Model"
+    prop_legend_title = "Mean Proportion True Model Preferred"
+    sweet_spot_legend_title = ">0.95 Success"
+
+    if (characterization.schema == "color-by-success") {
+        color.settings = c("blue","dodgerblue", "orange") # third color for intermediate
+    } else {
+        color.settings = c("blue", "orange")
+    }
+
     if (plot.type == "scatter") {
-        if (characterization.schema == "both") {
+        if (characterization.schema == "color-by-success") {
             p = p + geom_point(aes(color=sweet.spot))
+            p = p + scale_color_manual(values=color.settings, name=sweet_spot_legend_title)
             # p = p + scale_color_manual(values=c("dodgerblue", "orange", "red"), breaks=c("yes","partial","no"))
         } else  {
-            posterior_legend_title = "Mean Posterior of True Model"
-            prop_legend_title = "Mean Proportion True Model Preferred"
             if (characterization.schema == "color-by-posterior") {
                 p = p + geom_point(aes(
                                     fill=mean.pp.of.correct.model.factor,
@@ -308,7 +314,7 @@ plot.parameter.space.discrete = function(
                 stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
             }
             p = p + scale_shape_manual(values=c(24, 25), name=shape_legend)
-            p = p + scale_fill_manual(values=c("dodgerblue", "orange", "red"), name=fill_legend)
+            p = p + scale_fill_manual(values=color.settings, name=fill_legend)
             # override to allow for fill-support shape
             # see: http://stackoverflow.com/questions/12488905/why-wont-the-ggplot2-legend-combine-manual-fill-and-scale-values
             # see: https://cloud.github.com/downloads/hadley/ggplot2/guide-col.pdf
@@ -320,18 +326,27 @@ plot.parameter.space.discrete = function(
         # ggplot(df,aes(x = Var1,y = Var2,fill = factor(grp),alpha = z)) +
         #     geom_tile() +
         #     scale_fill_manual(values = c('red','blue'))
-        if (characterization.schema == "both") {
+        if (characterization.schema == "color-by-success") {
             p = p + geom_tile(aes(fill=sweet.spot))
+            fill_legend = sweet_spot_legend_title
         } else if (characterization.schema == "color-by-posterior") {
             p = p + geom_tile(aes(fill=mean.pp.of.correct.model.factor))
+            fill_legend = posterior_legend_title
         } else if (characterization.schema == "color-by-proportion-preferred") {
             p = p + geom_tile(aes(fill=mean.prop.correct.model.preferred.factor))
+            fill_legend = prop_legend_title
         } else {
+            stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
         }
+        p = p + scale_fill_manual(values=color.settings, name=fill_legend)
     } else {
         stop(paste("Unrecognized plot type:'", plot.type, "'"))
     }
-    p = p + theme(legend.position = "bottom")
+    p = p + theme(
+                  panel.border = element_rect(size=0.5, fill=NA, color="black", linetype='dotted'),
+                  legend.position = "bottom"
+                  # strip.background=element_rect(colour='black',  size=1)
+                  )
     p = p + labs(x="Trait Transition Rate", y="Dispersal Rate")
     if (length(levels(parameter.space.df$death.rate.factor)) > 1) {
         # p = p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
