@@ -454,7 +454,12 @@ classify.data = function(target.summary.stats, training.summary.stats, n.pca=NUL
 
 # `target.summary.stats.path`       - path to summary statistics calculated on empirical (or other) data to be classified
 # `training.summary.stats.paths`    - `list` of one or more paths to training data to be used to construct DAPC classification function
-classify.data.from.files = function(target.summary.stats.path, training.summary.stats.paths, n.pca=NULL, n.da=NULL) {
+classify.data.from.files = function(
+        target.summary.stats.path,
+        training.summary.stats.paths,
+        n.pca=NULL,
+        n.da=NULL,
+        output.path=NULL) {
     # training.summary.stats.paths <- list(...)
     # training.summary.stats <- list()
     # for (i in 1:length(training.summary.stats.paths)){
@@ -468,6 +473,9 @@ classify.data.from.files = function(target.summary.stats.path, training.summary.
                             training.summary.stats=training.summary.stats.merged,
                             n.pca=n.pca,
                             n.da=n.da)
+    if (!is.null(output.path)) {
+        write.csv(results, output.path)
+    }
     results
 }
 
