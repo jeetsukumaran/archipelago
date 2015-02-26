@@ -474,7 +474,7 @@ classify.data.from.files = function(
                             n.pca=n.pca,
                             n.da=n.da)
     if (!is.null(output.path)) {
-        write.csv(results, output.path)
+        write.csv(results, output.path, row.names=FALSE)
     }
     results
 }
