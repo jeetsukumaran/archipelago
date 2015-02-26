@@ -450,6 +450,7 @@ classify.data = function(target.summary.stats, training.summary.stats, n.pca=NUL
             n.da=n.da)
     target.data = create.group.and.predictors(target.summary.stats)
     pred.sup <- predict.dapc(trained.model$dapc.result, newdata=target.data$predictors)
+    data.frame(pred.sup)
 }
 
 # `target.summary.stats.path`       - path to summary statistics calculated on empirical (or other) data to be classified
