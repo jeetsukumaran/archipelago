@@ -37,6 +37,7 @@ data.regimes <- function(summary.df) {
     }
 }
 
+# Filters out data
 filter.data <- function(summary.df,
                         filter.for.birth.rate=NULL,
                         filter.for.death.rate=NULL,
@@ -92,6 +93,7 @@ create.group.and.predictors = function(summary.df,
     rv
 }
 
+# Reports number of predictors in a data.frame
 num.predictors <-function(summary.df) {
     x = create.group.and.predictors(summary.df=summary.df)
     if (is.null(x)) {
@@ -101,9 +103,8 @@ num.predictors <-function(summary.df) {
     }
 }
 
-# Primary workhorse function.
+# Primary (back-end) workhorse function.
 # Carries out the DAPC analysis, and packages the results.
-# TODO: generalize from "constrained"/"unconstrained"
 calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=NULL) {
     num.groups = length(unique(group))
     if (num.groups < 2) {
@@ -141,12 +142,6 @@ calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficien
 
     mean.pp.of.correct.model = sum(pps.of.correct.model) / length(pps.of.correct.model)
 
-    # mean.pp.of.correct.model = mean(c(model.prefs[model.prefs$group == "constrained",]$pp.model.constrained, model.prefs[model.prefs$group == "unconstrained",]$pp.model.unconstrained))
-    # debug1 = nrow(model.prefs[model.prefs$group=="constrained" & model.prefs$pp.model.constrained>0.5,])
-    # debug2 = nrow(model.prefs[model.prefs$group=="unconstrained" & model.prefs$pp.model.unconstrained>0.5,])
-    # mean.count.correct.model.preferred = nrow(model.prefs[model.prefs$group=="constrained" & model.prefs$pp.model.constrained>0.5,]) + nrow(model.prefs[model.prefs$group=="unconstrained" & model.prefs$pp.model.unconstrained>0.5,])
-    # mean.prop.correct.model.preferred = mean.count.correct.model.preferred / nrow(model.prefs)
-
     rv = list(
               dapc.result=dapc.result,
               var.contr=var.contr,
@@ -163,6 +158,35 @@ calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficien
               mean.pp.of.correct.model=mean.pp.of.correct.model
               )
     rv
+}
+
+# Front end for analysis: (optionally) filters data, constructs groups and
+# predictors, carries out DAPC analysis, and returns results.
+analyze.dapc = function(
+                        summary.df,
+                        n.pca,
+                        n.da,
+                        filter.for.birth.rate=NULL,
+                        filter.for.death.rate=NULL,
+                        filter.for.dispersal.rate=NULL,
+                        filter.for.trait.transition.rate=NULL,
+                        verbose.on.insufficient.groups=NULL) {
+    x = create.group.and.predictors(summary.df=summary.df,
+                                     filter.for.birth.rate=filter.for.birth.rate,
+                                     filter.for.death.rate=filter.for.death.rate,
+                                     filter.for.dispersal.rate=filter.for.dispersal.rate,
+                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate
+                                    )
+    if (is.null(x)) {
+        return(NULL)
+    }
+
+    rv = calculate.dapc(
+            predictors=x$predictors,
+            group=x$group,
+            n.pca=n.pca,
+            n.da=n.da,
+            verbose.on.insufficient.groups=verbose.on.insufficient.groups)
 }
 
 # Predictor assessment.
@@ -207,33 +231,6 @@ assess.predictor.performance = function(summary.df,
         # }
     }
     result
-}
-
-analyze.dapc = function(
-                        summary.df,
-                        n.pca,
-                        n.da,
-                        filter.for.birth.rate=NULL,
-                        filter.for.death.rate=NULL,
-                        filter.for.dispersal.rate=NULL,
-                        filter.for.trait.transition.rate=NULL,
-                        verbose.on.insufficient.groups=NULL) {
-    x = create.group.and.predictors(summary.df=summary.df,
-                                     filter.for.birth.rate=filter.for.birth.rate,
-                                     filter.for.death.rate=filter.for.death.rate,
-                                     filter.for.dispersal.rate=filter.for.dispersal.rate,
-                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate
-                                    )
-    if (is.null(x)) {
-        return(NULL)
-    }
-
-    rv = calculate.dapc(
-            predictors=x$predictors,
-            group=x$group,
-            n.pca=n.pca,
-            n.da=n.da,
-            verbose.on.insufficient.groups=verbose.on.insufficient.groups)
 }
 
 # plot space, `parameter.space.df` is a data.frame returned by
@@ -423,16 +420,54 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
     result
 }
 
-classify.trees = function(path.to.trees.summary, path.to.simulation.summary) {
-    summary.df <- read.csv(path.to.simulation.summary, header<-T)
-    training.data = create.group.and.predictors(summary.df)
+# classify.trees = function(path.to.trees.summary, path.to.simulation.summary) {
+#     summary.df <- read.csv(path.to.simulation.summary, header<-T)
+#     training.data = create.group.and.predictors(summary.df)
+#     trained.model = calculate.dapc(
+#             training.data$predictors,
+#             training.data$group,
+#             n.pca=ncol(training.data$predictors),
+#             n.da=10)
+#     trees.df <- read.csv(path.to.trees.summary, header<-T)
+#     to.classify.data = create.group.and.predictors(trees.df)
+#     pred.sup <- predict.dapc(trained.model$dapc.result, newdata=to.classify.data$predictors)
+# }
+
+# `target.summary.stats`     - data.frame of summary statistics calculated on empirical (or other) data to be classified
+# `training.summary.stats`   - data.frame of training data to be used to construct DAPC classification function
+classify.data = function(target.summary.stats, training.summary.stats, n.pca=NULL, n.da=NULL) {
+    training.data = create.group.and.predictors(training.summary.stats)
+    if (is.null(n.pca)) {
+        n.pca = ncol(training.data$predictors)
+    }
+    if (is.null(n.da)) {
+        n.da = 10
+    }
     trained.model = calculate.dapc(
             training.data$predictors,
             training.data$group,
-            n.pca=ncol(training.data$predictors),
-            n.da=10)
-    trees.df <- read.csv(path.to.trees.summary, header<-T)
-    to.classify.data = create.group.and.predictors(trees.df)
-    pred.sup <- predict.dapc(trained.model$dapc.result, newdata=to.classify.data$predictors)
+            n.pca=n.pca,
+            n.da=n.da)
+    target.data = create.group.and.predictors(target.summary.stats)
+    pred.sup <- predict.dapc(trained.model$dapc.result, newdata=target.data$predictors)
+}
+
+# `target.summary.stats.path`       - path to summary statistics calculated on empirical (or other) data to be classified
+# `training.summary.stats.paths`    - `list` of one or more paths to training data to be used to construct DAPC classification function
+classify.data.from.files = function(target.summary.stats.path, training.summary.stats.paths, n.pca=NULL, n.da=NULL) {
+    # training.summary.stats.paths <- list(...)
+    # training.summary.stats <- list()
+    # for (i in 1:length(training.summary.stats.paths)){
+    #     training.summary.stats[[i]] <- read.csv(training.summary.stats.paths[[i]])
+    # }
+    target.summary.stats <- read.csv(target.summary.stats.path, header<-T)
+    training.summary.stats.sets <- lapply(training.summary.stats.paths, read.csv, header=T)
+    training.summary.stats.merged <- Reduce(function(x,y){rbind(x,y)}, training.summary.stats.sets)
+    results = classify.data(
+                            target.summary.stats=target.summary.stats,
+                            training.summary.stats=training.summary.stats.merged,
+                            n.pca=n.pca,
+                            n.da=n.da)
+    results
 }
 
