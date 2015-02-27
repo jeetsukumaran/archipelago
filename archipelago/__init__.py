@@ -37,6 +37,8 @@ __version__ = "0.1.0"
 __archipelago_revision__ = None
 __archipelago_description__ = None
 
+ARCHIPELAGO_HOME = os.path.dirname(os.path.abspath(__file__))
+
 def revision():
     global __archipelago_revision__
     if __archipelago_revision__ is None:

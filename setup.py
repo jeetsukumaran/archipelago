@@ -12,11 +12,17 @@ setup(
         "archipelago",
         # "test"
         ],
-    scripts=["bin/archipelago-simulate.py",
-    #         "bin/archipelago-generate-jobs.py",
-            "bin/archipelago-summarize.py",
-    #         "bin/archipelago-summarize-trees.py",
+    # these directories,
+    package_data = {
+            'archipelago': ['R/*.R'],
+            'archipelago': ['libexec/*.R'],
+        },
+    include_package_data = True,
+    scripts=[
+            "bin/archipelago-classify.py",
             "bin/archipelago-profile-trees.py",
+            "bin/archipelago-simulate.py",
+            "bin/archipelago-summarize.py",
             ],
     url="http://pypi.python.org/pypi/archipelago/",
     license="LICENSE.txt",
