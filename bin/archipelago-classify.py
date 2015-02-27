@@ -139,9 +139,9 @@ def main():
     if is_performance_assessed:
         performance_row = collections.OrderedDict()
         performance_row.update(extra_fields)
-        performance_row["true.model"] = true_model_name
+        # performance_row["true.model"] = true_model_name
         performance_row["true.model.posterior.mean"] = sum_of_true_model_pp / total_assignments
-        performance_row["proportion.true.model.correctly.assigned"] = correct_assignment_count / total_assignments
+        performance_row["true.model.proportion.correctly.assigned"] = correct_assignment_count / total_assignments
         # model_names = sorted(set( set(correct_assignment_count_by_model.keys()) | set(incorrect_assignment_count_by_model.keys()) ))
         # for model_name in model_names:
         #     performance_row["{}.proportion.correctly.assigned".format(model_name)] = correct_assignment_count_by_model[model_name]/total_assignments
