@@ -4,7 +4,14 @@ import os
 import collections
 import argparse
 import subprocess
+import csv
+import re
+try:
+    from StringIO import StringIO # Python 2 legacy support: StringIO in this module is the one needed (not io)
+except ImportError:
+    from io import StringIO # Python 3
 import archipelago
+from archipelago import utility
 
 def parse_fieldname_and_value(labels):
     if not labels:
@@ -42,6 +49,10 @@ def main():
             "-o", "--output-filepath",
             default=None,
             help="Path to output file.")
+    parser.add_argument( "--append",
+            action="store_true",
+            default=False,
+            help="Append to output file if it already exists instead of overwriting.")
     args = parser.parse_args()
     extra_fields = parse_fieldname_and_value(args.labels)
     r_script_path = os.path.join(archipelago.ARCHIPELAGO_LIBEXEC_PATH, "archipelago-classify.R")
@@ -56,8 +67,24 @@ def main():
     stdout, stderr = p.communicate()
     if p.returncode != 0:
         sys.exit(stderr)
-    print(stdout.split("\n"))
-
+    reader = csv.DictReader(StringIO(stdout))
+    result_rows = []
+    for row in reader:
+        row.update(extra_fields)
+        result_rows.append(row)
+    fieldnames = []
+    fieldnames.extend([f for f in extra_fields.keys() if f not in fieldnames])
+    fieldnames.extend([f for f in reader.fieldnames if f not in fieldnames])
+    out = utility.open_output_file_for_csv_writer(
+            filepath=args.output_filepath,
+            append=args.append)
+    writer = csv.DictWriter(out,
+            fieldnames=fieldnames,
+            lineterminator=os.linesep,
+            )
+    if not args.append:
+        writer.writeheader()
+    writer.writerows(result_rows)
 
 if __name__ == "__main__":
     main()
