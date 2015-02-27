@@ -50,11 +50,11 @@ training.files = args[c(-1,-2,-3)]
 # cat(paste("target = ", target.file, "\n", sep=""))
 # cat(paste("training = ", training.files, "\n", sep=""))
 
-source(paste(script.dir, "..", "R", "analyze-dapc.R", sep="/"))
+source(paste(script.dir, "analyze-dapc.R", sep="/"))
 res = classify.data.from.files(
                                target.summary.stats.path=target.file,
                                training.summary.stats.paths=training.files,
                                n.pca=n.pca,
                                n.da=n.da)
-write.csv(res, file="")
+write.csv(res, file="", row.names=FALSE)
 
