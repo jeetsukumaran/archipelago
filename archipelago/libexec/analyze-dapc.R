@@ -245,7 +245,7 @@ assess.predictor.performance = function(summary.df,
     result
 }
 
-optimize.dapc.params = function(summary.df) {
+optimize.dapc.params = function(summary.df, penalized=T) {
     groups.and.predictors = create.group.and.predictors(summary.df=summary.df)
     if (is.null(groups.and.predictors)) {
         return(NULL)
@@ -254,20 +254,27 @@ optimize.dapc.params = function(summary.df) {
     predictors = groups.and.predictors$predictors
     n.pca.values = 2:ncol(predictors)
     n.da.values = 1:ncol(predictors)
-    max.score = 0
+    n.da.values = c(10)
+    best.score = NULL
     optima = list()
     for (n.da in n.da.values) {
         for (n.pca in n.pca.values) {
-            score = calculate.true.model.proportion.correctly.assigned(
+            raw.score = calculate.true.model.proportion.correctly.assigned(
                    predictors=predictors,
                    group=group,
                    n.pca=n.pca,
                    n.da=n.da)
-            if (!is.null(score) && score > max.score) {
-                max.score = max.score
-                optima = list(n.pca=n.pca, n.da=n.da)
+            if (!is.null(raw.score)) {
+                if (penalized) {
+                    score =  (2 * n.pca) - (2 * raw.score)
+                } else {
+                    score = - raw.score
+                }
+                if (is.null(best.score) || score < best.score) {
+                    best.score = score
+                    optima = list(n.pca=n.pca, n.da=n.da)
+                }
             }
-
         }
     }
     return(optima)
