@@ -245,10 +245,13 @@ assess.predictor.performance = function(summary.df,
     result
 }
 
-optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F) {
-    n.pca.values = 2:ncol(predictors)
-    # n.da.values = 1:ncol(predictors)
-    n.da.values = c(10)
+optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.values=NULL, n.da.values=NULL) {
+    if (is.null(n.pca.values)) {
+        n.pca.values = 1:ncol(predictors)
+    }
+    if (is.null(n.da.values)) {
+        n.da.values = 1:ncol(predictors)
+    }
     best.score = NULL
     optima = list(n.pca=0, n.da=0)
     for (n.da in n.da.values) {
@@ -260,12 +263,14 @@ optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F) {
                    n.da=n.da)
             if (!is.null(raw.score)) {
                 if (penalized) {
+                    # score =  (2 * n.pca) - log(2 * raw.score)
                     score =  (2 * n.pca) - log(2 * raw.score)
                 } else {
                     score = - raw.score
                 }
                 if (verbose) {
-                    cat(paste("[current: ", optima$n.pca, " (score: ", best.score, ")] ", n.pca, ": raw score = ", raw.score, ", penalized score = ", score, " (", 2*n.pca, "-", log(2 * raw.score), ")\n", sep=""))
+                    # cat(paste("[current: ", optima$n.pca, " (score: ", best.score, ")] ", n.pca, ": raw score = ", raw.score, ", penalized score = ", score, " (", 2*n.pca, "-", log(2 * raw.score), ")\n", sep=""))
+                    cat(paste("[current: ", optima$n.pca, " (score: ", best.score, ")] ", n.pca, ": raw score = ", raw.score, ", penalized score = ", score, "\n", sep=""))
                 }
                 if (is.null(best.score) || score < best.score) {
                     best.score = score
@@ -277,7 +282,7 @@ optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F) {
     return(optima)
 }
 
-optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F) {
+optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F, n.pca.values=NULL, n.da.values=NULL) {
     groups.and.predictors = create.group.and.predictors(summary.df=summary.df)
     if (is.null(groups.and.predictors)) {
         return(NULL)
@@ -288,7 +293,9 @@ optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F)
                               predictors=predictors,
                               group=group,
                               penalized=penalized,
-                              verbose=verbose))
+                              verbose=verbose,
+                              n.pca.values=n.pca.values,
+                              n.da.values=n.da.values))
 }
 
 # plot space, `parameter.space.df` is a data.frame returned by
@@ -488,11 +495,11 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
 #   -   Set of number of axes retained in the principle component ('n.pca')
 #       and discriminant analysis steps ('n.da').
 #       This can be a string value:
-#       - 'max'             : use maximum number of PC's available
-#       - 'optimize-fit'    : use number of PC's that optimizes the proportion
+#       - 'all'             : use maximum number of PC's available
+#       - 'penalized-fit'   : use number of PC's that optimizes the proportion
 #                               of correct classification balanced with number of
 #                               PC's
-#       - 'maximize-fit'    : use number of PC's that maximize the proportion
+#       - 'maximized-fit'   : use number of PC's that maximize the proportion
 #                               of correct classification
 #       Or a list with two named elements, 'n.pca' and 'n.da':
 #       list(n.pca, n.da)   : use 'n.pca' for number of axes retained in
@@ -502,14 +509,14 @@ classify.data = function(target.summary.stats, training.summary.stats, n.dapc.ax
     training.data = create.group.and.predictors(training.summary.stats)
     predictors = training.data$predictors
     group = training.data$group
-    if (n.dapc.axes == "max") {
+    if (n.dapc.axes == "ax"ll) {
     } else if (n.dapc.axes == "max") {
         n.pca = ncol(training.data$predictors)
         n.da = ncol(training.data$predictors)
-    } else if ((n.dapc.axes == "optimize-fit") || (n.dapc.axes == "maximize-fit")) {
-        if (n.dapc.axes == "optimize-fit") {
+    } else if ((n.dapc.axes == "penalized-fit") || (n.dapc.axes == "maximized-fit")) {
+        if (n.dapc.axes == "penalized-fit") {
             penalized = T
-        } else if (n.dapc.axes == "maximize-fit") {
+        } else if (n.dapc.axes == "maximized-fit") {
             penalized = F
         }
         optima = optimize.dapc.axes(
@@ -541,11 +548,11 @@ classify.data = function(target.summary.stats, training.summary.stats, n.dapc.ax
 #   -   Set of number of axes retained in the principle component ('n.pca')
 #       and discriminant analysis steps ('n.da').
 #       This can be a string value:
-#       - 'max'             : use maximum number of PC's available
-#       - 'optimize-fit'    : use number of PC's that optimizes the proportion
+#       - 'all'             : use maximum number of PC's available
+#       - 'penalized-fit'   : use number of PC's that optimizes the proportion
 #                               of correct classification balanced with number of
 #                               PC's
-#       - 'maximize-fit'    : use number of PC's that maximize the proportion
+#       - 'maximized-fit'   : use number of PC's that maximize the proportion
 #                               of correct classification
 #       Or a list with two named elements, 'n.pca' and 'n.da':
 #       list(n.pca, n.da)   : use 'n.pca' for number of axes retained in
