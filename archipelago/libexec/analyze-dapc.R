@@ -245,18 +245,12 @@ assess.predictor.performance = function(summary.df,
     result
 }
 
-optimize.dapc.params = function(summary.df, penalized=T) {
-    groups.and.predictors = create.group.and.predictors(summary.df=summary.df)
-    if (is.null(groups.and.predictors)) {
-        return(NULL)
-    }
-    group = groups.and.predictors$group
-    predictors = groups.and.predictors$predictors
+optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F) {
     n.pca.values = 2:ncol(predictors)
-    n.da.values = 1:ncol(predictors)
+    # n.da.values = 1:ncol(predictors)
     n.da.values = c(10)
     best.score = NULL
-    optima = list()
+    optima = list(n.pca=0, n.da=0)
     for (n.da in n.da.values) {
         for (n.pca in n.pca.values) {
             raw.score = calculate.true.model.proportion.correctly.assigned(
@@ -266,9 +260,12 @@ optimize.dapc.params = function(summary.df, penalized=T) {
                    n.da=n.da)
             if (!is.null(raw.score)) {
                 if (penalized) {
-                    score =  (2 * n.pca) - (2 * raw.score)
+                    score =  (2 * n.pca) - log(2 * raw.score)
                 } else {
                     score = - raw.score
+                }
+                if (verbose) {
+                    cat(paste("[current: ", optima$n.pca, " (score: ", best.score, ")] ", n.pca, ": raw score = ", raw.score, ", penalized score = ", score, " (", 2*n.pca, "-", log(2 * raw.score), ")\n", sep=""))
                 }
                 if (is.null(best.score) || score < best.score) {
                     best.score = score
@@ -278,6 +275,20 @@ optimize.dapc.params = function(summary.df, penalized=T) {
         }
     }
     return(optima)
+}
+
+optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F) {
+    groups.and.predictors = create.group.and.predictors(summary.df=summary.df)
+    if (is.null(groups.and.predictors)) {
+        return(NULL)
+    }
+    group = groups.and.predictors$group
+    predictors = groups.and.predictors$predictors
+    return(optimize.dapc.axes(
+                              predictors=predictors,
+                              group=group,
+                              penalized=penalized,
+                              verbose=verbose))
 }
 
 # plot space, `parameter.space.df` is a data.frame returned by
@@ -467,32 +478,54 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
     result
 }
 
-# classify.trees = function(path.to.trees.summary, path.to.simulation.summary) {
-#     summary.df <- read.csv(path.to.simulation.summary, header<-T)
-#     training.data = create.group.and.predictors(summary.df)
-#     trained.model = calculate.dapc(
-#             training.data$predictors,
-#             training.data$group,
-#             n.pca=ncol(training.data$predictors),
-#             n.da=10)
-#     trees.df <- read.csv(path.to.trees.summary, header<-T)
-#     to.classify.data = create.group.and.predictors(trees.df)
-#     pred.sup <- predict.dapc(trained.model$dapc.result, newdata=to.classify.data$predictors)
-# }
 
-# `target.summary.stats`     - data.frame of summary statistics calculated on empirical (or other) data to be classified
-# `training.summary.stats`   - data.frame of training data to be used to construct DAPC classification function
-classify.data = function(target.summary.stats, training.summary.stats, n.pca=NULL, n.da=NULL) {
+# `target.summary.stats`
+#   - data.frame of summary statistics calculated on empirical (or other) data
+#     to be classified
+# `training.summary.stats`
+#   - data.frame of training data to be used to construct DAPC classification function
+# `n.dapc.axes`
+#   -   Set of number of axes retained in the principle component ('n.pca')
+#       and discriminant analysis steps ('n.da').
+#       This can be a string value:
+#       - 'max'             : use maximum number of PC's available
+#       - 'optimize-fit'    : use number of PC's that optimizes the proportion
+#                               of correct classification balanced with number of
+#                               PC's
+#       - 'maximize-fit'    : use number of PC's that maximize the proportion
+#                               of correct classification
+#       Or a list with two named elements, 'n.pca' and 'n.da':
+#       list(n.pca, n.da)   : use 'n.pca' for number of axes retained in
+#                             principal component step and 'n.da' for number of
+#                             axes retained in discriminant analysis step.
+classify.data = function(target.summary.stats, training.summary.stats, n.dapc.axes) {
     training.data = create.group.and.predictors(training.summary.stats)
-    if (is.null(n.pca)) {
+    predictors = training.data$predictors
+    group = training.data$group
+    if (n.dapc.axes == "max") {
+    } else if (n.dapc.axes == "max") {
         n.pca = ncol(training.data$predictors)
-    }
-    if (is.null(n.da)) {
-        n.da = 10
+        n.da = ncol(training.data$predictors)
+    } else if ((n.dapc.axes == "optimize-fit") || (n.dapc.axes == "maximize-fit")) {
+        if (n.dapc.axes == "optimize-fit") {
+            penalized = T
+        } else if (n.dapc.axes == "maximize-fit") {
+            penalized = F
+        }
+        optima = optimize.dapc.axes(
+                              predictors=predictors,
+                              group=group,
+                              penalized=penalized,
+                              verbose=F)
+        n.pca = optima$n.pca
+        n.da = optima$n.da
+    } else {
+        n.pca = n.dapc.axes$n.pca
+        n.da = n.dapc.axes$n.da
     }
     trained.model = calculate.dapc(
-            training.data$predictors,
-            training.data$group,
+            predictors,
+            group,
             n.pca=n.pca,
             n.da=n.da)
     target.data = create.group.and.predictors(target.summary.stats)
@@ -500,13 +533,28 @@ classify.data = function(target.summary.stats, training.summary.stats, n.pca=NUL
     data.frame(pred.sup)
 }
 
-# `target.summary.stats.path`       - path to summary statistics calculated on empirical (or other) data to be classified
-# `training.summary.stats.paths`    - `list` of one or more paths to training data to be used to construct DAPC classification function
+# `target.summary.stats.path`
+#   -   Path to summary statistics calculated on empirical (or other) data to be classified
+# `training.summary.stats.paths`
+#   -   `list` of one or more paths to training data to be used to construct DAPC classification function
+# `n.dapc.axes`
+#   -   Set of number of axes retained in the principle component ('n.pca')
+#       and discriminant analysis steps ('n.da').
+#       This can be a string value:
+#       - 'max'             : use maximum number of PC's available
+#       - 'optimize-fit'    : use number of PC's that optimizes the proportion
+#                               of correct classification balanced with number of
+#                               PC's
+#       - 'maximize-fit'    : use number of PC's that maximize the proportion
+#                               of correct classification
+#       Or a list with two named elements, 'n.pca' and 'n.da':
+#       list(n.pca, n.da)   : use 'n.pca' for number of axes retained in
+#                             principal component step and 'n.da' for number of
+#                             axes retained in discriminant analysis step.
 classify.data.from.files = function(
         target.summary.stats.path,
         training.summary.stats.paths,
-        n.pca=NULL,
-        n.da=NULL,
+        n.dapc.axes,
         output.path=NULL) {
     # training.summary.stats.paths <- list(...)
     # training.summary.stats <- list()
@@ -519,8 +567,8 @@ classify.data.from.files = function(
     results = classify.data(
                             target.summary.stats=target.summary.stats,
                             training.summary.stats=training.summary.stats.merged,
-                            n.pca=n.pca,
-                            n.da=n.da)
+                            n.dapc.axes=n.dapc.axes
+                            )
     if (!is.null(output.path)) {
         write.csv(results, output.path, row.names=FALSE)
     }
