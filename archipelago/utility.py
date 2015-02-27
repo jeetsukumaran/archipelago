@@ -45,7 +45,7 @@ _LOGGING_LEVEL_ENVAR = "ARCHIPELAGO_LOGGING_LEVEL"
 _LOGGING_FORMAT_ENVAR = "ARCHIPELAGO_LOGGING_FORMAT"
 
 def open_output_file_for_csv_writer(filepath, append=False):
-    if filepath is None:
+    if filepath is None or filepath == "-":
         out = sys.stdout
     elif sys.version_info >= (3,0,0):
         out = open(filepath,

@@ -46,15 +46,39 @@ def main():
             action="append",
             help="Labels to append to output (in format <FIELD-NAME>:value;)")
     parser.add_argument(
-            "-o", "--output-filepath",
+            "--true-model",
             default=None,
-            help="Path to output file.")
+            help=(
+                "The label or name of the true model for the target data. This is typically"
+                " only known if the target data was simulated as well, and you are interested"
+                " in assessing the performance of the inference method or simulation regime."
+                " If specified, will result in performance assessment statistics being generated."
+                " These will be written to standard output after the primary results, or to the"
+                " filepath specified by '--performance-output'."
+                ))
+    parser.add_argument(
+            "-o", "--primary-output-filepath",
+            default=None,
+            metavar="FILEPATH",
+            help="Path to primary results output file.")
+    parser.add_argument(
+            "--performance-output-filepath",
+            default=None,
+            metavar="FILEPATH",
+            help="Path to performance results output file (will only be written if '--true-model' is specified.")
     parser.add_argument( "--append",
             action="store_true",
             default=False,
-            help="Append to output file if it already exists instead of overwriting.")
+            help="Append instead of overwriting output file(s).")
     args = parser.parse_args()
     extra_fields = parse_fieldname_and_value(args.labels)
+    if args.true_model is not None:
+        true_model_name = args.true_model
+        is_performance_assessed = True
+    else:
+        true_model_name = None
+        is_performance_assessed = False
+
     r_script_path = os.path.join(archipelago.ARCHIPELAGO_LIBEXEC_PATH, "archipelago-classify.R")
     assert os.path.exists(r_script_path)
     cmd = [
@@ -68,23 +92,75 @@ def main():
     if p.returncode != 0:
         sys.exit(stderr)
     reader = csv.DictReader(StringIO(stdout))
-    result_rows = []
+
+    correct_assignment_count = 0.0
+    sum_of_true_model_pp = 0.0
+    total_assignments = 0
+    primary_result_rows = []
+    # correct_assignment_count_by_model = collections.defaultdict(lambda: 0.0)
+    # incorrect_assignment_count_by_model = collections.defaultdict(lambda: 0.0)
     for row in reader:
         row.update(extra_fields)
-        result_rows.append(row)
-    fieldnames = []
-    fieldnames.extend([f for f in extra_fields.keys() if f not in fieldnames])
-    fieldnames.extend([f for f in reader.fieldnames if f not in fieldnames])
+        primary_result_rows.append(row)
+        if is_performance_assessed:
+            total_assignments += 1
+            row["true.model"] = true_model_name
+            row["true.model.posterior"] = row["posterior.{}".format(true_model_name)]
+            sum_of_true_model_pp += float(row["true.model.posterior"])
+            assigned_model_name = row["assign"]
+            if assigned_model_name == true_model_name:
+                row["is.correctly.assigned"] = "T"
+                correct_assignment_count += 1
+                # correct_assignment_count_by_model[true_model_name] += 1
+            else:
+                row["is.correctly.assigned"] = "F"
+                # incorrect_assignment_count_by_model[true_model_name] += 1
+
+    primary_result_fieldnames = []
+    primary_result_fieldnames.extend([f for f in extra_fields.keys() if f not in primary_result_fieldnames])
+    primary_result_fieldnames.extend([f for f in reader.fieldnames if f not in primary_result_fieldnames])
+    if is_performance_assessed:
+        primary_result_fieldnames.extend([
+            "true.model",
+            "true.model.posterior",
+            "is.correctly.assigned",
+            ])
     out = utility.open_output_file_for_csv_writer(
-            filepath=args.output_filepath,
+            filepath=args.primary_output_filepath,
             append=args.append)
     writer = csv.DictWriter(out,
-            fieldnames=fieldnames,
+            fieldnames=primary_result_fieldnames,
             lineterminator=os.linesep,
             )
     if not args.append:
         writer.writeheader()
-    writer.writerows(result_rows)
+    writer.writerows(primary_result_rows)
+
+    if is_performance_assessed:
+        performance_row = collections.OrderedDict()
+        performance_row.update(extra_fields)
+        performance_row["true.model"] = true_model_name
+        performance_row["true.model.posterior.mean"] = sum_of_true_model_pp / total_assignments
+        performance_row["proportion.true.model.correctly.assigned"] = correct_assignment_count / total_assignments
+        # model_names = sorted(set( set(correct_assignment_count_by_model.keys()) | set(incorrect_assignment_count_by_model.keys()) ))
+        # for model_name in model_names:
+        #     performance_row["{}.proportion.correctly.assigned".format(model_name)] = correct_assignment_count_by_model[model_name]/total_assignments
+        #     performance_row["{}.proportion.incorrectly.assigned".format(model_name)] = incorrect_assignment_count_by_model[model_name]/total_assignments
+        if (
+                (args.primary_output_filepath is None or args.primary_output_filepath == "-")
+                and (args.performance_output_filepath is None or args.performance_output_filepath == "-")
+                ):
+            sys.stdout.write(chr(28)) # chr(28) = FS = File Separator
+        out = utility.open_output_file_for_csv_writer(
+                filepath=args.performance_output_filepath,
+                append=args.append)
+        writer = csv.DictWriter(out,
+                fieldnames=performance_row.keys(),
+                lineterminator=os.linesep,
+                )
+        if not args.append:
+            writer.writeheader()
+        writer.writerow(performance_row)
 
 if __name__ == "__main__":
     main()

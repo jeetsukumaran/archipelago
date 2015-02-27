@@ -135,29 +135,29 @@ calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficien
     misassigns.prop = prop.table(table(misassigns))
     mean.prop.wrong.model.preferred = length(misassigns) / nrow(model.prefs)
     correct.assigns.prop = prop.table(table(correct.assigns))
-    mean.prop.correct.model.preferred = length(correct.assigns) / nrow(model.prefs)
+    proportion.true.model.correctly.assigned = length(correct.assigns) / nrow(model.prefs)
 
     pps.of.correct.model = c()
     for (model.name in unique(model.prefs$group)) {
         pps.of.correct.model = c(pps.of.correct.model, model.prefs[model.prefs$group == model.name, model.name])
     }
 
-    mean.pp.of.correct.model = sum(pps.of.correct.model) / length(pps.of.correct.model)
+    true.model.posterior.mean = sum(pps.of.correct.model) / length(pps.of.correct.model)
 
     rv = list(
               dapc.result=dapc.result,
               var.contr=var.contr,
               model.prefs=model.prefs,
-              # mean.pp.of.correct.model=mean.pp.of.correct.model,
+              # true.model.posterior.mean=true.model.posterior.mean,
               # mean.count.correct.model.preferred=mean.count.correct.model.preferred,
-              # mean.prop.correct.model.preferred=mean.prop.correct.model.preferred,
+              # proportion.true.model.correctly.assigned=proportion.true.model.correctly.assigned,
               correct.assigns=correct.assigns,
               correct.assigns.prop=correct.assigns.prop,
               misassigns=misassigns,
               misassigns.prop=misassigns.prop,
               mean.prop.wrong.model.preferred=mean.prop.wrong.model.preferred,
-              mean.prop.correct.model.preferred=mean.prop.correct.model.preferred,
-              mean.pp.of.correct.model=mean.pp.of.correct.model
+              proportion.true.model.correctly.assigned=proportion.true.model.correctly.assigned,
+              true.model.posterior.mean=true.model.posterior.mean
               )
     rv
 }
@@ -216,16 +216,16 @@ assess.predictor.performance = function(summary.df,
             x = calculate.dapc(predictors, group, n.pca, n.da)
             cat(paste(n.pca,
                         n.da,
-                        x$mean.pp.of.correct.model,
-                        x$mean.prop.correct.model.preferred,
+                        x$true.model.posterior.mean,
+                        x$proportion.true.model.correctly.assigned,
                         "\n",
                         sep="\t\t"
                         ))
             subresult = data.frame(
                         n.pca = n.pca,
                         n.da = n.da,
-                        mean.pp.of.correct.model=x$mean.pp.of.correct.model,
-                        mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred,
+                        true.model.posterior.mean=x$true.model.posterior.mean,
+                        proportion.true.model.correctly.assigned=x$proportion.true.model.correctly.assigned,
                         correct.assigns=as.list(x$correct.assigns.prop),
                         misassigns=as.list(x$misassigns.prop)
                         )
@@ -245,21 +245,21 @@ plot.parameter.space.discrete = function(
                                          ) {
 
     f1 = cut(
-            parameter.space.df[["mean.prop.correct.model.preferred"]],
+            parameter.space.df[["proportion.true.model.correctly.assigned"]],
             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
             right=F,
             )
-    parameter.space.df$mean.prop.correct.model.preferred.factor = factor(f1, levels=rev(levels(f1)))
+    parameter.space.df$proportion.true.model.correctly.assigned.factor = factor(f1, levels=rev(levels(f1)))
     f2 = cut(
-            parameter.space.df[["mean.pp.of.correct.model"]],
+            parameter.space.df[["true.model.posterior.mean"]],
             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
             right=F,
             )
-    parameter.space.df$mean.pp.of.correct.model.factor = factor(f2, levels=rev(levels(f2)))
+    parameter.space.df$true.model.posterior.mean.factor = factor(f2, levels=rev(levels(f2)))
 
-    sweet.spot.data = factor(ifelse(parameter.space.df$mean.prop.correct.model.preferred >= signficance.threshold & parameter.space.df$mean.pp.of.correct.model >= signficance.threshold,
+    sweet.spot.data = factor(ifelse(parameter.space.df$proportion.true.model.correctly.assigned >= signficance.threshold & parameter.space.df$true.model.posterior.mean >= signficance.threshold,
                              "yes",
-                             ifelse(parameter.space.df$mean.prop.correct.model.preferred < signficance.threshold & parameter.space.df$mean.pp.of.correct.model < signficance.threshold,
+                             ifelse(parameter.space.df$proportion.true.model.correctly.assigned < signficance.threshold & parameter.space.df$true.model.posterior.mean < signficance.threshold,
                                     "no", "partial")
                              ))
     parameter.space.df$sweet.spot = factor(sweet.spot.data, levels=rev(levels(sweet.spot.data)))
@@ -295,15 +295,15 @@ plot.parameter.space.discrete = function(
         } else  {
             if (characterization.schema == "color-by-posterior") {
                 p = p + geom_point(aes(
-                                    fill=mean.pp.of.correct.model.factor,
-                                    shape=mean.prop.correct.model.preferred.factor
+                                    fill=true.model.posterior.mean.factor,
+                                    shape=proportion.true.model.correctly.assigned.factor
                                     ))
                 fill_legend = posterior_legend_title
                 shape_legend = prop_legend_title
             } else if (characterization.schema == "color-by-proportion-preferred") {
                 p = p + geom_point(aes(
-                                    fill=mean.prop.correct.model.preferred.factor,
-                                    shape=mean.pp.of.correct.model.factor,
+                                    fill=proportion.true.model.correctly.assigned.factor,
+                                    shape=true.model.posterior.mean.factor,
                                     ),
                                 # size=2.5 # here, instead of in aes() because it is not a mapping
                                 )
@@ -329,10 +329,10 @@ plot.parameter.space.discrete = function(
             p = p + geom_tile(aes(fill=sweet.spot))
             fill_legend = sweet_spot_legend_title
         } else if (characterization.schema == "color-by-posterior") {
-            p = p + geom_tile(aes(fill=mean.pp.of.correct.model.factor))
+            p = p + geom_tile(aes(fill=true.model.posterior.mean.factor))
             fill_legend = posterior_legend_title
         } else if (characterization.schema == "color-by-proportion-preferred") {
-            p = p + geom_tile(aes(fill=mean.prop.correct.model.preferred.factor))
+            p = p + geom_tile(aes(fill=proportion.true.model.correctly.assigned.factor))
             fill_legend = prop_legend_title
         } else {
             stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
@@ -397,8 +397,8 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
                                         death.rate,
                                         dispersal.rate,
                                         trait.transition.rate,
-                                        x$mean.pp.of.correct.model,
-                                        x$mean.prop.correct.model.preferred,
+                                        x$true.model.posterior.mean,
+                                        x$proportion.true.model.correctly.assigned,
                                         "\n",
                                         sep="\t\t"
                                         ))
@@ -408,8 +408,8 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
                                             death.rate=death.rate,
                                             dispersal.rate=dispersal.rate,
                                             trait.transition.rate=trait.transition.rate,
-                                            mean.prop.correct.model.preferred=x$mean.prop.correct.model.preferred,
-                                            mean.pp.of.correct.model=x$mean.pp.of.correct.model,
+                                            proportion.true.model.correctly.assigned=x$proportion.true.model.correctly.assigned,
+                                            true.model.posterior.mean=x$true.model.posterior.mean,
                                             correct.assigns=as.list(x$correct.assigns.prop),
                                             misassigns=as.list(x$misassigns.prop)
                                             )
