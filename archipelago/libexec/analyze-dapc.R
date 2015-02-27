@@ -107,7 +107,7 @@ num.predictors <-function(summary.df) {
 
 # Primary (back-end) workhorse function.
 # Carries out the DAPC analysis, and packages the results.
-calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=NULL) {
+calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=F) {
     num.groups = length(unique(group))
     if (num.groups < 2) {
         if (verbose.on.insufficient.groups) {
@@ -162,6 +162,16 @@ calculate.dapc = function(predictors, group, n.pca, n.da, verbose.on.insufficien
     rv
 }
 
+# Carries out DAPC analysis, and assesses
+calculate.true.model.proportion.correctly.assigned = function(predictors, group=group, n.pca, par, n.da) {
+    x = calculate.dapc(
+                       predictors=predictors,
+                       group=group,
+                       n.pca=n.pca,
+                       n.da=n.da)
+    return(x$true.model.proportion.correctly.assigned)
+}
+
 # Front end for analysis: (optionally) filters data, constructs groups and
 # predictors, carries out DAPC analysis, and returns results.
 analyze.dapc = function(
@@ -198,17 +208,17 @@ assess.predictor.performance = function(summary.df,
                                         filter.for.death.rate=NULL,
                                         filter.for.dispersal.rate=NULL,
                                         filter.for.trait.transition.rate=NULL) {
-    x = create.group.and.predictors(summary.df=summary.df,
+    groups.and.predictors = create.group.and.predictors(summary.df=summary.df,
                                     filter.for.birth.rate=filter.for.birth.rate,
                                     filter.for.death.rate=filter.for.death.rate,
                                     filter.for.dispersal.rate=filter.for.dispersal.rate,
                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate)
-    if (is.null(x)) {
+    if (is.null(groups.and.predictors)) {
         return(NULL)
     }
 
-    group = x$group
-    predictors = x$predictors
+    group = groups.and.predictors$group
+    predictors = groups.and.predictors$predictors
     result = data.frame()
     for (n.pca in 2:ncol(predictors)) {
         n.da = 10
@@ -233,6 +243,34 @@ assess.predictor.performance = function(summary.df,
         # }
     }
     result
+}
+
+optimize.dapc.params = function(summary.df) {
+    groups.and.predictors = create.group.and.predictors(summary.df=summary.df)
+    if (is.null(groups.and.predictors)) {
+        return(NULL)
+    }
+    group = groups.and.predictors$group
+    predictors = groups.and.predictors$predictors
+    n.pca.values = 2:ncol(predictors)
+    n.da.values = 1:ncol(predictors)
+    max.score = 0
+    optima = list()
+    for (n.da in n.da.values) {
+        for (n.pca in n.pca.values) {
+            score = calculate.true.model.proportion.correctly.assigned(
+                   predictors=predictors,
+                   group=group,
+                   n.pca=n.pca,
+                   n.da=n.da)
+            if (!is.null(score) && score > max.score) {
+                max.score = max.score
+                optima = list(n.pca=n.pca, n.da=n.da)
+            }
+
+        }
+    }
+    return(optima)
 }
 
 # plot space, `parameter.space.df` is a data.frame returned by
