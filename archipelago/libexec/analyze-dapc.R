@@ -1,5 +1,7 @@
-library(adegenet)
-library(ggplot2)
+#!/usr/bin/env Rscript
+
+suppressMessages(library(adegenet))
+suppressMessages(library(ggplot2))
 
 # These columns will be dropped from the training data set (they are
 # typically parameters used to generate/simulate data).
