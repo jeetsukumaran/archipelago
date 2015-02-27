@@ -62,10 +62,20 @@ def main():
             metavar="FILEPATH",
             help="Path to primary results output file.")
     parser.add_argument(
+            "--no-primary-output",
+            action="store_true",
+            default=False,
+            help="Do not write primary output.")
+    parser.add_argument(
             "--performance-output-filepath",
             default=None,
             metavar="FILEPATH",
             help="Path to performance results output file (will only be written if '--true-model' is specified.")
+    parser.add_argument(
+            "--no-performance-output",
+            action="store_true",
+            default=False,
+            help="Do not write performance output.")
     parser.add_argument( "--append",
             action="store_true",
             default=False,
@@ -116,27 +126,28 @@ def main():
                 row["is.correctly.assigned"] = "F"
                 # incorrect_assignment_count_by_model[true_model_name] += 1
 
-    primary_result_fieldnames = []
-    primary_result_fieldnames.extend([f for f in extra_fields.keys() if f not in primary_result_fieldnames])
-    primary_result_fieldnames.extend([f for f in reader.fieldnames if f not in primary_result_fieldnames])
-    if is_performance_assessed:
-        primary_result_fieldnames.extend([
-            "true.model",
-            "true.model.posterior",
-            "is.correctly.assigned",
-            ])
-    out = utility.open_output_file_for_csv_writer(
-            filepath=args.primary_output_filepath,
-            append=args.append)
-    writer = csv.DictWriter(out,
-            fieldnames=primary_result_fieldnames,
-            lineterminator=os.linesep,
-            )
-    if not args.append:
-        writer.writeheader()
-    writer.writerows(primary_result_rows)
+    if not args.no_primary_output:
+        primary_result_fieldnames = []
+        primary_result_fieldnames.extend([f for f in extra_fields.keys() if f not in primary_result_fieldnames])
+        primary_result_fieldnames.extend([f for f in reader.fieldnames if f not in primary_result_fieldnames])
+        if is_performance_assessed:
+            primary_result_fieldnames.extend([
+                "true.model",
+                "true.model.posterior",
+                "is.correctly.assigned",
+                ])
+        out = utility.open_output_file_for_csv_writer(
+                filepath=args.primary_output_filepath,
+                append=args.append)
+        writer = csv.DictWriter(out,
+                fieldnames=primary_result_fieldnames,
+                lineterminator=os.linesep,
+                )
+        if not args.append:
+            writer.writeheader()
+        writer.writerows(primary_result_rows)
 
-    if is_performance_assessed:
+    if is_performance_assessed and not args.no_performance_output:
         performance_row = collections.OrderedDict()
         performance_row.update(extra_fields)
         # performance_row["true.model"] = true_model_name
