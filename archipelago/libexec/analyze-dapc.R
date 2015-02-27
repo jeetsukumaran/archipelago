@@ -509,7 +509,7 @@ classify.data = function(target.summary.stats, training.summary.stats, n.dapc.ax
     training.data = create.group.and.predictors(training.summary.stats)
     predictors = training.data$predictors
     group = training.data$group
-    if (n.dapc.axes == "ax"ll) {
+    if (n.dapc.axes == "all") {
     } else if (n.dapc.axes == "max") {
         n.pca = ncol(training.data$predictors)
         n.da = ncol(training.data$predictors)
