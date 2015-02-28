@@ -323,7 +323,7 @@ optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F,
 # `analyze.parameter.space.discrete`, either directly or as loaded from a file.
 plot.parameter.space.discrete = function(
                                          parameter.space.df,
-                                         plot.type="scatter",
+                                         plot.type="tile",
                                          characterization.schema="color-by-proportion-preferred",
                                          signficance.threshold=0.95
                                          ) {
@@ -368,7 +368,7 @@ plot.parameter.space.discrete = function(
     if (characterization.schema == "color-by-success") {
         color.settings = c("blue","dodgerblue", "orange") # third color for intermediate
     } else {
-        color.settings = c("blue", "orange")
+        color.settings = c("blue", "dodgerblue", "orange")
     }
 
     if (plot.type == "scatter") {
@@ -431,9 +431,13 @@ plot.parameter.space.discrete = function(
                   # strip.background=element_rect(colour='black',  size=1)
                   )
     p = p + labs(x="Trait Transition Rate", y="Dispersal Rate")
-    if (length(levels(parameter.space.df$death.rate.factor)) > 1) {
+    if (length(levels(parameter.space.df$death.rate.factor)) > 1 && length(levels(parameter.space.df$death.rate.factor)) > 1) {
         # p = p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
         p = p + facet_grid(birth.rate.factor ~ death.rate.factor)
+    } else if (length(levels(parameter.space.df$death.rate.factor)) > 1) {
+        p = p + facet_wrap(~death.rate.factor)
+    } else if (length(levels(parameter.space.df$birth.rate.factor)) > 1) {
+        p = p + facet_wrap(~birth.rate.factor)
     }
     p
 }
