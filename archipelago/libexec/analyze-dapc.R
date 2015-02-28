@@ -245,7 +245,7 @@ assess.predictor.performance = function(summary.df,
     result
 }
 
-optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.values=NULL, n.da.values=NULL) {
+optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.values=NULL, n.da.values=NULL, penalty.weight=1.0) {
     if (is.null(n.pca.values)) {
         n.pca.values = 1:ncol(predictors)
     }
@@ -273,7 +273,7 @@ optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.v
                 if (penalized) {
                     # score =  (2 * n.pca) - 2 * log(raw.score)
                     # score =  (n.pca/max.n.pca.values) - 2 * log(raw.score)
-                    score =  (n.pca/max.n.pca.values) - raw.score
+                    score =  (penalty.weight * (n.pca/max.n.pca.values)) - (raw.score)
                 } else {
                     score = - raw.score
                 }
@@ -295,7 +295,7 @@ optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.v
     return(optima)
 }
 
-optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F, n.pca.values=NULL, n.da.values=NULL) {
+optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F, n.pca.values=NULL, n.da.values=NULL, penalty.weight=1.0) {
     groups.and.predictors = create.group.and.predictors(summary.df=summary.df)
     if (is.null(groups.and.predictors)) {
         return(NULL)
@@ -308,7 +308,8 @@ optimize.dapc.axes.for.data.frame = function(summary.df, penalized=T, verbose=F,
                               penalized=penalized,
                               verbose=verbose,
                               n.pca.values=n.pca.values,
-                              n.da.values=n.da.values))
+                              n.da.values=n.da.values,
+                              penalty.weight=penalty.weight))
 }
 
 # plot space, `parameter.space.df` is a data.frame returned by
