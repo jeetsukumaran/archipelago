@@ -245,7 +245,14 @@ assess.predictor.performance = function(summary.df,
     result
 }
 
-optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.values=NULL, n.da.values=NULL, penalty.weight=1.0) {
+optimize.dapc.axes = function(
+        predictors,
+        group,
+        penalized=T,
+        verbose=F,
+        n.pca.values=NULL,
+        n.da.values=NULL,
+        penalty.weight=1.0) {
     if (is.null(n.pca.values)) {
         n.pca.values = 1:ncol(predictors)
     }
@@ -519,7 +526,11 @@ analyze.parameter.space.discrete = function(summary.df, n.pca, n.da, verbose=NUL
 #       list(n.pca, n.da)   : use 'n.pca' for number of axes retained in
 #                             principal component step and 'n.da' for number of
 #                             axes retained in discriminant analysis step.
-classify.data = function(target.summary.stats, training.summary.stats, n.dapc.axes) {
+classify.data = function(target.summary.stats,
+                         training.summary.stats,
+                         n.dapc.axes,
+                         n.dapc.axes.optimization.penalty.weight=1.0
+                         ) {
     training.data = create.group.and.predictors(training.summary.stats)
     predictors = training.data$predictors
     group = training.data$group
@@ -537,7 +548,9 @@ classify.data = function(target.summary.stats, training.summary.stats, n.dapc.ax
                               predictors=predictors,
                               group=group,
                               penalized=penalized,
-                              verbose=F)
+                              verbose=F,
+                              penalty.weight=n.dapc.axes.optimization.penalty.weight,
+                              )
         n.pca = optima$n.pca
         n.da = optima$n.da
     } else {
@@ -576,6 +589,7 @@ classify.data.from.files = function(
         target.summary.stats.path,
         training.summary.stats.paths,
         n.dapc.axes,
+        n.dapc.axes.optimization.penalty.weight=1.0,
         output.path=NULL) {
     # training.summary.stats.paths <- list(...)
     # training.summary.stats <- list()
@@ -588,7 +602,8 @@ classify.data.from.files = function(
     results = classify.data(
                             target.summary.stats=target.summary.stats,
                             training.summary.stats=training.summary.stats.merged,
-                            n.dapc.axes=n.dapc.axes
+                            n.dapc.axes=n.dapc.axes,
+                            n.dapc.axes.optimization.penalty.weight=n.dapc.axes.optimization.penalty.weight
                             )
     if (!is.null(output.path)) {
         write.csv(results, output.path, row.names=FALSE)
