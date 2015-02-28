@@ -252,8 +252,13 @@ optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.v
     if (is.null(n.da.values)) {
         n.da.values = 1:ncol(predictors)
     }
+    max.n.pca.values = max(n.pca.values)
     best.score = NULL
-    optima = list(n.pca=0, n.da=0)
+    optima = list(n.pca=0, n.da=0, true.model.proportion.correctly.assigned=0, best.score=0)
+    raw.scores = c()
+    scores = c()
+    saved.n.pca.values = c()
+    saved.n.da.values = c()
     for (n.da in n.da.values) {
         for (n.pca in n.pca.values) {
             raw.score = calculate.true.model.proportion.correctly.assigned(
@@ -262,23 +267,31 @@ optimize.dapc.axes = function(predictors, group, penalized=T, verbose=F, n.pca.v
                    n.pca=n.pca,
                    n.da=n.da)
             if (!is.null(raw.score)) {
+                saved.n.pca.values = c(saved.n.pca.values, n.pca)
+                saved.n.da.values = c(saved.n.da.values, n.da)
+                raw.scores = c(raw.scores, raw.score)
                 if (penalized) {
-                    # score =  (2 * n.pca) - log(2 * raw.score)
-                    score =  (2 * n.pca) - log(2 * raw.score)
+                    # score =  (2 * n.pca) - 2 * log(raw.score)
+                    # score =  (n.pca/max.n.pca.values) - 2 * log(raw.score)
+                    score =  (n.pca/max.n.pca.values) - raw.score
                 } else {
                     score = - raw.score
                 }
+                scores = c(scores, score)
                 if (verbose) {
                     # cat(paste("[current: ", optima$n.pca, " (score: ", best.score, ")] ", n.pca, ": raw score = ", raw.score, ", penalized score = ", score, " (", 2*n.pca, "-", log(2 * raw.score), ")\n", sep=""))
-                    cat(paste("[current: ", optima$n.pca, " (score: ", best.score, ")] ", n.pca, ": raw score = ", raw.score, ", penalized score = ", score, "\n", sep=""))
+                    cat(paste("[current: ", optima$n.pca, " (raw: ", optima$true.model.proportion.correctly.assigned, ", penalized: ", best.score, ")] ", n.pca, ": raw score = ", raw.score, ", penalized score = ", score, "\n", sep=""))
                 }
                 if (is.null(best.score) || score < best.score) {
                     best.score = score
-                    optima = list(n.pca=n.pca, n.da=n.da)
+                    # optima = list(n.pca=n.pca, n.da=n.da)
+                    optima = list(n.pca=n.pca, n.da=n.da, true.model.proportion.correctly.assigned=raw.score, best.score=best.score)
                 }
             }
         }
     }
+    details = list(n.pca=saved.n.pca.values, n.da=saved.n.da.values, true.model.proportion.correctly.assigned=raw.scores, score=scores)
+    optima$details = details
     return(optima)
 }
 
