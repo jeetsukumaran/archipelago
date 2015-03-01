@@ -540,8 +540,10 @@ classifyData <- function(target.summary.stats,
     if (is.null(n.da)) {
         n.da <- length(levels(group)) - 1
     }
-    if (n.da < 1) {
-        stop(paste("Number of discriminant axes must be > 1: ", n.da, sep=""))
+    if (!is.numeric(n.da)) {
+        stop(paste("ERROR: Number of discriminant axes is not a number: '", n.da, "'", sep=""))
+    } else if (n.da < 1) {
+        stop(paste("ERROR: Number of discriminant axes retained is < 1: ", n.da, sep=""))
     }
     if (n.pca == "all") {
         n.pca <- ncol(training.data$predictors)
@@ -560,10 +562,13 @@ classifyData <- function(target.summary.stats,
                               penalty.weight=n.pca.optimization.penalty.weight,
                               )
         n.pca <- optima$n.pca
+    } else if (!is.numeric(n.pca)) {
+        stop(paste("ERROR: Number of principal component axes retained is not a number: '", n.pca, "'", sep=""))
+    } else if (n.pca < 1) {
+        stop(paste("ERROR: Number of principal component axes retained is < 1: '", n.pca, "'", sep=""))
     } else {
         n.pca <- n.pca
     }
-
     trained.model <- calculateDAPC(
             predictors,
             group,

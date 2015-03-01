@@ -53,6 +53,7 @@ def main():
     npca_options.add_argument("--calculate-npca",
             default=None,
             metavar="CRITERIA",
+            choices=["all", "maximized-fit", "penalized-fit"],
             help=("\n".join([
                 "<pre>Calculate number of axes to be retained in the" ,
                 "principal component step based on one of the following",
