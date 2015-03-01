@@ -10,7 +10,7 @@ import tempfile
 import subprocess
 import dendropy
 from dendropy.utility import processio
-from archipelago import ARCHIPELAGO_LIBEXEC_PATH
+import archipelago
 
 R_TEMPLATE = """\
 library(optimx)
@@ -69,7 +69,6 @@ class BiogeobearsEstimator(object):
         self.fail_on_estimation_error = fail_on_estimation_error
         self.debug_mode = debug_mode
         # self.path_to_libexec = os.path.join(os.path.dirname(os.path.abspath(__file__)), "libexec")
-        self.path_to_libexec = ARCHIPELAGO_LIBEXEC_PATH
         self.patch_filenames = [
                 "BioGeoBEARS_basics_v1.R",
                 "BioGeoBEARS_generics_v1.R",
@@ -82,7 +81,7 @@ class BiogeobearsEstimator(object):
                 "BioGeoBEARS_univ_model_v1.R",
                 "calc_loglike_sp_v01.R",
                 ]
-        self.patch_filepaths = [os.path.join(self.path_to_libexec, f) for f in self.patch_filenames]
+        self.patch_filepaths = [archipelago.libexec_filepath(f) for f in self.patch_filenames]
         self.patch_code = "\n".join(["source('{}')".format(f) for f in self.patch_filepaths])
 
     def estimate_dec(self,
