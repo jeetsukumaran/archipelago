@@ -56,11 +56,17 @@ def main():
                 "Use number of principal component axes that maximizes a "
                 "score given by: (proportion of correct classifications  "
                 "when reapplied to the training data) minus (the         "
-                "proportion of availble PC axes used multipled by the    "
-                "penalty factor).                                        "
+                "proportion of available PC axes used multipled by the   "
+                "given penalty factor). A penalty factor of 0.0 means to "
+                "use the number of PC axes that maximizes the proportion "
+                "of correct classifications. A penalty factor of 1.0     "
+                "means that each additional axis retained will deduct    "
+                "1.0/|PC| from the proportion of correct classification "
+                "score."
                 )
             )
     npca_options.add_argument("--maximize-npca",
+            action="store_true",
             default=None,
             help="Retain all the principal component axes for the DAPC function.")
 
