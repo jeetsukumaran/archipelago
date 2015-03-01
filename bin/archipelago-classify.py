@@ -10,6 +10,8 @@ try:
     from StringIO import StringIO # Python 2 legacy support: StringIO in this module is the one needed (not io)
 except ImportError:
     from io import StringIO # Python 3
+from dendropy.interop import rstats
+from dendropy.utility import cli
 import archipelago
 from archipelago import utility
 
@@ -26,7 +28,9 @@ def parse_fieldname_and_value(labels):
     return fieldname_value_map
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+            formatter_class=cli.CustomFormatter,
+            )
     parser.add_argument(
             "target_summary_stats",
             help="Path to summary statistic data to be classified.")
@@ -34,18 +38,58 @@ def main():
             "training_summary_stats",
             nargs="+",
             help="Path(s) to training summary statistic data.")
-    parser.add_argument(
-            "--npca",
-            default="NULL",
-            help="Number of principle component axes to use in construction of the DAPC functions.")
-    parser.add_argument(
-            "--nda",
-            default="NULL",
-            help="Number of discriminant analysis functions to use.")
-    parser.add_argument("-l", "--labels",
-            action="append",
-            help="Labels to append to output (in format <FIELD-NAME>:value;)")
-    parser.add_argument(
+    npca_options_parent_group = parser.add_argument_group("Number of Principle Component Axes Retained",
+                (
+                "Number of axes retained in the principal component step."
+                " Exactly one of '--set-npca' or '--calculate-npca'"
+                " must be specified."
+                ))
+    npca_options = npca_options_parent_group.add_mutually_exclusive_group(required=True)
+    npca_options.add_argument("--set-npca",
+            default=None,
+            metavar="n",
+            help="Number of axes retained in the principal component analysis step.",
+            )
+    npca_options.add_argument("--calculate-npca",
+            default=None,
+            metavar="CRITERIA",
+            help=("\n".join([
+                "<pre>Calculate number of axes to be retained in the" ,
+                "principal component step based on one of the following",
+                "criteria:",
+                " - 'all'",
+                "     Use maximum number of principal component ",
+                "     axes available (i.e., number of summary ",
+                "     statistics). ",
+                " - 'maximized-fit'",
+                "     Use number of principal component axes ",
+                "     that maximizes the proportion of correct ",
+                "     classifications when reapplied to the training",
+                "     data. ",
+                " - 'penalized-fit'",
+                "     Use number of principal component axes that ",
+                "     maximizes a score given by the (sum of the ",
+                "     proportion of correct classifications when ",
+                "     reapplied to the training data) minus (the ",
+                "     number of axes weighted by a penalty factor). ",
+                ])))
+    npca_options.add_argument("--penalty-fit-factor",
+            default=0.1,
+            help="Penalty factor for penalized fitting (default: %(default)s)")
+    nda_options = parser.add_argument_group("Number of Discriminant Analysis Axes Retained",
+                (
+                "Number of axes retained in the discriminant analysis step."
+                ))
+    nda_options.add_argument("--nda",
+            default=None,
+            metavar="n",
+            help=(
+                "Number of axes retained in the discriminant analysis step."
+                " If not specified, defaults to one less than the number of"
+                " candidate models (groups) in the data."
+            ))
+    extended_analysis_options = parser.add_argument_group("Extended Analysis Options")
+    extended_analysis_options.add_argument(
             "--true-model",
             default=None,
             help=(
@@ -56,32 +100,40 @@ def main():
                 " These will be written to standard output after the primary results, or to the"
                 " filepath specified by '--performance-output'."
                 ))
-    parser.add_argument(
+    output_options = parser.add_argument_group("Output Options")
+    output_options.add_argument("-l", "--labels",
+            action="append",
+            help="Labels to append to output (in format <FIELD-NAME>:value;)")
+    output_options.add_argument(
             "-o", "--primary-output-filepath",
             default=None,
             metavar="FILEPATH",
             help="Path to primary results output file.")
-    parser.add_argument(
+    output_options.add_argument(
             "--no-primary-output",
             action="store_true",
             default=False,
             help="Do not write primary output.")
-    parser.add_argument(
+    output_options.add_argument(
             "--performance-output-filepath",
             default=None,
             metavar="FILEPATH",
             help="Path to performance results output file (will only be written if '--true-model' is specified.")
-    parser.add_argument(
+    output_options.add_argument(
             "--no-performance-output",
             action="store_true",
             default=False,
             help="Do not write performance output.")
-    parser.add_argument( "--append",
+    output_options.add_argument( "--append",
             action="store_true",
             default=False,
             help="Append instead of overwriting output file(s).")
     args = parser.parse_args()
+
+    # extra fields
     extra_fields = parse_fieldname_and_value(args.labels)
+
+    # true model performance
     if args.true_model is not None:
         true_model_name = args.true_model
         is_performance_assessed = True
