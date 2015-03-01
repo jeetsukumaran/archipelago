@@ -6,6 +6,7 @@ import argparse
 import subprocess
 import csv
 import re
+import itertools
 try:
     from StringIO import StringIO # Python 2 legacy support: StringIO in this module is the one needed (not io)
 except ImportError:
@@ -28,9 +29,7 @@ def parse_fieldname_and_value(labels):
     return fieldname_value_map
 
 def main():
-    parser = argparse.ArgumentParser(
-            formatter_class=cli.CustomFormatter,
-            )
+    parser = argparse.ArgumentParser()
     parser.add_argument(
             "target_summary_stats",
             help="Path to summary statistic data to be classified.")
@@ -41,7 +40,7 @@ def main():
     npca_options = parser.add_argument_group("Number of Principle Component Axes Retained",
                 (
                 "Number of axes retained in the principal component step."
-                " Exactly one of '--set-npca' or '--calculate-npca'"
+                " Exactly one of '--set-npca', '--optimize-npca', or '--maximize-pca'"
                 " must be specified."
                 ))
     # npca_options = npca_options_parent_group.add_mutually_exclusive_group(required=True)
@@ -50,34 +49,21 @@ def main():
             metavar="n",
             help="Number of axes retained in the principal component analysis step.",
             )
-    npca_options.add_argument("--calculate-npca",
+    npca_options.add_argument("--optimize-npca",
             default=None,
-            metavar="CRITERIA",
-            choices=["all", "maximized-fit", "penalized-fit"],
-            help=("\n".join([
-                "<pre>Calculate number of axes to be retained in the" ,
-                "principal component step based on one of the following",
-                "criteria:",
-                " - 'all'",
-                "     Use maximum number of principal component ",
-                "     axes available (i.e., number of summary ",
-                "     statistics). ",
-                " - 'maximized-fit'",
-                "     Use number of principal component axes ",
-                "     that maximizes the proportion of correct ",
-                "     classifications when reapplied to the training",
-                "     data. ",
-                " - 'penalized-fit'",
-                "     Use number of principal component axes that ",
-                "     maximizes a score given by the (sum of the ",
-                "     proportion of correct classifications when ",
-                "     reapplied to the training data) minus (the ",
-                "     number of axes weighted by a penalty factor). ",
-                ])))
-    npca_options.add_argument("--fit-penalty-factor",
-            default=0.1,
-            type=float,
-            help="Penalty factor for penalized fitting (default: %(default)s).")
+            metavar="PENALTY-FACTOR",
+            help=(
+                "Use number of principal component axes that maximizes a "
+                "score given by: (proportion of correct classifications  "
+                "when reapplied to the training data) minus (the         "
+                "proportion of availble PC axes used multipled by the    "
+                "penalty factor).                                        "
+                )
+            )
+    npca_options.add_argument("--maximize-npca",
+            default=None,
+            help="Retain all the principal component axes for the DAPC function.")
+
     nda_options = parser.add_argument_group("Number of Discriminant Analysis Axes Retained",
                 (
                 "Number of axes retained in the discriminant analysis step."
@@ -145,17 +131,26 @@ def main():
 
     training_summary_stats_paths = "c({})".format(",".join("'{}'".format(f) for f in args.training_summary_stats))
 
-    if args.set_npca is None and args.calculate_npca is None:
-        sys.exit("Must specify one of '--set-npca' or '--calculate-npca'")
-    elif args.set_npca is not None and args.calculate_npca is not None:
-        sys.exit("Must specify only one of '--set-npca' or '--calculate-npca'")
+    optimization_penalty_factor = ""
+    num_chosen = len(list(itertools.ifilter(lambda x: x is not None, [args.set_npca, args.optimize_npca, args.maximize_npca])))
+    if num_chosen == 0:
+        sys.exit("Must specify one of: '--set-npca', '--optimize-npca', or '--maximize-npca'")
+    elif num_chosen > 1:
+        sys.exit("Cannot specify more than one of: '--set-npca', '--optimize-npca', or '--maximize-npca'")
     elif args.set_npca is not None:
         try:
             npca = int(args.set_npca)
         except ValueError:
             sys.exit("Invalid integer specified for '--npca': '{}'".format(args.set_npca))
-    else:
-        npca = "'{}'".format(args.calculate_npca)
+    elif args.optimize_npca is not None:
+        npca = "'optimize'"
+        try:
+            penalty_factor = float(args.optimize_npca)
+        except ValueError:
+            sys.exit("Invalid floating point value specified for '--optimize-npca': '{}'".format(args.optimize_npca))
+        optimization_penalty_factor = "n.pca.optimization.penalty.weight={},".format(penalty_factor)
+    elif args.maximize_npca is not None:
+        npca = "'all'"
 
     if args.nda is None:
         nda = "NULL"
@@ -174,14 +169,14 @@ def main():
                     training.summary.stats.paths={training_summary_stats_paths},
                     n.pca={npca},
                     n.da={nda},
-                    n.pca.optimization.penalty.weight={fit_penalty_factor},
+                    {optimization_penalty_factor}
                     output.path="")
             """.format(
                 target_summary_stats_path=args.target_summary_stats,
                 training_summary_stats_paths=training_summary_stats_paths,
                 npca=npca,
                 nda=nda,
-                fit_penalty_factor=args.fit_penalty_factor,
+                optimization_penalty_factor=optimization_penalty_factor,
                 ))
 
     returncode, stdout, stderr = rstats.call(r_commands)

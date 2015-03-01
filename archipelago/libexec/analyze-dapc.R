@@ -244,14 +244,29 @@ assessPredictorPerformance <- function(summary.df,
     result
 }
 
+# Carries out multiple DAPC analysis with different numbers of PC axes
+# retained, and selects a number of principal component axes to retain based on
+# maximizing the proportion of correct classifications when the resulting DAPC
+# function is reapplied to the training data. If `penalization.weight` > 0,
+# then a penalty factor will be applied for each addition PC axis retained.
+#
+# - predictors           : data.frame of predictors
+# - group                : data.frame of groups (model name)
+# - penalization.weight  : penalization.weight  (0 = no penalty)
+# - n.da                 : number of discriminant analysis axes to
+#                          retain (NULL = one less than
+#                          the number of groups)
+# - n.pca.values         : vector of number of axes to try (if not given,
+#                          1:MAX
+# - verbose              : whether or not to dump progress
 optimizeNumPCAxes <- function(
         predictors,
         group,
-        penalized=T,
-        verbose=F,
-        n.pca.values=NULL,
+        penalization.weight=1.0,
         n.da=NULL,
-        penalty.weight=1.0) {
+        n.pca.values=NULL,
+        verbose=F
+        ) {
     if (is.null(n.da)) {
         n.da <- length(levels(group)) - 1
     }
@@ -275,13 +290,7 @@ optimizeNumPCAxes <- function(
             saved.n.pca.values <- c(saved.n.pca.values, n.pca)
             saved.n.da.values <- c(saved.n.da.values, n.da)
             raw.scores <- c(raw.scores, raw.score)
-            if (penalized) {
-                # score <-  (2 * n.pca) - 2 * log(raw.score)
-                # score <-  (n.pca/max.n.pca.values) - 2 * log(raw.score)
-                score <-  (penalty.weight * (n.pca/max.n.pca.values)) - (raw.score)
-            } else {
-                score <- - raw.score
-            }
+            score <-  (penalization.weight * (n.pca/max.n.pca.values)) - (raw.score)
             scores <- c(scores, score)
             if (verbose) {
                 # cat(paste("[current: ", optima$n.pca, " (score: ", best.score, ")] ", n.pca, ": raw score <- ", raw.score, ", penalized score <- ", score, " (", 2*n.pca, "-", log(2 * raw.score), ")\n", sep=""))
@@ -299,7 +308,26 @@ optimizeNumPCAxes <- function(
     return(optima)
 }
 
-optimizeNumPCAxesForDataFrame <- function(summary.df, penalized=T, verbose=F, n.pca.values=NULL, n.da=NULL, penalty.weight=1.0) {
+# Carries out multiple DAPC analysis with different numbers of PC axes
+# retained, and selects number of principal component axes to retain based on
+# criteria.
+#
+# - predictors           : data.frame of predictors
+# - group                : data.frame of groups (model name)
+# - penalization.weight  : penalization.weight  (0 = no penalty)
+# - n.da                 : number of discriminant analysis axes to
+#                          retain (NULL = one less than
+#                          the number of groups)
+# - n.pca.values         : vector of number of axes to try (if not given,
+#                          1:MAX
+# - verbose              : whether or not to dump progress
+optimizeNumPCAxesForDataFrame <- function(
+        summary.df,
+        penalization.weight=1.0,
+        n.da=NULL,
+        n.pca.values=NULL,
+        verbose=F
+        ) {
     groups.and.predictors <- createGroupAndPredictors(summary.df=summary.df)
     if (is.null(groups.and.predictors)) {
         return(NULL)
@@ -309,16 +337,20 @@ optimizeNumPCAxesForDataFrame <- function(summary.df, penalized=T, verbose=F, n.
     return(optimizeNumPCAxes(
                          predictors=predictors,
                          group=group,
-                         penalized=penalized,
-                         verbose=verbose,
-                         n.pca.values=n.pca.values,
+                         penalization.weight=penalization.weight,
                          n.da=n.da,
-                         penalty.weight=penalty.weight))
+                         n.pca.values=n.pca.values,
+                         verbose=verbose,
+                         ))
+}
+
+
+plotPerformanceOverParameterSpace <- function(performance.df) {
 }
 
 # plot space, `parameter.space.df` is a data.frame returned by
 # `analyzePerformanceOverDiscretizedParameterSpace`, either directly or as loaded from a file.
-plotPerformanceOverParameterSpace <- function(
+plotPerformanceOverParameterSpace.old <- function(
                                          parameter.space.df,
                                          plot.type="tile",
                                          characterization.schema="color-by-proportion-preferred",
@@ -508,31 +540,43 @@ analyzePerformanceOverDiscretizedParameterSpace <- function(summary.df, n.pca, n
 }
 
 
-# `target.summary.stats`
-#   - data.frame of summary statistics calculated on empirical (or other) data
-#     to be classified
-# `training.summary.stats`
-#   - data.frame of training data to be used to construct DAPC classification function
-# `n.dapc.axes`
-#   -   Set of number of axes retained in the principal component ('n.pca')
-#       and discriminant analysis steps ('n.da').
-#       This can be a string value:
-#       - 'all'             : use maximum number of PC's available
-#       - 'penalized-fit'   : use number of PC's that optimizes the proportion
-#                               of correct classification balanced with number of
-#                               PC's
-#       - 'maximized-fit'   : use number of PC's that maximize the proportion
-#                               of correct classification
-#       Or a list with two named elements, 'n.pca' and 'n.da':
-#       list(n.pca, n.da)   : use 'n.pca' for number of axes retained in
-#                             principal component step and 'n.da' for number of
-#                             axes retained in discriminant analysis step.
+# Classifies target data.
+#
+# Constructs a DAPC function based on training data, and applies it to the
+# target data to classify the generating model.
+#
+# - target.summary.stats
+#       data.frame of summary statistics calculated on empirical (or other)
+#       data to be classified
+# - training.summary.stats
+#       data.frame of training data to be used to construct DAPC classification
+#       function
+# - n.pca
+#       Set of number of principal component axes to be retained for the
+#       analysis.
+#
+#       This can be a numeric value specifying this directly or
+#       a string:
+#
+#           - 'all'        : use maximum number of PC's available
+#           - 'optimize'   : Optimize: try out different numbers of PC's and
+#                            pick the one that yields the highest proportion
+#                            of correct classifications when the resulting
+#                            DAPC function is reapplied to the training data,
+#                            with an a penalty factor (set by
+#                            `penalization.weight`) to penalize over-fitting.
+#
+# - n.da
+#       Number of discriminant analysis axes to retain (NULL = one less than
+#       the number of groups)
+#
+# - n.pca.optimization.penalty.weight     : weight f0 = no penalty)
 classifyData <- function(target.summary.stats,
-                          training.summary.stats,
-                          n.pca,
-                          n.da=NULL,
-                          n.pca.optimization.penalty.weight=1.0
-                          ) {
+                         training.summary.stats,
+                         n.pca,
+                         n.da=NULL,
+                         n.pca.optimization.penalty.weight=1.0
+                         ) {
     training.data <- createGroupAndPredictors(training.summary.stats)
     predictors <- training.data$predictors
     group <- training.data$group
@@ -547,19 +591,13 @@ classifyData <- function(target.summary.stats,
     }
     if (n.pca == "all") {
         n.pca <- ncol(training.data$predictors)
-    } else if ((n.pca == "penalized-fit") || (n.pca == "maximized-fit")) {
-        if (n.pca == "penalized-fit") {
-            penalized <- T
-        } else if (n.pca == "maximized-fit") {
-            penalized <- F
-        }
+    } else if (n.pca == "optimize") {
         optima <- optimizeNumPCAxes(
                               predictors=predictors,
                               group=group,
-                              penalized=penalized,
-                              verbose=F,
+                              penalization.weight=n.pca.optimization.penalty.weight,
                               n.da=n.da,
-                              penalty.weight=n.pca.optimization.penalty.weight,
+                              verbose=F,
                               )
         n.pca <- optima$n.pca
     } else if (!is.numeric(n.pca)) {
@@ -582,32 +620,35 @@ classifyData <- function(target.summary.stats,
     results
 }
 
-# `target.summary.stats.path`
-#   -   Path to summary statistics calculated on empirical (or other) data to be classified
-# `training.summary.stats.paths`
-#   -   `list` of one or more paths to training data to be used to construct DAPC classification function
-# `n.pca`
-#   -   Set of number of axes retained in the principal component ('n.pca')
-#       and discriminant analysis steps ('n.da').
-#       This can be a string value:
-#       - 'all'
-#           Use maximum number of principal component
-#           axes available (i.e., number of summary
-#           statistics).
-#       - 'maximized-fit'
-#           Use number of principal component axes
-#           that maximizes the proportion of correct
-#           classifications when reapplied to the training
-#           data.
-#       - 'penalized-fit'
-#           Use number of principal component axes that
-#           maximizes a score given by the (sum of the
-#           proportion of correct classifications when
-#           reapplied to the training data) minus (the
-#           number of axes weighted by a penalty factor).
-# `n.da`
-#       Otherwise, it is assumed to be a numeric value to directly set as the
-#       the number of PC axis retained.
+# Classifies target data.
+#
+# Constructs a DAPC function based on training data, and applies it to the
+# target data to classify the generating model.
+#
+# - target.summary.stats.path
+#       Path to summary statistics calculated on empirical (or other) data to be classified
+# - training.summary.stats.paths
+#       `list` of one or more paths to training data to be used to construct DAPC classification function
+# - n.pca
+#       Set of number of principal component axes to be retained for the
+#       analysis.
+#
+#       This can be a numeric value specifying this directly or
+#       a string:
+#
+#           - 'all'        : use maximum number of PC's available
+#           - 'optimize'   : Optimize: try out different numbers of PC's and
+#                            pick the one that yields the highest proportion
+#                            of correct classifications when the resulting
+#                            DAPC function is reapplied to the training data,
+#                            with an a penalty factor (set by
+#                            `penalization.weight`) to penalize over-fitting.
+#
+# - n.da
+#       Number of discriminant analysis axes to retain (NULL = one less than
+#       the number of groups)
+#
+# - n.pca.optimization.penalty.weight     : weight f0 = no penalty)
 classifyDataFromFiles <- function(
         target.summary.stats.path,
         training.summary.stats.paths,
