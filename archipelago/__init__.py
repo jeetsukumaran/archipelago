@@ -38,7 +38,14 @@ __archipelago_revision__ = None
 __archipelago_description__ = None
 
 ARCHIPELAGO_HOME = os.path.dirname(os.path.abspath(__file__))
-ARCHIPELAGO_LIBEXEC_PATH = os.path.normpath(os.path.join(ARCHIPELAGO_HOME, "libexec"))
+
+def libexec_filepath(filename):
+    try:
+        import pkg_resources
+        filepath = pkg_resources.resource_filename("archipelago", "libexec/{}".format(filename))
+    except:
+        filepath = os.path.normpath(os.path.join(os.path.dirname(__file__), filename))
+    return filepath
 
 def revision():
     global __archipelago_revision__

@@ -21,7 +21,7 @@ NON.PREDICTOR.FIELD.NAMES <- c(
 
 # This column has the model label or category as the value.
 CANDIDATE.GROUPING.FIELD.NAMES <- c( "model.category", "dispersal.model")
-get.grouping.field.name <- function(summary.df) {
+getGroupingFieldName <- function(summary.df) {
     fieldnames <- colnames(summary.df)
     for (field.name in CANDIDATE.GROUPING.FIELD.NAMES) {
         if (field.name %in% fieldnames) {
@@ -31,7 +31,7 @@ get.grouping.field.name <- function(summary.df) {
 }
 
 # Reports the levels/values in each of non-predictor fields.
-data.regimes <- function(summary.df) {
+reportDataRegimes <- function(summary.df) {
     for (field.name in NON.PREDICTOR.FIELD.NAMES) {
         if (field.name %in% colnames(summary.df)) {
             cat(field.name, ": ", sort(unique(summary.df[,field.name])), "\n")
@@ -40,7 +40,7 @@ data.regimes <- function(summary.df) {
 }
 
 # Filters out data
-filter.data <- function(summary.df,
+filterData <- function(summary.df,
                         filter.for.birth.rate=NULL,
                         filter.for.death.rate=NULL,
                         filter.for.dispersal.rate=NULL,
@@ -72,12 +72,12 @@ filter.data <- function(summary.df,
 #   A data.frame consisting of a single-column, the grouping variable
 # `predictors`: data.frame
 #   A data.frame consisting of (just) the predictor variables.
-create.group.and.predictors <- function(summary.df,
+createGroupAndPredictors <- function(summary.df,
                                        filter.for.birth.rate=NULL,
                                        filter.for.death.rate=NULL,
                                        filter.for.dispersal.rate=NULL,
                                        filter.for.trait.transition.rate=NULL) {
-    source.df <- filter.data(summary.df=summary.df,
+    source.df <- filterData(summary.df=summary.df,
                             filter.for.birth.rate=filter.for.birth.rate,
                             filter.for.death.rate=filter.for.death.rate,
                             filter.for.dispersal.rate=filter.for.dispersal.rate,
@@ -86,7 +86,7 @@ create.group.and.predictors <- function(summary.df,
         return(NULL)
     }
     source.df <- na.omit(source.df)
-    group <- source.df[[get.grouping.field.name(summary.df)]]
+    group <- source.df[[getGroupingFieldName(summary.df)]]
     predictors <- source.df[,!(names(source.df) %in% NON.PREDICTOR.FIELD.NAMES)]
     rv <- list(
         group=group,
@@ -96,8 +96,8 @@ create.group.and.predictors <- function(summary.df,
 }
 
 # Reports number of predictors in a data.frame
-num.predictors <-function(summary.df) {
-    x <- create.group.and.predictors(summary.df=summary.df)
+numPredictors <-function(summary.df) {
+    x <- createGroupAndPredictors(summary.df=summary.df)
     if (is.null(x)) {
         return(NULL)
     } else {
@@ -107,7 +107,7 @@ num.predictors <-function(summary.df) {
 
 # Primary (back-end) workhorse function.
 # Carries out the DAPC analysis, and packages the results.
-calculate.dapc <- function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=F) {
+calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=F) {
     num.groups <- length(unique(group))
     if (num.groups < 2) {
         if (verbose.on.insufficient.groups) {
@@ -115,7 +115,6 @@ calculate.dapc <- function(predictors, group, n.pca, n.da, verbose.on.insufficie
         }
         return(NULL)
     }
-
     dapc.result <- dapc(predictors, group, n.pca=n.pca, n.da=n.da)
     var.contr <- data.frame(var=rownames(dapc.result$var.contr),
                         LD1=as.vector(dapc.result$var.contr)
@@ -163,8 +162,8 @@ calculate.dapc <- function(predictors, group, n.pca, n.da, verbose.on.insufficie
 }
 
 # Carries out DAPC analysis, and assesses
-calculate.true.model.proportion.correctly.assigned <- function(predictors, group=group, n.pca, par, n.da) {
-    x <- calculate.dapc(
+calculateTrueModelProportionCorrectlyAssigned <- function(predictors, group=group, n.pca, par, n.da) {
+    x <- calculateDAPC(
                        predictors=predictors,
                        group=group,
                        n.pca=n.pca,
@@ -174,7 +173,7 @@ calculate.true.model.proportion.correctly.assigned <- function(predictors, group
 
 # Front end for analysis: (optionally) filters data, constructs groups and
 # predictors, carries out DAPC analysis, and returns results.
-analyze.dapc <- function(
+analyzeDAPC <- function(
                         summary.df,
                         n.pca,
                         n.da,
@@ -183,7 +182,7 @@ analyze.dapc <- function(
                         filter.for.dispersal.rate=NULL,
                         filter.for.trait.transition.rate=NULL,
                         verbose.on.insufficient.groups=NULL) {
-    x <- create.group.and.predictors(summary.df=summary.df,
+    x <- createGroupAndPredictors(summary.df=summary.df,
                                      filter.for.birth.rate=filter.for.birth.rate,
                                      filter.for.death.rate=filter.for.death.rate,
                                      filter.for.dispersal.rate=filter.for.dispersal.rate,
@@ -193,7 +192,7 @@ analyze.dapc <- function(
         return(NULL)
     }
 
-    rv <- calculate.dapc(
+    rv <- calculateDAPC(
             predictors=x$predictors,
             group=x$group,
             n.pca=n.pca,
@@ -203,12 +202,12 @@ analyze.dapc <- function(
 
 # Predictor assessment.
 # Returns efficacy of summary stastitics
-assess.predictor.performance <- function(summary.df,
+assessPredictorPerformance <- function(summary.df,
                                         filter.for.birth.rate=NULL,
                                         filter.for.death.rate=NULL,
                                         filter.for.dispersal.rate=NULL,
                                         filter.for.trait.transition.rate=NULL) {
-    groups.and.predictors <- create.group.and.predictors(summary.df=summary.df,
+    groups.and.predictors <- createGroupAndPredictors(summary.df=summary.df,
                                     filter.for.birth.rate=filter.for.birth.rate,
                                     filter.for.death.rate=filter.for.death.rate,
                                     filter.for.dispersal.rate=filter.for.dispersal.rate,
@@ -221,9 +220,9 @@ assess.predictor.performance <- function(summary.df,
     predictors <- groups.and.predictors$predictors
     result <- data.frame()
     for (n.pca in 2:ncol(predictors)) {
-        n.da <- 10
+        n.da <- length(levels(group)) - 1
         # for (n.da in 1:ncol(predictors)) {
-            x <- calculate.dapc(predictors, group, n.pca, n.da)
+            x <- calculateDAPC(predictors, group, n.pca, n.da)
             cat(paste(n.pca,
                         n.da,
                         x$true.model.posterior.mean,
@@ -245,7 +244,7 @@ assess.predictor.performance <- function(summary.df,
     result
 }
 
-optimize.npca <- function(
+optimizeNumPCAxes <- function(
         predictors,
         group,
         penalized=T,
@@ -254,7 +253,7 @@ optimize.npca <- function(
         n.da=NULL,
         penalty.weight=1.0) {
     if (is.null(n.da)) {
-        n.da <- length(unique(group)) - 1
+        n.da <- length(levels(group)) - 1
     }
     if (is.null(n.pca.values)) {
         n.pca.values <- 1:ncol(predictors)
@@ -267,7 +266,7 @@ optimize.npca <- function(
     saved.n.pca.values <- c()
     saved.n.da.values <- c()
     for (n.pca in n.pca.values) {
-        raw.score <- calculate.true.model.proportion.correctly.assigned(
+        raw.score <- calculateTrueModelProportionCorrectlyAssigned(
                 predictors=predictors,
                 group=group,
                 n.pca=n.pca,
@@ -300,14 +299,14 @@ optimize.npca <- function(
     return(optima)
 }
 
-optimize.npca.for.data.frame <- function(summary.df, penalized=T, verbose=F, n.pca.values=NULL, n.da=NULL, penalty.weight=1.0) {
-    groups.and.predictors <- create.group.and.predictors(summary.df=summary.df)
+optimizeNumPCAxesForDataFrame <- function(summary.df, penalized=T, verbose=F, n.pca.values=NULL, n.da=NULL, penalty.weight=1.0) {
+    groups.and.predictors <- createGroupAndPredictors(summary.df=summary.df)
     if (is.null(groups.and.predictors)) {
         return(NULL)
     }
     group <- groups.and.predictors$group
     predictors <- groups.and.predictors$predictors
-    return(optimize.npca(
+    return(optimizeNumPCAxes(
                          predictors=predictors,
                          group=group,
                          penalized=penalized,
@@ -318,8 +317,8 @@ optimize.npca.for.data.frame <- function(summary.df, penalized=T, verbose=F, n.p
 }
 
 # plot space, `parameter.space.df` is a data.frame returned by
-# `analyze.parameter.space.discrete`, either directly or as loaded from a file.
-plot.parameter.space.discrete <- function(
+# `analyzePerformanceOverDiscretizedParameterSpace`, either directly or as loaded from a file.
+plotPerformanceOverParameterSpace <- function(
                                          parameter.space.df,
                                          plot.type="tile",
                                          characterization.schema="color-by-proportion-preferred",
@@ -440,7 +439,7 @@ plot.parameter.space.discrete <- function(
     p
 }
 
-analyze.parameter.space.discrete <- function(summary.df, n.pca, n.da, verbose=NULL) {
+analyzePerformanceOverDiscretizedParameterSpace <- function(summary.df, n.pca, n.da, verbose=NULL) {
     birth.rates <- sort(unique(summary.df[,"birth.rate"]))
     if ("death.rate" %in% colnames(summary.df)) {
         death.rates <- sort(unique(summary.df[,"death.rate"]))
@@ -454,7 +453,7 @@ analyze.parameter.space.discrete <- function(summary.df, n.pca, n.da, verbose=NU
         for (death.rate in death.rates) {
             for (dispersal.rate in dispersal.rates) {
                 for (trait.transition.rate in trait.transition.rates) {
-                    x <- analyze.dapc(summary.df=summary.df,
+                    x <- analyzeDAPC(summary.df=summary.df,
                                      n.pca=n.pca,
                                      n.da=n.da,
                                      filter.for.birth.rate=birth.rate,
@@ -528,19 +527,21 @@ analyze.parameter.space.discrete <- function(summary.df, n.pca, n.da, verbose=NU
 #       list(n.pca, n.da)   : use 'n.pca' for number of axes retained in
 #                             principal component step and 'n.da' for number of
 #                             axes retained in discriminant analysis step.
-classify.data <- function(target.summary.stats,
+classifyData <- function(target.summary.stats,
                           training.summary.stats,
                           n.pca,
                           n.da=NULL,
                           n.pca.optimization.penalty.weight=1.0
                           ) {
-    training.data <- create.group.and.predictors(training.summary.stats)
+    training.data <- createGroupAndPredictors(training.summary.stats)
     predictors <- training.data$predictors
     group <- training.data$group
 
     if (is.null(n.da)) {
-        grouping.field.name <- get.grouping.field.name(training.data)
-        n.da <- length(levels(training.data$grouping.field.name)) - 1
+        n.da <- length(levels(group)) - 1
+    }
+    if (n.da < 1) {
+        stop(paste("Number of discriminant axes must be > 1: ", n.da, sep=""))
     }
     if (n.pca == "all") {
         n.pca <- ncol(training.data$predictors)
@@ -550,7 +551,7 @@ classify.data <- function(target.summary.stats,
         } else if (n.pca == "maximized-fit") {
             penalized <- F
         }
-        optima <- optimize.npca(
+        optima <- optimizeNumPCAxes(
                               predictors=predictors,
                               group=group,
                               penalized=penalized,
@@ -560,15 +561,15 @@ classify.data <- function(target.summary.stats,
                               )
         n.pca <- optima$n.pca
     } else {
-        n.pca <- n.pca$n.pca
+        n.pca <- n.pca
     }
 
-    trained.model <- calculate.dapc(
+    trained.model <- calculateDAPC(
             predictors,
             group,
             n.pca=n.pca,
             n.da=n.da)
-    target.data <- create.group.and.predictors(target.summary.stats)
+    target.data <- createGroupAndPredictors(target.summary.stats)
     pred.sup <- predict.dapc(trained.model$dapc.result, newdata=target.data$predictors)
     results <- data.frame(pred.sup)
     results$n.pca <- n.pca
@@ -602,17 +603,17 @@ classify.data <- function(target.summary.stats,
 # `n.da`
 #       Otherwise, it is assumed to be a numeric value to directly set as the
 #       the number of PC axis retained.
-classify.data.from.files <- function(
+classifyDataFromFiles <- function(
         target.summary.stats.path,
         training.summary.stats.paths,
         n.pca,
-        n.da,
+        n.da=NULL,
         n.pca.optimization.penalty.weight=1.0,
         output.path=NULL) {
     target.summary.stats <- read.csv(target.summary.stats.path, header<-T)
     training.summary.stats.sets <- lapply(training.summary.stats.paths, read.csv, header=T)
     training.summary.stats.merged <- Reduce(function(x,y){rbind(x,y)}, training.summary.stats.sets)
-    results <- classify.data(
+    results <- classifyData(
                             target.summary.stats=target.summary.stats,
                             training.summary.stats=training.summary.stats.merged,
                             n.pca=n.pca,
