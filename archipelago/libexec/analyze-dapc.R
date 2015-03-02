@@ -421,6 +421,7 @@ plotPerformanceOverParameterSpace <- function(performance.df) {
 plotPerformanceOverParameterSpaceScaledtoDiversificationRate <- function(performance.df) {
 
     breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+    # breaks = c(0.0,  0.95, 1.0)
     f1 <- cut(performance.df[["true.model.proportion.correctly.assigned"]], breaks=breaks, right=F)
     performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=levels(f1))
     f2 <- cut(performance.df[["true.model.posterior.mean"]], breaks=breaks, right=F)
