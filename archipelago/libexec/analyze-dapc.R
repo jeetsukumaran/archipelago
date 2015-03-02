@@ -2,6 +2,7 @@
 
 suppressMessages(library(adegenet))
 suppressMessages(library(ggplot2))
+suppressMessages(library(RColorBrewer))
 
 # These columns will be dropped from the training data set (they are
 # typically parameters used to generate/simulate data).
@@ -355,8 +356,9 @@ optimizeNumPCAxesForDataFrame <- function(
 #   'trait.transition.rate'
 #
 plotPerformanceOverParameterSpace <- function(performance.df) {
-    # breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
-    breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
+    breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+    # breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
+    # breaks = c(0.0, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.86, 0.9,  0.95, 0.99, 1.0)
     f1 <- cut(
             performance.df[["true.model.proportion.correctly.assigned"]],
             breaks=breaks,
@@ -376,12 +378,19 @@ plotPerformanceOverParameterSpace <- function(performance.df) {
                                                         ))
     p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
     p <- p + scale_x_log10() + scale_y_log10()
-    color.settings <- c("red", "orange", "yellow", "green", "cyan", "blue", "purple")
 
     p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
-    # p <- p + scale_fill_manual(values=color.settings, name="")
-    p = p + scale_fill_brewer(type="seq", name="")
-    # p = p + scale_colour_brewer(palette="Set1")
+
+    # palette = "Greys"
+    # palette = "YlGn"
+    palette = "RdYlBu"
+    if (length(breaks) > 9) {
+        color.fn <- colorRampPalette(brewer.pal(9, palette))
+        p <- p + scale_fill_manual(values=color.fn(length(breaks)), name="")
+    } else {
+        # p <- p + scale_fill_brewer(type="seq", palette=palette, name="")
+        p <- p + scale_fill_brewer(palette=palette, name="")
+    }
 
     if (length(levels(performance.df$death.rate.factor)) > 1 && length(levels(performance.df$death.rate.factor)) > 1) {
         # p <- p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
