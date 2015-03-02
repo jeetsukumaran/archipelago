@@ -1,14 +1,18 @@
 #!/usr/bin/env Rscript
 
+# Imports {{{1
+# ==============================================================================
 suppressMessages(library(adegenet))
-suppressMessages(library(ggplot2))
-suppressMessages(library(RColorBrewer))
+# }}}1
+
+# Field Names Diagnostics: Discriminating between Model Name Fields, Parameter Fields and Summary Statistics Fields {{{1
+# ==============================================================================
 
 # These columns will be dropped from the training data set (they are
 # typically parameters used to generate/simulate data).
 NON.PREDICTOR.FIELD.NAMES <- c(
-               "dispersal.model",
-               "model.category",
+               "dispersal.model", # legacy
+               "model.category",  # this is the key field
                "birth.rate",
                "death.rate",
                "extinction.rate",
@@ -30,80 +34,27 @@ getGroupingFieldName <- function(summary.df) {
         }
     }
 }
+# }}}1
 
-# Reports the levels/values in each of non-predictor fields.
-reportDataRegimes <- function(summary.df) {
-    for (field.name in NON.PREDICTOR.FIELD.NAMES) {
-        if (field.name %in% colnames(summary.df)) {
-            cat(field.name, ": ", sort(unique(summary.df[,field.name])), "\n")
-        }
-    }
-}
-
-# Filters out data
-filterData <- function(summary.df,
-                        filter.for.birth.rate=NULL,
-                        filter.for.death.rate=NULL,
-                        filter.for.dispersal.rate=NULL,
-                        filter.for.trait.transition.rate=NULL) {
-    summary.df.copy <- summary.df
-    if (!is.null(filter.for.birth.rate)) {
-        summary.df.copy <- subset(summary.df.copy, birth.rate==filter.for.birth.rate)
-    }
-    if (!is.null(filter.for.death.rate)) {
-        summary.df.copy <- subset(summary.df.copy, death.rate==filter.for.death.rate)
-    }
-    if (!is.null(filter.for.trait.transition.rate)) {
-        summary.df.copy <- subset(summary.df.copy, trait.transition.rate==filter.for.trait.transition.rate)
-    }
-    if (!is.null(filter.for.dispersal.rate)) {
-        summary.df.copy <- subset(summary.df.copy, dispersal.rate==filter.for.dispersal.rate)
-    }
-    # stopifnot(nrow(summary.df.copy) > 0)
-    if (nrow(summary.df.copy) > 0) {
-        return(summary.df.copy)
-    } else {
-        return(NULL)
-    }
-
-}
+# Core Analytical Functions {{{1
 
 # Given a data.frame, returns a list with two named elements:
-# `group`: data.frame
-#   A data.frame consisting of a single-column, the grouping variable
-# `predictors`: data.frame
-#   A data.frame consisting of (just) the predictor variables.
-createGroupAndPredictors <- function(summary.df,
-                                       filter.for.birth.rate=NULL,
-                                       filter.for.death.rate=NULL,
-                                       filter.for.dispersal.rate=NULL,
-                                       filter.for.trait.transition.rate=NULL) {
-    source.df <- filterData(summary.df=summary.df,
-                            filter.for.birth.rate=filter.for.birth.rate,
-                            filter.for.death.rate=filter.for.death.rate,
-                            filter.for.dispersal.rate=filter.for.dispersal.rate,
-                            filter.for.trait.transition.rate=filter.for.trait.transition.rate)
-    if (is.null(source.df)) {
+#   `group`: data.frame
+#       A data.frame consisting of a single-column, the grouping variable
+#   `predictors`: data.frame
+#       A data.frame consisting of (just) the predictor variables.
+createGroupAndPredictors <- function(summary.df) {
+    if (is.null(summary.df)) {
         return(NULL)
     }
-    source.df <- na.omit(source.df)
-    group <- source.df[[getGroupingFieldName(summary.df)]]
-    predictors <- source.df[,!(names(source.df) %in% NON.PREDICTOR.FIELD.NAMES)]
+    summary.df <- na.omit(summary.df)
+    group <- summary.df[[getGroupingFieldName(summary.df)]]
+    predictors <- summary.df[,!(names(summary.df) %in% NON.PREDICTOR.FIELD.NAMES)]
     rv <- list(
         group=group,
         predictors=predictors
         )
     rv
-}
-
-# Reports number of predictors in a data.frame
-numPredictors <-function(summary.df) {
-    x <- createGroupAndPredictors(summary.df=summary.df)
-    if (is.null(x)) {
-        return(NULL)
-    } else {
-        return(ncol(x$predictors))
-    }
 }
 
 # Primary (back-end) workhorse function.
@@ -162,87 +113,19 @@ calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficien
     rv
 }
 
-# Carries out DAPC analysis, and assesses
-calculateTrueModelProportionCorrectlyAssigned <- function(predictors, group=group, n.pca, par, n.da) {
-    x <- calculateDAPC(
-                       predictors=predictors,
-                       group=group,
-                       n.pca=n.pca,
-                       n.da=n.da)
-    return(x$true.model.proportion.correctly.assigned)
-}
-
 # Front end for analysis: (optionally) filters data, constructs groups and
 # predictors, carries out DAPC analysis, and returns results.
-analyzeDAPC <- function(
-                        summary.df,
-                        n.pca,
-                        n.da,
-                        filter.for.birth.rate=NULL,
-                        filter.for.death.rate=NULL,
-                        filter.for.dispersal.rate=NULL,
-                        filter.for.trait.transition.rate=NULL,
-                        verbose.on.insufficient.groups=NULL) {
-    x <- createGroupAndPredictors(summary.df=summary.df,
-                                     filter.for.birth.rate=filter.for.birth.rate,
-                                     filter.for.death.rate=filter.for.death.rate,
-                                     filter.for.dispersal.rate=filter.for.dispersal.rate,
-                                     filter.for.trait.transition.rate=filter.for.trait.transition.rate
-                                    )
+analyzeDAPC <- function(summary.df, n.pca, n.da, verbose.on.insufficient.groups=NULL) {
+    x <- createGroupAndPredictors(summary.df=summary.df)
     if (is.null(x)) {
         return(NULL)
     }
-
     rv <- calculateDAPC(
             predictors=x$predictors,
             group=x$group,
             n.pca=n.pca,
             n.da=n.da,
             verbose.on.insufficient.groups=verbose.on.insufficient.groups)
-}
-
-# Predictor assessment.
-# Returns efficacy of summary stastitics
-assessPredictorPerformance <- function(summary.df,
-                                        filter.for.birth.rate=NULL,
-                                        filter.for.death.rate=NULL,
-                                        filter.for.dispersal.rate=NULL,
-                                        filter.for.trait.transition.rate=NULL) {
-    groups.and.predictors <- createGroupAndPredictors(summary.df=summary.df,
-                                    filter.for.birth.rate=filter.for.birth.rate,
-                                    filter.for.death.rate=filter.for.death.rate,
-                                    filter.for.dispersal.rate=filter.for.dispersal.rate,
-                                    filter.for.trait.transition.rate=filter.for.trait.transition.rate)
-    if (is.null(groups.and.predictors)) {
-        return(NULL)
-    }
-
-    group <- groups.and.predictors$group
-    predictors <- groups.and.predictors$predictors
-    result <- data.frame()
-    for (n.pca in 2:ncol(predictors)) {
-        n.da <- length(levels(group)) - 1
-        # for (n.da in 1:ncol(predictors)) {
-            x <- calculateDAPC(predictors, group, n.pca, n.da)
-            cat(paste(n.pca,
-                        n.da,
-                        x$true.model.posterior.mean,
-                        x$true.model.proportion.correctly.assigned,
-                        "\n",
-                        sep="\t\t"
-                        ))
-            subresult <- data.frame(
-                        n.pca=n.pca,
-                        n.da=n.da,
-                        true.model.posterior.mean=x$true.model.posterior.mean,
-                        true.model.proportion.correctly.assigned=x$true.model.proportion.correctly.assigned,
-                        correct.assigns=as.list(x$correct.assigns.prop),
-                        misassigns=as.list(x$misassigns.prop)
-                        )
-            result <- rbind(result, subresult)
-        # }
-    }
-    result
 }
 
 # Carries out multiple DAPC analysis with different numbers of PC axes
@@ -282,11 +165,12 @@ optimizeNumPCAxes <- function(
     saved.n.pca.values <- c()
     saved.n.da.values <- c()
     for (n.pca in n.pca.values) {
-        raw.score <- calculateTrueModelProportionCorrectlyAssigned(
-                predictors=predictors,
-                group=group,
-                n.pca=n.pca,
-                n.da=n.da)
+        dapc.results <- calculateDAPC(
+                           predictors=predictors,
+                           group=group,
+                           n.pca=n.pca,
+                           n.da=n.da)
+        raw.score <- dapc.results$true.model.proportion.correctly.assigned
         if (!is.null(raw.score)) {
             saved.n.pca.values <- c(saved.n.pca.values, n.pca)
             saved.n.da.values <- c(saved.n.da.values, n.da)
@@ -344,317 +228,6 @@ optimizeNumPCAxesForDataFrame <- function(
                          verbose=verbose,
                          ))
 }
-
-
-# performance.df - data.frame with the following columns:
-#
-#   'true.model.proportion.correctly.assigned'
-#   'true.model.posterior.mean'
-#   'birth.rate'
-#   'death.rate'
-#   'dispersal.rate'
-#   'trait.transition.rate'
-#
-plotPerformanceOverParameterSpace <- function(performance.df) {
-    breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
-    # breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
-    # breaks = c(0.0, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.86, 0.9,  0.95, 0.99, 1.0)
-    f1 <- cut(
-            performance.df[["true.model.proportion.correctly.assigned"]],
-            breaks=breaks,
-            right=F,
-            )
-    performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=levels(f1))
-    f2 <- cut(
-            performance.df[["true.model.posterior.mean"]],
-            breaks=breaks,
-            right=F,
-            )
-    performance.df$true.model.posterior.mean.factor <- factor(f2, levels=levels(f2))
-    performance.df$birth.rate.factor <- factor(paste("b = ", performance.df$birth.rate, sep=""))
-    performance.df$death.rate.factor <- factor(paste("e = ",
-                                                        ifelse(performance.df$death.rate==0, "0", paste(format(round(performance.df$death.rate/performance.df$birth.rate, 2), nsmall=2), " x b", sep="")),
-                                                        sep=""
-                                                        ))
-    p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
-    # p <- p + scale_x_log10() + scale_y_log10()
-    p <- p + scale_x_log10(name="Trait Transition Rate")
-    p <- p + scale_y_log10(name="Dispersal Rate")
-
-    p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
-
-    # palette = "Greys"
-    # palette = "YlGn"
-    palette = "RdYlBu"
-    if (length(breaks) > 9) {
-        color.fn <- colorRampPalette(brewer.pal(9, palette))
-        p <- p + scale_fill_manual(values=color.fn(length(breaks)), name="")
-    } else {
-        # p <- p + scale_fill_brewer(type="seq", palette=palette, name="")
-        p <- p + scale_fill_brewer(palette=palette, name="")
-    }
-
-    if (length(levels(performance.df$death.rate.factor)) > 1 && length(levels(performance.df$death.rate.factor)) > 1) {
-        # p <- p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
-        p <- p + facet_grid(birth.rate.factor ~ death.rate.factor)
-    } else if (length(levels(performance.df$death.rate.factor)) > 1) {
-        p <- p + facet_wrap(~death.rate.factor)
-    } else if (length(levels(performance.df$birth.rate.factor)) > 1) {
-        p <- p + facet_wrap(~birth.rate.factor)
-    }
-
-    p <- p + theme(
-                  panel.border=element_rect(size=0.5, fill=NA, color="black", linetype='dotted'),
-                  legend.position="bottom"
-                  # strip.background=element_rect(colour='black',  size=1)
-                  )
-
-    p
-}
-# performance.df - data.frame with the following columns:
-#
-#   'true.model.proportion.correctly.assigned'
-#   'true.model.posterior.mean'
-#   'birth.rate'
-#   'death.rate'
-#   'dispersal.rate'
-#   'trait.transition.rate'
-#
-plotPerformanceOverParameterSpaceScaledtoDiversificationRate <- function(performance.df) {
-
-    breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
-    # breaks = c(0.0,  0.95, 1.0)
-    f1 <- cut(performance.df[["true.model.proportion.correctly.assigned"]], breaks=breaks, right=F)
-    performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=levels(f1))
-    f2 <- cut(performance.df[["true.model.posterior.mean"]], breaks=breaks, right=F)
-    performance.df$true.model.posterior.mean.factor <- factor(f2, levels=levels(f2))
-
-    performance.df$diversification.rate = performance.df$birth.rate - performance.df$death.rate
-    performance.df$scaled.trait.transition.rate = performance.df$trait.transition.rate / performance.df$diversification.rate
-    performance.df$scaled.dispersal.rate = performance.df$dispersal.rate / performance.df$diversification.rate
-
-    p <- ggplot(performance.df, aes(scaled.trait.transition.rate, scaled.dispersal.rate))
-    p <- p + scale_x_log10(breaks=c(0.01, 0.1, 1,10,100), name="Trait Transition Rate Scaled by Diversification Rate")
-    p <- p + scale_y_log10(breaks=c(0.01, 0.1, 1,10,100), name="Dispersal Rate Scaled by Diversification Rate")
-    p <- p + geom_point(aes(fill=true.model.proportion.correctly.assigned.factor), pch=21, size=3)
-
-    # palette = "Greys"
-    # palette = "YlGn"
-    palette = "RdYlBu"
-    if (length(breaks) > 9) {
-        color.fn <- colorRampPalette(brewer.pal(9, palette))
-        p <- p + scale_fill_manual(values=color.fn(length(breaks)), name="")
-    } else {
-        p <- p + scale_fill_brewer(palette=palette, name="")
-    }
-    p <- p + theme(
-                  legend.position="bottom"
-                  # strip.background=element_rect(colour='black',  size=1)
-                  )
-
-    p
-}
-
-generatePerformancePlots = function(performance.df, output.prefix) {
-    pdf(paste(output.prefix, ".performance.faceted-by-diversification.pdf", sep=""))
-    print(plotPerformanceOverParameterSpace(performance.df))
-    dev.off()
-    pdf(paste(output.prefix, ".performance.scaled-by-diversification.pdf", sep=""))
-    print(plotPerformanceOverParameterSpaceScaledtoDiversificationRate(performance.df))
-    dev.off()
-}
-
-# # plot space, `performance.df` is a data.frame returned by
-# # `analyzePerformanceOverDiscretizedParameterSpace`, either directly or as loaded from a file.
-# plotPerformanceOverParameterSpace.old <- function(
-#                                          performance.df,
-#                                          plot.type="tile",
-#                                          characterization.schema="color-by-proportion-preferred",
-#                                          signficance.threshold=0.95
-#                                          ) {
-
-#     f1 <- cut(
-#             performance.df[["true.model.proportion.correctly.assigned"]],
-#             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
-#             right=F,
-#             )
-#     performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=rev(levels(f1)))
-#     f2 <- cut(
-#             performance.df[["true.model.posterior.mean"]],
-#             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
-#             right=F,
-#             )
-#     performance.df$true.model.posterior.mean.factor <- factor(f2, levels=rev(levels(f2)))
-
-#     sweet.spot.data <- factor(ifelse(performance.df$true.model.proportion.correctly.assigned >= signficance.threshold & performance.df$true.model.posterior.mean >= signficance.threshold,
-#                              "yes",
-#                              ifelse(performance.df$true.model.proportion.correctly.assigned < signficance.threshold & performance.df$true.model.posterior.mean < signficance.threshold,
-#                                     "no", "partial")
-#                              ))
-#     performance.df$sweet.spot <- factor(sweet.spot.data, levels=rev(levels(sweet.spot.data)))
-
-#     performance.df$birth.rate.factor <- factor(paste("b <- ", performance.df$birth.rate, sep=""))
-
-#     # performance.df$birth.rate.factor <- factor(paste("b=", performance.df$birth.rate, sep=""))
-#     # performance.df$death.rate.factor <- factor(performance.df$death.rate/performance.df$birth.rate)
-#     ### requires labeler="parsed"
-#     # performance.df$death.rate.factor <- factor(factor(ifelse(performance.df$death.rate==0, "0", paste("frac(b,", performance.df$birth.rate/performance.df$death.rate,")", sep="")))
-#     performance.df$death.rate.factor <- factor(paste("e <- ",
-#                                                         ifelse(performance.df$death.rate==0, "0", paste(format(round(performance.df$death.rate/performance.df$birth.rate, 2), nsmall=2), " x b", sep="")),
-#                                                         sep=""
-#                                                         ))
-
-#     p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
-#     p <- p + scale_x_log10() + scale_y_log10()
-#     posterior_legend_title <- "Mean Posterior of True Model"
-#     prop_legend_title <- "Mean Proportion True Model Preferred"
-#     sweet_spot_legend_title <- ">0.95 Success"
-
-#     if (characterization.schema == "color-by-success") {
-#         color.settings <- c("blue","dodgerblue", "orange") # third color for intermediate
-#     } else {
-#         color.settings <- c("blue", "dodgerblue", "orange")
-#     }
-
-#     if (plot.type == "scatter") {
-#         if (characterization.schema == "color-by-success") {
-#             p <- p + geom_point(aes(color=sweet.spot))
-#             p <- p + scale_color_manual(values=color.settings, name=sweet_spot_legend_title)
-#             # p <- p + scale_color_manual(values=c("dodgerblue", "orange", "red"), breaks=c("yes","partial","no"))
-#         } else  {
-#             if (characterization.schema == "color-by-posterior") {
-#                 p <- p + geom_point(aes(
-#                                     fill=true.model.posterior.mean.factor,
-#                                     shape=true.model.proportion.correctly.assigned.factor
-#                                     ))
-#                 fill_legend <- posterior_legend_title
-#                 shape_legend <- prop_legend_title
-#             } else if (characterization.schema == "color-by-proportion-preferred") {
-#                 p <- p + geom_point(aes(
-#                                     fill=true.model.proportion.correctly.assigned.factor,
-#                                     shape=true.model.posterior.mean.factor,
-#                                     ),
-#                                 # size=2.5 # here, instead of in aes() because it is not a mapping
-#                                 )
-#                 fill_legend <- prop_legend_title
-#                 shape_legend <- posterior_legend_title
-#             } else {
-#                 stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
-#             }
-#             p <- p + scale_shape_manual(values=c(24, 25), name=shape_legend)
-#             p <- p + scale_fill_manual(values=color.settings, name=fill_legend)
-#             # override to allow for fill-support shape
-#             # see: http://stackoverflow.com/questions/12488905/why-wont-the-ggplot2-legend-combine-manual-fill-and-scale-values
-#             # see: https://cloud.github.com/downloads/hadley/ggplot2/guide-col.pdf
-#             p <- p + guides(fill=guide_legend(override.aes <- list(shape <- 21)))
-#             # p <- p + scale_size(guide="none") # only needed if size is a mapping
-#         }
-#     } else if (plot.type == "tile") {
-
-#         # ggplot(df,aes(x=Var1,y=Var2,fill=factor(grp),alpha= z)) +
-#         #     geom_tile() +
-#         #     scale_fill_manual(values= c('red','blue'))
-#         if (characterization.schema == "color-by-success") {
-#             p <- p + geom_tile(aes(fill=sweet.spot))
-#             fill_legend <- sweet_spot_legend_title
-#         } else if (characterization.schema == "color-by-posterior") {
-#             p <- p + geom_tile(aes(fill=true.model.posterior.mean.factor))
-#             fill_legend <- posterior_legend_title
-#         } else if (characterization.schema == "color-by-proportion-preferred") {
-#             p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
-#             fill_legend <- prop_legend_title
-#         } else {
-#             stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
-#         }
-#         p <- p + scale_fill_manual(values=color.settings, name=fill_legend)
-#     } else {
-#         stop(paste("Unrecognized plot type:'", plot.type, "'"))
-#     }
-#     p <- p + theme(
-#                   panel.border=element_rect(size=0.5, fill=NA, color="black", linetype='dotted'),
-#                   legend.position="bottom"
-#                   # strip.background=element_rect(colour='black',  size=1)
-#                   )
-#     p <- p + labs(x="Trait Transition Rate", y="Dispersal Rate")
-#     if (length(levels(performance.df$death.rate.factor)) > 1 && length(levels(performance.df$death.rate.factor)) > 1) {
-#         # p <- p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
-#         p <- p + facet_grid(birth.rate.factor ~ death.rate.factor)
-#     } else if (length(levels(performance.df$death.rate.factor)) > 1) {
-#         p <- p + facet_wrap(~death.rate.factor)
-#     } else if (length(levels(performance.df$birth.rate.factor)) > 1) {
-#         p <- p + facet_wrap(~birth.rate.factor)
-#     }
-#     p
-# }
-
-analyzePerformanceOverDiscretizedParameterSpace <- function(summary.df, n.pca, n.da, verbose=NULL) {
-    birth.rates <- sort(unique(summary.df[,"birth.rate"]))
-    if ("death.rate" %in% colnames(summary.df)) {
-        death.rates <- sort(unique(summary.df[,"death.rate"]))
-    } else {
-        death.rates <- sort(unique(summary.df[,"extinction.rate"]))
-    }
-    dispersal.rates <- sort(unique(summary.df[,"dispersal.rate"]))
-    trait.transition.rates <- sort(unique(summary.df[,"trait.transition.rate"]))
-    result <- data.frame()
-    for (birth.rate in birth.rates) {
-        for (death.rate in death.rates) {
-            for (dispersal.rate in dispersal.rates) {
-                for (trait.transition.rate in trait.transition.rates) {
-                    x <- analyzeDAPC(summary.df=summary.df,
-                                     n.pca=n.pca,
-                                     n.da=n.da,
-                                     filter.for.birth.rate=birth.rate,
-                                     filter.for.death.rate=death.rate,
-                                     filter.for.dispersal.rate=dispersal.rate,
-                                     filter.for.trait.transition.rate=trait.transition.rate,
-                                     verbose.on.insufficient.groups=F
-                                     )
-                    if (is.null(x)) {
-                        warning(paste("NULL result:",
-                                  "birth.rate=",
-                                  birth.rate,
-                                  "death.rate=",
-                                  death.rate,
-                                  "dispersal.rate=",
-                                  dispersal.rate,
-                                  "trait.transition.rate=",
-                                  trait.transition.rate,
-                                  "\n",
-                                  sep=","
-                                  ))
-                    } else {
-                        if (!is.null(verbose) && verbose) {
-                            cat(paste(
-                                        birth.rate,
-                                        death.rate,
-                                        dispersal.rate,
-                                        trait.transition.rate,
-                                        x$true.model.posterior.mean,
-                                        x$true.model.proportion.correctly.assigned,
-                                        "\n",
-                                        sep="\t\t"
-                                        ))
-                        }
-                        subresult <- data.frame(
-                                            birth.rate=birth.rate,
-                                            death.rate=death.rate,
-                                            dispersal.rate=dispersal.rate,
-                                            trait.transition.rate=trait.transition.rate,
-                                            true.model.proportion.correctly.assigned=x$true.model.proportion.correctly.assigned,
-                                            true.model.posterior.mean=x$true.model.posterior.mean,
-                                            correct.assigns=as.list(x$correct.assigns.prop),
-                                            misassigns=as.list(x$misassigns.prop)
-                                            )
-                        result <- rbind(result, subresult)
-                    }
-                }
-            }
-        }
-    }
-    result
-}
-
 
 # Classifies target data.
 #
@@ -787,4 +360,56 @@ classifyDataFromFiles <- function(
     }
     results
 }
+
+# }}}1
+
+# Pre-Analysis Data Preparation and Diagnostics {{{1
+
+# Reports the levels/values in each of non-predictor fields.
+reportDataRegimes <- function(summary.df) {
+    for (field.name in NON.PREDICTOR.FIELD.NAMES) {
+        if (field.name %in% colnames(summary.df)) {
+            cat(field.name, ": ", sort(unique(summary.df[,field.name])), "\n")
+        }
+    }
+}
+
+# Reports number of predictors in a data.frame
+numPredictors <-function(summary.df) {
+    x <- createGroupAndPredictors(summary.df=summary.df)
+    if (is.null(x)) {
+        return(NULL)
+    } else {
+        return(ncol(x$predictors))
+    }
+}
+
+# Filters out data
+filterData <- function(summary.df,
+                        filter.for.birth.rate=NULL,
+                        filter.for.death.rate=NULL,
+                        filter.for.dispersal.rate=NULL,
+                        filter.for.trait.transition.rate=NULL) {
+    summary.df.copy <- summary.df
+    if (!is.null(filter.for.birth.rate)) {
+        summary.df.copy <- subset(summary.df.copy, birth.rate==filter.for.birth.rate)
+    }
+    if (!is.null(filter.for.death.rate)) {
+        summary.df.copy <- subset(summary.df.copy, death.rate==filter.for.death.rate)
+    }
+    if (!is.null(filter.for.trait.transition.rate)) {
+        summary.df.copy <- subset(summary.df.copy, trait.transition.rate==filter.for.trait.transition.rate)
+    }
+    if (!is.null(filter.for.dispersal.rate)) {
+        summary.df.copy <- subset(summary.df.copy, dispersal.rate==filter.for.dispersal.rate)
+    }
+    # stopifnot(nrow(summary.df.copy) > 0)
+    if (nrow(summary.df.copy) > 0) {
+        return(summary.df.copy)
+    } else {
+        return(NULL)
+    }
+}
+
+# }}}1
 
