@@ -186,7 +186,6 @@ def main():
                 ))
 
     returncode, stdout, stderr = rstats.call(r_commands)
-    print(stdout)
     # assert os.path.exists(r_script_path)
     # cmd = [
     #         r_script_path,
@@ -223,6 +222,7 @@ def main():
             else:
                 row["is.correctly.assigned"] = "F"
                 # incorrect_assignment_count_by_model[true_model_name] += 1
+
 
     if not args.no_primary_output:
         primary_result_fieldnames = []
