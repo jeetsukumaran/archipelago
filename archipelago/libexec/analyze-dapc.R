@@ -377,7 +377,9 @@ plotPerformanceOverParameterSpace <- function(performance.df) {
                                                         sep=""
                                                         ))
     p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
-    p <- p + scale_x_log10() + scale_y_log10()
+    # p <- p + scale_x_log10() + scale_y_log10()
+    p <- p + scale_x_log10(name="Trait Transition Rate")
+    p <- p + scale_y_log10(name="Dispersal Rate")
 
     p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
 
@@ -432,7 +434,8 @@ plotPerformanceOverParameterSpaceScaledtoDiversificationRate <- function(perform
     performance.df$scaled.dispersal.rate = performance.df$dispersal.rate / performance.df$diversification.rate
 
     p <- ggplot(performance.df, aes(scaled.trait.transition.rate, scaled.dispersal.rate))
-    p <- p + scale_x_log10(breaks=c(0.01, 0.1, 1,10,100)) + scale_y_log10(breaks=c(0.01, 0.1, 1,10,100))
+    p <- p + scale_x_log10(breaks=c(0.01, 0.1, 1,10,100), name="Trait Transition Rate Scaled by Diversification Rate")
+    p <- p + scale_y_log10(breaks=c(0.01, 0.1, 1,10,100), name="Dispersal Rate Scaled by Diversification Rate")
     p <- p + geom_point(aes(fill=true.model.proportion.correctly.assigned.factor), pch=21, size=3)
 
     # palette = "Greys"
@@ -442,10 +445,8 @@ plotPerformanceOverParameterSpaceScaledtoDiversificationRate <- function(perform
         color.fn <- colorRampPalette(brewer.pal(9, palette))
         p <- p + scale_fill_manual(values=color.fn(length(breaks)), name="")
     } else {
-        # p <- p + scale_fill_brewer(type="seq", palette=palette, name="")
         p <- p + scale_fill_brewer(palette=palette, name="")
     }
-
     p <- p + theme(
                   legend.position="bottom"
                   # strip.background=element_rect(colour='black',  size=1)
@@ -454,128 +455,137 @@ plotPerformanceOverParameterSpaceScaledtoDiversificationRate <- function(perform
     p
 }
 
-# plot space, `performance.df` is a data.frame returned by
-# `analyzePerformanceOverDiscretizedParameterSpace`, either directly or as loaded from a file.
-plotPerformanceOverParameterSpace.old <- function(
-                                         performance.df,
-                                         plot.type="tile",
-                                         characterization.schema="color-by-proportion-preferred",
-                                         signficance.threshold=0.95
-                                         ) {
-
-    f1 <- cut(
-            performance.df[["true.model.proportion.correctly.assigned"]],
-            breaks=c(0.0, 0.5, signficance.threshold, 1.0),
-            right=F,
-            )
-    performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=rev(levels(f1)))
-    f2 <- cut(
-            performance.df[["true.model.posterior.mean"]],
-            breaks=c(0.0, 0.5, signficance.threshold, 1.0),
-            right=F,
-            )
-    performance.df$true.model.posterior.mean.factor <- factor(f2, levels=rev(levels(f2)))
-
-    sweet.spot.data <- factor(ifelse(performance.df$true.model.proportion.correctly.assigned >= signficance.threshold & performance.df$true.model.posterior.mean >= signficance.threshold,
-                             "yes",
-                             ifelse(performance.df$true.model.proportion.correctly.assigned < signficance.threshold & performance.df$true.model.posterior.mean < signficance.threshold,
-                                    "no", "partial")
-                             ))
-    performance.df$sweet.spot <- factor(sweet.spot.data, levels=rev(levels(sweet.spot.data)))
-
-    performance.df$birth.rate.factor <- factor(paste("b <- ", performance.df$birth.rate, sep=""))
-
-    # performance.df$birth.rate.factor <- factor(paste("b=", performance.df$birth.rate, sep=""))
-    # performance.df$death.rate.factor <- factor(performance.df$death.rate/performance.df$birth.rate)
-    ### requires labeler="parsed"
-    # performance.df$death.rate.factor <- factor(factor(ifelse(performance.df$death.rate==0, "0", paste("frac(b,", performance.df$birth.rate/performance.df$death.rate,")", sep="")))
-    performance.df$death.rate.factor <- factor(paste("e <- ",
-                                                        ifelse(performance.df$death.rate==0, "0", paste(format(round(performance.df$death.rate/performance.df$birth.rate, 2), nsmall=2), " x b", sep="")),
-                                                        sep=""
-                                                        ))
-
-    p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
-    p <- p + scale_x_log10() + scale_y_log10()
-    posterior_legend_title <- "Mean Posterior of True Model"
-    prop_legend_title <- "Mean Proportion True Model Preferred"
-    sweet_spot_legend_title <- ">0.95 Success"
-
-    if (characterization.schema == "color-by-success") {
-        color.settings <- c("blue","dodgerblue", "orange") # third color for intermediate
-    } else {
-        color.settings <- c("blue", "dodgerblue", "orange")
-    }
-
-    if (plot.type == "scatter") {
-        if (characterization.schema == "color-by-success") {
-            p <- p + geom_point(aes(color=sweet.spot))
-            p <- p + scale_color_manual(values=color.settings, name=sweet_spot_legend_title)
-            # p <- p + scale_color_manual(values=c("dodgerblue", "orange", "red"), breaks=c("yes","partial","no"))
-        } else  {
-            if (characterization.schema == "color-by-posterior") {
-                p <- p + geom_point(aes(
-                                    fill=true.model.posterior.mean.factor,
-                                    shape=true.model.proportion.correctly.assigned.factor
-                                    ))
-                fill_legend <- posterior_legend_title
-                shape_legend <- prop_legend_title
-            } else if (characterization.schema == "color-by-proportion-preferred") {
-                p <- p + geom_point(aes(
-                                    fill=true.model.proportion.correctly.assigned.factor,
-                                    shape=true.model.posterior.mean.factor,
-                                    ),
-                                # size=2.5 # here, instead of in aes() because it is not a mapping
-                                )
-                fill_legend <- prop_legend_title
-                shape_legend <- posterior_legend_title
-            } else {
-                stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
-            }
-            p <- p + scale_shape_manual(values=c(24, 25), name=shape_legend)
-            p <- p + scale_fill_manual(values=color.settings, name=fill_legend)
-            # override to allow for fill-support shape
-            # see: http://stackoverflow.com/questions/12488905/why-wont-the-ggplot2-legend-combine-manual-fill-and-scale-values
-            # see: https://cloud.github.com/downloads/hadley/ggplot2/guide-col.pdf
-            p <- p + guides(fill=guide_legend(override.aes <- list(shape <- 21)))
-            # p <- p + scale_size(guide="none") # only needed if size is a mapping
-        }
-    } else if (plot.type == "tile") {
-
-        # ggplot(df,aes(x=Var1,y=Var2,fill=factor(grp),alpha= z)) +
-        #     geom_tile() +
-        #     scale_fill_manual(values= c('red','blue'))
-        if (characterization.schema == "color-by-success") {
-            p <- p + geom_tile(aes(fill=sweet.spot))
-            fill_legend <- sweet_spot_legend_title
-        } else if (characterization.schema == "color-by-posterior") {
-            p <- p + geom_tile(aes(fill=true.model.posterior.mean.factor))
-            fill_legend <- posterior_legend_title
-        } else if (characterization.schema == "color-by-proportion-preferred") {
-            p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
-            fill_legend <- prop_legend_title
-        } else {
-            stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
-        }
-        p <- p + scale_fill_manual(values=color.settings, name=fill_legend)
-    } else {
-        stop(paste("Unrecognized plot type:'", plot.type, "'"))
-    }
-    p <- p + theme(
-                  panel.border=element_rect(size=0.5, fill=NA, color="black", linetype='dotted'),
-                  legend.position="bottom"
-                  # strip.background=element_rect(colour='black',  size=1)
-                  )
-    p <- p + labs(x="Trait Transition Rate", y="Dispersal Rate")
-    if (length(levels(performance.df$death.rate.factor)) > 1 && length(levels(performance.df$death.rate.factor)) > 1) {
-        # p <- p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
-        p <- p + facet_grid(birth.rate.factor ~ death.rate.factor)
-    } else if (length(levels(performance.df$death.rate.factor)) > 1) {
-        p <- p + facet_wrap(~death.rate.factor)
-    } else if (length(levels(performance.df$birth.rate.factor)) > 1) {
-        p <- p + facet_wrap(~birth.rate.factor)
-    }
-    p
+generatePerformancePlots = function(performance.df, output.prefix) {
+    pdf(paste(output.prefix, ".performance.faceted-by-diversification.pdf", sep=""))
+    print(plotPerformanceOverParameterSpace(performance.df))
+    dev.off()
+    pdf(paste(output.prefix, ".performance.scaled-by-diversification.pdf", sep=""))
+    print(plotPerformanceOverParameterSpaceScaledtoDiversificationRate(performance.df))
+    dev.off()
 }
+
+# # plot space, `performance.df` is a data.frame returned by
+# # `analyzePerformanceOverDiscretizedParameterSpace`, either directly or as loaded from a file.
+# plotPerformanceOverParameterSpace.old <- function(
+#                                          performance.df,
+#                                          plot.type="tile",
+#                                          characterization.schema="color-by-proportion-preferred",
+#                                          signficance.threshold=0.95
+#                                          ) {
+
+#     f1 <- cut(
+#             performance.df[["true.model.proportion.correctly.assigned"]],
+#             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
+#             right=F,
+#             )
+#     performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=rev(levels(f1)))
+#     f2 <- cut(
+#             performance.df[["true.model.posterior.mean"]],
+#             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
+#             right=F,
+#             )
+#     performance.df$true.model.posterior.mean.factor <- factor(f2, levels=rev(levels(f2)))
+
+#     sweet.spot.data <- factor(ifelse(performance.df$true.model.proportion.correctly.assigned >= signficance.threshold & performance.df$true.model.posterior.mean >= signficance.threshold,
+#                              "yes",
+#                              ifelse(performance.df$true.model.proportion.correctly.assigned < signficance.threshold & performance.df$true.model.posterior.mean < signficance.threshold,
+#                                     "no", "partial")
+#                              ))
+#     performance.df$sweet.spot <- factor(sweet.spot.data, levels=rev(levels(sweet.spot.data)))
+
+#     performance.df$birth.rate.factor <- factor(paste("b <- ", performance.df$birth.rate, sep=""))
+
+#     # performance.df$birth.rate.factor <- factor(paste("b=", performance.df$birth.rate, sep=""))
+#     # performance.df$death.rate.factor <- factor(performance.df$death.rate/performance.df$birth.rate)
+#     ### requires labeler="parsed"
+#     # performance.df$death.rate.factor <- factor(factor(ifelse(performance.df$death.rate==0, "0", paste("frac(b,", performance.df$birth.rate/performance.df$death.rate,")", sep="")))
+#     performance.df$death.rate.factor <- factor(paste("e <- ",
+#                                                         ifelse(performance.df$death.rate==0, "0", paste(format(round(performance.df$death.rate/performance.df$birth.rate, 2), nsmall=2), " x b", sep="")),
+#                                                         sep=""
+#                                                         ))
+
+#     p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
+#     p <- p + scale_x_log10() + scale_y_log10()
+#     posterior_legend_title <- "Mean Posterior of True Model"
+#     prop_legend_title <- "Mean Proportion True Model Preferred"
+#     sweet_spot_legend_title <- ">0.95 Success"
+
+#     if (characterization.schema == "color-by-success") {
+#         color.settings <- c("blue","dodgerblue", "orange") # third color for intermediate
+#     } else {
+#         color.settings <- c("blue", "dodgerblue", "orange")
+#     }
+
+#     if (plot.type == "scatter") {
+#         if (characterization.schema == "color-by-success") {
+#             p <- p + geom_point(aes(color=sweet.spot))
+#             p <- p + scale_color_manual(values=color.settings, name=sweet_spot_legend_title)
+#             # p <- p + scale_color_manual(values=c("dodgerblue", "orange", "red"), breaks=c("yes","partial","no"))
+#         } else  {
+#             if (characterization.schema == "color-by-posterior") {
+#                 p <- p + geom_point(aes(
+#                                     fill=true.model.posterior.mean.factor,
+#                                     shape=true.model.proportion.correctly.assigned.factor
+#                                     ))
+#                 fill_legend <- posterior_legend_title
+#                 shape_legend <- prop_legend_title
+#             } else if (characterization.schema == "color-by-proportion-preferred") {
+#                 p <- p + geom_point(aes(
+#                                     fill=true.model.proportion.correctly.assigned.factor,
+#                                     shape=true.model.posterior.mean.factor,
+#                                     ),
+#                                 # size=2.5 # here, instead of in aes() because it is not a mapping
+#                                 )
+#                 fill_legend <- prop_legend_title
+#                 shape_legend <- posterior_legend_title
+#             } else {
+#                 stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
+#             }
+#             p <- p + scale_shape_manual(values=c(24, 25), name=shape_legend)
+#             p <- p + scale_fill_manual(values=color.settings, name=fill_legend)
+#             # override to allow for fill-support shape
+#             # see: http://stackoverflow.com/questions/12488905/why-wont-the-ggplot2-legend-combine-manual-fill-and-scale-values
+#             # see: https://cloud.github.com/downloads/hadley/ggplot2/guide-col.pdf
+#             p <- p + guides(fill=guide_legend(override.aes <- list(shape <- 21)))
+#             # p <- p + scale_size(guide="none") # only needed if size is a mapping
+#         }
+#     } else if (plot.type == "tile") {
+
+#         # ggplot(df,aes(x=Var1,y=Var2,fill=factor(grp),alpha= z)) +
+#         #     geom_tile() +
+#         #     scale_fill_manual(values= c('red','blue'))
+#         if (characterization.schema == "color-by-success") {
+#             p <- p + geom_tile(aes(fill=sweet.spot))
+#             fill_legend <- sweet_spot_legend_title
+#         } else if (characterization.schema == "color-by-posterior") {
+#             p <- p + geom_tile(aes(fill=true.model.posterior.mean.factor))
+#             fill_legend <- posterior_legend_title
+#         } else if (characterization.schema == "color-by-proportion-preferred") {
+#             p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
+#             fill_legend <- prop_legend_title
+#         } else {
+#             stop(paste("Unrecognized characterization schema:'", characterization.schema, "'"))
+#         }
+#         p <- p + scale_fill_manual(values=color.settings, name=fill_legend)
+#     } else {
+#         stop(paste("Unrecognized plot type:'", plot.type, "'"))
+#     }
+#     p <- p + theme(
+#                   panel.border=element_rect(size=0.5, fill=NA, color="black", linetype='dotted'),
+#                   legend.position="bottom"
+#                   # strip.background=element_rect(colour='black',  size=1)
+#                   )
+#     p <- p + labs(x="Trait Transition Rate", y="Dispersal Rate")
+#     if (length(levels(performance.df$death.rate.factor)) > 1 && length(levels(performance.df$death.rate.factor)) > 1) {
+#         # p <- p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
+#         p <- p + facet_grid(birth.rate.factor ~ death.rate.factor)
+#     } else if (length(levels(performance.df$death.rate.factor)) > 1) {
+#         p <- p + facet_wrap(~death.rate.factor)
+#     } else if (length(levels(performance.df$birth.rate.factor)) > 1) {
+#         p <- p + facet_wrap(~birth.rate.factor)
+#     }
+#     p
+# }
 
 analyzePerformanceOverDiscretizedParameterSpace <- function(summary.df, n.pca, n.da, verbose=NULL) {
     birth.rates <- sort(unique(summary.df[,"birth.rate"]))
