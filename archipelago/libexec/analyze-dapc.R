@@ -431,7 +431,7 @@ plotPerformanceOverParameterSpaceScaledtoDiversificationRate <- function(perform
     performance.df$scaled.dispersal.rate = performance.df$dispersal.rate / performance.df$diversification.rate
 
     p <- ggplot(performance.df, aes(scaled.trait.transition.rate, scaled.dispersal.rate))
-    p <- p + scale_x_log10() + scale_y_log10()
+    p <- p + scale_x_log10(breaks=c(0.01, 0.1, 1,10,100)) + scale_y_log10(breaks=c(0.01, 0.1, 1,10,100))
     p <- p + geom_point(aes(fill=true.model.proportion.correctly.assigned.factor), pch=21, size=3)
 
     # palette = "Greys"
