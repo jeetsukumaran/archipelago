@@ -419,23 +419,23 @@ plotPerformanceOverParameterSpace <- function(performance.df) {
 #   'trait.transition.rate'
 #
 plotPerformanceOverParameterSpaceScaledtoDiversificationRate <- function(performance.df) {
+
     breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
     f1 <- cut(performance.df[["true.model.proportion.correctly.assigned"]], breaks=breaks, right=F)
     performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=levels(f1))
     f2 <- cut(performance.df[["true.model.posterior.mean"]], breaks=breaks, right=F)
     performance.df$true.model.posterior.mean.factor <- factor(f2, levels=levels(f2))
 
-    performance.df$scaled.trait.transition.rate = performance.df$trait.transition.rate
-    performance.df$scaled.dispersal.rate = performance.df$dispersal.rate
-
     # performance.df$diversification.rate = performance.df$birth.rate - performance.df$death.rate
     performance.df$diversification.rate = performance.df$birth.rate
+
     performance.df$scaled.trait.transition.rate = performance.df$trait.transition.rate / performance.df$diversification.rate
     performance.df$scaled.dispersal.rate = performance.df$dispersal.rate / performance.df$diversification.rate
 
     p <- ggplot(performance.df, aes(scaled.trait.transition.rate, scaled.dispersal.rate))
     p <- p + scale_x_log10() + scale_y_log10()
-    p <- p + geom_point(aes(fill=true.model.proportion.correctly.assigned.factor), pch=21, size=3)
+    # p <- p + geom_point(aes(fill=true.model.proportion.correctly.assigned.factor), pch=21, size=3)
+    p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
 
     # palette = "Greys"
     # palette = "YlGn"
