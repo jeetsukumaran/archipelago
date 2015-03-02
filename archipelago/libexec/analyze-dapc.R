@@ -345,50 +345,103 @@ optimizeNumPCAxesForDataFrame <- function(
 }
 
 
+# performance.df - data.frame with the following columns:
+#
+#   'true.model.proportion.correctly.assigned'
+#   'true.model.posterior.mean'
+#   'birth.rate'
+#   'death.rate'
+#   'dispersal.rate'
+#   'trait.transition.rate'
+#
 plotPerformanceOverParameterSpace <- function(performance.df) {
+    # breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+    breaks = c(0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
+    f1 <- cut(
+            performance.df[["true.model.proportion.correctly.assigned"]],
+            breaks=breaks,
+            right=F,
+            )
+    performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=levels(f1))
+    f2 <- cut(
+            performance.df[["true.model.posterior.mean"]],
+            breaks=breaks,
+            right=F,
+            )
+    performance.df$true.model.posterior.mean.factor <- factor(f2, levels=levels(f2))
+    performance.df$birth.rate.factor <- factor(paste("b = ", performance.df$birth.rate, sep=""))
+    performance.df$death.rate.factor <- factor(paste("e = ",
+                                                        ifelse(performance.df$death.rate==0, "0", paste(format(round(performance.df$death.rate/performance.df$birth.rate, 2), nsmall=2), " x b", sep="")),
+                                                        sep=""
+                                                        ))
+    p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
+    p <- p + scale_x_log10() + scale_y_log10()
+    color.settings <- c("red", "orange", "yellow", "green", "cyan", "blue", "purple")
+
+    p <- p + geom_tile(aes(fill=true.model.proportion.correctly.assigned.factor))
+    # p <- p + scale_fill_manual(values=color.settings, name="")
+    p = p + scale_fill_brewer(type="seq", name="")
+    # p = p + scale_colour_brewer(palette="Set1")
+
+    if (length(levels(performance.df$death.rate.factor)) > 1 && length(levels(performance.df$death.rate.factor)) > 1) {
+        # p <- p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
+        p <- p + facet_grid(birth.rate.factor ~ death.rate.factor)
+    } else if (length(levels(performance.df$death.rate.factor)) > 1) {
+        p <- p + facet_wrap(~death.rate.factor)
+    } else if (length(levels(performance.df$birth.rate.factor)) > 1) {
+        p <- p + facet_wrap(~birth.rate.factor)
+    }
+
+    p <- p + theme(
+                  panel.border=element_rect(size=0.5, fill=NA, color="black", linetype='dotted'),
+                  legend.position="bottom"
+                  # strip.background=element_rect(colour='black',  size=1)
+                  )
+
+    p
 }
 
-# plot space, `parameter.space.df` is a data.frame returned by
+# plot space, `performance.df` is a data.frame returned by
 # `analyzePerformanceOverDiscretizedParameterSpace`, either directly or as loaded from a file.
 plotPerformanceOverParameterSpace.old <- function(
-                                         parameter.space.df,
+                                         performance.df,
                                          plot.type="tile",
                                          characterization.schema="color-by-proportion-preferred",
                                          signficance.threshold=0.95
                                          ) {
 
     f1 <- cut(
-            parameter.space.df[["true.model.proportion.correctly.assigned"]],
+            performance.df[["true.model.proportion.correctly.assigned"]],
             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
             right=F,
             )
-    parameter.space.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=rev(levels(f1)))
+    performance.df$true.model.proportion.correctly.assigned.factor <- factor(f1, levels=rev(levels(f1)))
     f2 <- cut(
-            parameter.space.df[["true.model.posterior.mean"]],
+            performance.df[["true.model.posterior.mean"]],
             breaks=c(0.0, 0.5, signficance.threshold, 1.0),
             right=F,
             )
-    parameter.space.df$true.model.posterior.mean.factor <- factor(f2, levels=rev(levels(f2)))
+    performance.df$true.model.posterior.mean.factor <- factor(f2, levels=rev(levels(f2)))
 
-    sweet.spot.data <- factor(ifelse(parameter.space.df$true.model.proportion.correctly.assigned >= signficance.threshold & parameter.space.df$true.model.posterior.mean >= signficance.threshold,
+    sweet.spot.data <- factor(ifelse(performance.df$true.model.proportion.correctly.assigned >= signficance.threshold & performance.df$true.model.posterior.mean >= signficance.threshold,
                              "yes",
-                             ifelse(parameter.space.df$true.model.proportion.correctly.assigned < signficance.threshold & parameter.space.df$true.model.posterior.mean < signficance.threshold,
+                             ifelse(performance.df$true.model.proportion.correctly.assigned < signficance.threshold & performance.df$true.model.posterior.mean < signficance.threshold,
                                     "no", "partial")
                              ))
-    parameter.space.df$sweet.spot <- factor(sweet.spot.data, levels=rev(levels(sweet.spot.data)))
+    performance.df$sweet.spot <- factor(sweet.spot.data, levels=rev(levels(sweet.spot.data)))
 
-    parameter.space.df$birth.rate.factor <- factor(paste("b <- ", parameter.space.df$birth.rate, sep=""))
+    performance.df$birth.rate.factor <- factor(paste("b <- ", performance.df$birth.rate, sep=""))
 
-    # parameter.space.df$birth.rate.factor <- factor(paste("b=", parameter.space.df$birth.rate, sep=""))
-    # parameter.space.df$death.rate.factor <- factor(parameter.space.df$death.rate/parameter.space.df$birth.rate)
+    # performance.df$birth.rate.factor <- factor(paste("b=", performance.df$birth.rate, sep=""))
+    # performance.df$death.rate.factor <- factor(performance.df$death.rate/performance.df$birth.rate)
     ### requires labeler="parsed"
-    # parameter.space.df$death.rate.factor <- factor(factor(ifelse(parameter.space.df$death.rate==0, "0", paste("frac(b,", parameter.space.df$birth.rate/parameter.space.df$death.rate,")", sep="")))
-    parameter.space.df$death.rate.factor <- factor(paste("e <- ",
-                                                        ifelse(parameter.space.df$death.rate==0, "0", paste(format(round(parameter.space.df$death.rate/parameter.space.df$birth.rate, 2), nsmall=2), " x b", sep="")),
+    # performance.df$death.rate.factor <- factor(factor(ifelse(performance.df$death.rate==0, "0", paste("frac(b,", performance.df$birth.rate/performance.df$death.rate,")", sep="")))
+    performance.df$death.rate.factor <- factor(paste("e <- ",
+                                                        ifelse(performance.df$death.rate==0, "0", paste(format(round(performance.df$death.rate/performance.df$birth.rate, 2), nsmall=2), " x b", sep="")),
                                                         sep=""
                                                         ))
 
-    p <- ggplot(parameter.space.df, aes(trait.transition.rate, dispersal.rate))
+    p <- ggplot(performance.df, aes(trait.transition.rate, dispersal.rate))
     p <- p + scale_x_log10() + scale_y_log10()
     posterior_legend_title <- "Mean Posterior of True Model"
     prop_legend_title <- "Mean Proportion True Model Preferred"
@@ -460,12 +513,12 @@ plotPerformanceOverParameterSpace.old <- function(
                   # strip.background=element_rect(colour='black',  size=1)
                   )
     p <- p + labs(x="Trait Transition Rate", y="Dispersal Rate")
-    if (length(levels(parameter.space.df$death.rate.factor)) > 1 && length(levels(parameter.space.df$death.rate.factor)) > 1) {
+    if (length(levels(performance.df$death.rate.factor)) > 1 && length(levels(performance.df$death.rate.factor)) > 1) {
         # p <- p + facet_grid(birth.rate.factor ~ death.rate.factor, labeller= label_parsed)
         p <- p + facet_grid(birth.rate.factor ~ death.rate.factor)
-    } else if (length(levels(parameter.space.df$death.rate.factor)) > 1) {
+    } else if (length(levels(performance.df$death.rate.factor)) > 1) {
         p <- p + facet_wrap(~death.rate.factor)
-    } else if (length(levels(parameter.space.df$birth.rate.factor)) > 1) {
+    } else if (length(levels(performance.df$birth.rate.factor)) > 1) {
         p <- p + facet_wrap(~birth.rate.factor)
     }
     p
