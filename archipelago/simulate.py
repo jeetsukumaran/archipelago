@@ -352,7 +352,6 @@ class ArchipelagoSimulator(object):
                         event_rates.append(trait_transition_rate)
             # dispersal
             for dest_area_idx in self.model.geography.area_indexes:
-                sum_lineage_dispersal_weights_to_area = 0.0
                 for src_area_idx, occurs in enumerate(lineage.distribution_vector):
                     if not occurs:
                         continue
