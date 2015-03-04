@@ -235,7 +235,7 @@ class ArchipelagoProfiler(object):
         # process areas
         if len(tree.taxon_namespace[0].distribution_vector) > 1:
             if self.is_estimate_area_transition_rates:
-                self.estimate_pure_dispersal_rate(
+                self.estimate_pure_dispersal_weight(
                         tree=tree,
                         profile_results=profile_results)
             if self.is_estimate_dec_biogeobears:
@@ -262,8 +262,8 @@ class ArchipelagoProfiler(object):
         profile_results["lineage.birth.rate.description"] = generating_model.lineage_birth_rate_function.description
         profile_results["lineage.death.rate.definition"] = generating_model.lineage_death_rate_function.definition_content
         profile_results["lineage.death.rate.description"] = generating_model.lineage_death_rate_function.description
-        profile_results["lineage.dispersal.rate.definition"] = generating_model.lineage_dispersal_rate_function.definition_content
-        profile_results["lineage.dispersal.rate.description"] = generating_model.lineage_dispersal_rate_function.description
+        profile_results["lineage.dispersal.rate.definition"] = generating_model.lineage_dispersal_weight_function.definition_content
+        profile_results["lineage.dispersal.rate.description"] = generating_model.lineage_dispersal_weight_function.description
         for trait_idx, trait in enumerate(generating_model.trait_types):
             profile_results["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
         return profile_results
@@ -397,7 +397,7 @@ class ArchipelagoProfiler(object):
         for field_name, rate in zip(trait_names, rows):
             profile_results["trait.{}.est.transition.rate".format(field_name)] = rate
 
-    def estimate_pure_dispersal_rate(self,
+    def estimate_pure_dispersal_weight(self,
             tree,
             profile_results,):
         self.create_bayestraits_geography_file(tree, output_path=self.geography_data_file_name)

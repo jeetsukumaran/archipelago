@@ -200,10 +200,10 @@ class ArchipelagoModel(object):
 
         # Dispersal submodel
         dispersal_d = dict(model_definition.pop("dispersal", {}))
-        if "lineage_dispersal_rate" in dispersal_d:
-            self.lineage_dispersal_rate_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_rate"), self.trait_types)
+        if "lineage_dispersal_weight" in dispersal_d:
+            self.lineage_dispersal_weight_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_weight"), self.trait_types)
         else:
-            self.lineage_dispersal_rate_function = RateFunction(
+            self.lineage_dispersal_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda lineage: 0.01",
                     description="fixed: 0.01",
@@ -211,7 +211,7 @@ class ArchipelagoModel(object):
                     )
         if run_logger is not None:
             run_logger.info("(DISPERSAL) Setting lineage dispersal rate function: {desc}".format(
-                desc=self.lineage_dispersal_rate_function.description,))
+                desc=self.lineage_dispersal_weight_function.description,))
         if dispersal_d:
             raise TypeError("Unsupported dispersal model keywords: {}".format(dispersal_d))
 
@@ -291,7 +291,7 @@ class ArchipelagoModel(object):
 
     def dispersal_as_definition(self):
         d = collections.OrderedDict()
-        d["lineage_dispersal_rate"] = self.lineage_dispersal_rate_function.as_definition()
+        d["lineage_dispersal_weight"] = self.lineage_dispersal_weight_function.as_definition()
         return d
 
     def termination_conditions_as_definition(self):
