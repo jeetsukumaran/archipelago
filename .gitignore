@@ -13,3 +13,4 @@ setuptools-*.egg
 *.log
 *.trees
 var/
+tags
