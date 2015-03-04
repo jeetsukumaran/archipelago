@@ -384,8 +384,8 @@ class ArchipelagoSimulator(object):
         # dispersal
         for src_area_idx in self.model.geography.area_indexes:
             for dest_area_idx in self.model.geography.area_indexes:
-                area_dispersal_weight = self.model.geography.dispersal_weights[src_area_idx][dest_area_idx]
-                if not area_dispersal_weight:
+                effective_area_dispersal_rate = self.model.geography.effective_dispersal_rates[src_area_idx][dest_area_idx]
+                if not effective_area_dispersal_rate:
                     continue
                 lineage_dispersal_weight_normalization_factor = sum_lineage_dispersal_weights_for_areas[src_area_idx][dest_area_idx]
                 if not lineage_dispersal_weight_normalization_factor:
@@ -395,7 +395,7 @@ class ArchipelagoSimulator(object):
                     continue
                 for lineage, lineage_dispersal_weight in dispersing_lineages:
                     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
-                    event_rates.append(area_dispersal_weight * (lineage_dispersal_weight/lineage_dispersal_weight_normalization_factor))
+                    event_rates.append(effective_area_dispersal_rate * (lineage_dispersal_weight/lineage_dispersal_weight_normalization_factor))
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 

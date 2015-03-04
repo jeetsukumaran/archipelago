@@ -200,6 +200,25 @@ class ArchipelagoModel(object):
 
         # Dispersal submodel
         dispersal_d = dict(model_definition.pop("dispersal", {}))
+        if "global_dispersal_rate" not in dispersal_d and "mean_dispersal_rate" not in dispersal_d:
+            raise TypeError("Exactly one of 'global_dispersal_rate' or 'mean_dispersal_rate' must be specified")
+        elif "global_dispersal_rate" in dispersal_d and "mean_dispersal_rate" in dispersal_d:
+            raise TypeError("No more than one of 'global_dispersal_rate' or 'mean_dispersal_rate' can be specified")
+        elif "global_dispersal_rate" in dispersal_d:
+            self.global_dispersal_rate = float(dispersal_d.pop("global_dispersal_rate"))
+            self.mean_dispersal_rate = None
+            if run_logger is not None:
+                run_logger.info("(DISPERSAL) Global dispersal rate is: {}".format(self.global_dispersal_rate))
+            self.geography.set_global_dispersal_rate(self.global_dispersal_rate)
+        else:
+            self.mean_dispersal_rate = float(dispersal_d.pop("mean_dispersal_rate"))
+            self.global_dispersal_rate = None
+            run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
+            self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
+        if run_logger is not None:
+            for a1, area1 in enumerate(self.geography.areas):
+                run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
+
         if "lineage_dispersal_weight" in dispersal_d:
             self.lineage_dispersal_weight_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_weight"), self.trait_types)
         else:
@@ -590,6 +609,9 @@ class Area(object):
         self.label = label
         self.is_supplemental = is_supplemental
         self.relative_diversity = relative_diversity
+        # this is here mainly for description purposes in
+        # `Area.as_definition()`; actual usage is through
+        # `Geography.dispersal_weights`
         self.dispersal_weights = dispersal_weights
 
     def as_definition(self):
@@ -706,6 +728,24 @@ class Geography(object):
     def new_distribution_vector(self):
         s = DistributionVector(num_areas=len(self.areas))
         return s
+
+    def set_global_dispersal_rate(self, global_dispersal_rate):
+        self.effective_dispersal_rates = []
+        for src_area_idx in self.area_indexes:
+            self.effective_dispersal_rates.append([])
+            for dest_area_idx in self.area_indexes:
+                self.effective_dispersal_rates[src_area_idx].append(self.dispersal_weights[src_area_idx][dest_area_idx] * global_dispersal_rate)
+
+    def set_mean_dispersal_rate(self, mean_dispersal_rate):
+        self.effective_dispersal_rates = []
+        for src_area_idx in self.area_indexes:
+            self.effective_dispersal_rates.append([])
+            for dest_area_idx in self.area_indexes:
+                weight = self.dispersal_weights[src_area_idx][dest_area_idx]
+                if weight:
+                    self.effective_dispersal_rates[src_area_idx].append(mean_dispersal_rate / weight)
+                else:
+                    self.effective_dispersal_rates[src_area_idx].append(0.0)
 
 class Lineage(dendropy.Node):
 
