@@ -350,21 +350,11 @@ class ArchipelagoSimulator(object):
                     if trait_transition_rate:
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                         event_rates.append(trait_transition_rate)
-                ## unnormalized
-                # trait_transition_rate = self.model.trait_types[trait_idx].transition_rate
-                # if trait_transition_rate:
-                #     # available = [i for i in range(self.model.trait_types[trait_idx].nstates) if i != current_state_idx]
-                #     available = list(range(self.model.trait_types[trait_idx].nstates))
-                #     proposed_state_idx = self.rng.choice(available)
-                #     event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
-                #     event_rates.append(trait_transition_rate)
-            # preprocess dispersal
-            lineages_dispersing_between_areas = collections.defaultdict( lambda: collections.defaultdict( set ) )
-            sum_lineage_dispersal_weights_for_areas = collections.defaultdict(lambda: 0.0)
-            for src_area_idx, occurs in enumerate(lineage.distribution_vector):
-                if not occurs:
-                    continue
-                for dest_area_idx in self.model.geography.area_indexes:
+            for dest_area_idx in self.model.geography.area_indexes:
+                sum_lineage_dispersal_weights_to_area = 0.0
+                for src_area_idx, occurs in enumerate(lineage.distribution_vector):
+                    if not occurs:
+                        continue
                     if dest_area_idx == src_area_idx:
                         continue
                     if lineage.distribution_vector[dest_area_idx]:
@@ -373,11 +363,35 @@ class ArchipelagoSimulator(object):
                     lineage_src_dest_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage) * self.model.geography.dispersal_weights[src_area_idx][dest_area_idx]
                     if not lineage_src_dest_dispersal_weight:
                         continue
+
+                    ## each source contributes $d$ probability to occupying destination (running 1a)
+                    event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                    event_rates.append(self.model.global_dispersal_rate)
+
+                    ## strict prob of range evolution, independent of number of sources (running 1b_
+                    # event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                    # event_rates.append(self.model.global_dispersal_rate)
+                    # break
+
+                    ## normalized over sources (part I) (running 1c)
+                    # sum_lineage_dispersal_weights_to_area += lineage_src_dest_dispersal_weight
+
+                # normalized over sources (part II) (running 1c)
+                # if sum_lineage_dispersal_weights_to_area:
+                #     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                #     event_rates.append(self.model.global_dispersal_rate)
+
+
+
+
                     # lineages_dispersing_between_areas[src_area_idx][dest_area_idx].add( (lineage, lineage_dispersal_weight) )
                     # sum_lineage_dispersal_weights_for_areas[src_area_idx][dest_area_idx] += lineage_dispersal_weight
                     # # dispersal_weight = self.model.geography.dispersal_weights[src_area_idx][dest_area_idx]
-                    lineages_dispersing_between_areas[src_area_idx][dest_area_idx].add( (lineage, lineage_src_dest_dispersal_weight) )
-                    sum_lineage_dispersal_weights_for_areas[lineage] += lineage_src_dest_dispersal_weight
+                    # try:
+                    #     lineages_dispersing_between_areas[  dest_area_idx ].add( (lineage, lineage_src_dest_dispersal_weight) )
+                    # except KeyError:
+                    #     lineages_dispersing_between_areas[  dest_area_idx ] = set([(lineage, lineage_src_dest_dispersal_weight)])
+                    # sum_lineage_dispersal_weights_to_area[lineage][dest_area_idx] += lineage_src_dest_dispersal_weight
 
                     # dispersal_weight = self.model.geography.dispersal_weights[src_area_idx][dest_area_idx]
                     # lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
@@ -385,15 +399,6 @@ class ArchipelagoSimulator(object):
                     # if dispersal_weight:
                     #     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
                     #     event_rates.append(dispersal_weight)
-        # dispersal
-        global_dispersal_rate = self.model.global_dispersal_rate # todo: accomodate mean_dispersal_rate
-        assert global_dispersal_rate is not None
-        if global_dispersal_rate:
-            for src_area_idx in lineages_dispersing_between_areas:
-                for dest_area_idx in lineages_dispersing_between_areas[src_area_idx]:
-                    for lineage, lineage_src_dest_dispersal_weight in lineages_dispersing_between_areas[src_area_idx][dest_area_idx]:
-                        event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
-                        event_rates.append(global_dispersal_rate * float(lineage_src_dest_dispersal_weight)/sum_lineage_dispersal_weights_for_areas[lineage])
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 
