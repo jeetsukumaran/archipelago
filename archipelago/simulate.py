@@ -374,7 +374,7 @@ class ArchipelagoSimulator(object):
                     if not lineage_dispersal_weight:
                         continue
                     lineages_dispersing_between_areas[src_area_idx][dest_area_idx].add( (lineage, lineage_dispersal_weight) )
-                    sum_lineage_dispersal_weights_for_areas[src_area_idx][dest_area_idx] += self.model.lineage_dispersal_weight_function(lineage_dispersal_weight)
+                    sum_lineage_dispersal_weights_for_areas[src_area_idx][dest_area_idx] += self.model.lineage_dispersal_weight_function(lineage)
                     # dispersal_weight = self.model.geography.dispersal_weights[src_area_idx][dest_area_idx]
                     # lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
                     # dispersal_weight = dispersal_weight * lineage_dispersal_weight

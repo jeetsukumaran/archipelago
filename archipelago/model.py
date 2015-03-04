@@ -318,6 +318,7 @@ class ArchipelagoModel(object):
             d["global_dispersal_rate"] = self.global_dispersal_rate
         else:
             d["mean_dispersal_rate"] = self.mean_dispersal_rate
+        d["lineage_dispersal_weight"] = self.lineage_dispersal_weight_function.as_definition()
         return d
 
     def termination_conditions_as_definition(self):
