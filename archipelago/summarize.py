@@ -116,8 +116,8 @@ class Rcalculator(object):
             cophenetic_dist_matrix_name = "{}_cophenetic_dist_matrix".format(dists_desc)
             rscript.append("{} <- {}".format(cophenetic_dist_matrix_name, cophenetic_dist_matrix_str))
             for comm_prefix, comm_data, comm_desc in (
-                ("I", area_taxa, "by_island"),
-                ("H", trait_taxa, "by_habitat"),
+                ("Area", area_taxa, "by_area"),
+                ("Trait", trait_taxa, "by_trait"),
                     ):
                 comm_names = []
                 pa_data = []
@@ -148,7 +148,7 @@ class Rcalculator(object):
                         dists=cophenetic_dist_matrix_name,
                         nruns=nruns))
                     rscript.append("result.df <- as.data.frame(result)")
-                    if comm_desc == "by_habitat":
+                    if comm_desc == "by_trait":
                         rscript.append("write(paste('{result_flag}', '{prefix}.{stat_type}.obs.Z.', rownames(result.df), ' = ', result.df${stat_type}.obs.z, '\\n', sep=''), {out})".format(
                             stat_type=stat_type,
                             result_flag=Rcalculator.RESULT_FLAG_LEADER,
@@ -202,12 +202,12 @@ class TreeSummarizer(object):
         pass
 
     def __init__(self,
-            drop_trees_not_occupying_all_habitats,
-            drop_trees_not_occupying_all_islands,
+            drop_trees_not_occupying_all_traits,
+            drop_trees_not_occupying_all_areas,
             drop_stunted_trees,
             ):
-        self.drop_trees_not_occupying_all_islands = drop_trees_not_occupying_all_islands
-        self.drop_trees_not_occupying_all_habitats = drop_trees_not_occupying_all_habitats
+        self.drop_trees_not_occupying_all_areas = drop_trees_not_occupying_all_areas
+        self.drop_trees_not_occupying_all_traits = drop_trees_not_occupying_all_traits
         self.rcalc = Rcalculator()
 
     def get_mean_patristic_distance(self, pdm, nodes):
@@ -247,7 +247,7 @@ class TreeSummarizer(object):
             for trait_idx, trait_state in enumerate(taxon.traits_vector):
                 trait_taxa[trait_idx][trait_state].append(taxon)
         num_areas = len(tree.taxon_namespace[0].distribution_vector)
-        if len(area_taxa) < num_areas and self.drop_trees_not_occupying_all_islands:
+        if len(area_taxa) < num_areas and self.drop_trees_not_occupying_all_areas:
             raise IncompleteAreaRadiationException()
 
         # print("---")
@@ -266,18 +266,6 @@ class TreeSummarizer(object):
             if nd.edge.length is None:
                 nd.edge.length = 0.0
             total_tree_length += nd.edge.length
-        # weighted_disturbed, unweighted_disturbed = self.get_mean_patristic_distance(pdm, disturbed_habitat_nodes)
-        # weighted_interior, unweighted_interior = self.get_mean_patristic_distance(pdm, interior_habitat_nodes)
-        # tree.stats["weighted.disturbed.habitat.pd"] = weighted_disturbed
-        # tree.stats["unweighted.disturbed.habitat.pd"] = unweighted_disturbed
-        # tree.stats["weighted.interior.habitat.pd"] = weighted_interior
-        # tree.stats["unweighted.interior.habitat.pd"] = unweighted_interior
-        # try:
-        #     tree.stats["weighted.disturbed.to.interior.habitat.pd"] = weighted_disturbed/weighted_interior
-        #     tree.stats["unweighted.disturbed.to.interior.habitat.pd"] = unweighted_disturbed/unweighted_interior
-        # except (ZeroDivisionError, TypeError):
-        #     tree.stats["weighted.disturbed.to.interior.habitat.pd"] = "NA"
-        #     tree.stats["unweighted.disturbed.to.interior.habitat.pd"] = "NA"
         rstats = self.rcalc.calc_ecological_stats(
                 tree=tree,
                 patristic_distance_matrix=pdm,

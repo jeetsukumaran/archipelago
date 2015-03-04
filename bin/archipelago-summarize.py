@@ -52,8 +52,8 @@ def main():
     args = parser.parse_args()
     args.group_processed_trees_by_model = False
     tree_summarizer = summarize.TreeSummarizer(
-        drop_trees_not_occupying_all_islands=True,
-        drop_trees_not_occupying_all_habitats=True,
+        drop_trees_not_occupying_all_areas=True,
+        drop_trees_not_occupying_all_traits=True,
         drop_stunted_trees=True,
     )
     summary_results = []
