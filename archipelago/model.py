@@ -310,7 +310,14 @@ class ArchipelagoModel(object):
 
     def dispersal_as_definition(self):
         d = collections.OrderedDict()
-        d["lineage_dispersal_weight"] = self.lineage_dispersal_weight_function.as_definition()
+        if self.global_dispersal_rate is not None and self.mean_dispersal_rate is not None:
+            raise TypeError("Both 'global_dispersal_rate' and 'mean_dispersal_rate' are populated")
+        elif self.global_dispersal_rate is None and self.mean_dispersal_rate is None:
+            raise TypeError("Neither 'global_dispersal_rate' and 'mean_dispersal_rate' are populated")
+        elif self.global_dispersal_rate is not None:
+            d["global_dispersal_rate"] = self.global_dispersal_rate
+        else:
+            d["mean_dispersal_rate"] = self.mean_dispersal_rate
         return d
 
     def termination_conditions_as_definition(self):
