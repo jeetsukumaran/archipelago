@@ -248,7 +248,7 @@ class TreeSummarizer(object):
                 trait_taxa[trait_idx][trait_state].append(taxon)
         num_areas = len(tree.taxon_namespace[0].distribution_vector)
         if len(area_taxa) < num_areas and self.drop_trees_not_occupying_all_areas:
-            raise IncompleteAreaRadiationException()
+            raise TreeSummarizer.IncompleteAreaRadiationException()
 
         # print("---")
         # for a in area_taxa:
