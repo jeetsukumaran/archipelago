@@ -262,8 +262,10 @@ class ArchipelagoProfiler(object):
         profile_results["lineage.birth.rate.description"] = generating_model.lineage_birth_rate_function.description
         profile_results["lineage.death.rate.definition"] = generating_model.lineage_death_rate_function.definition_content
         profile_results["lineage.death.rate.description"] = generating_model.lineage_death_rate_function.description
-        profile_results["lineage.dispersal.rate.definition"] = generating_model.lineage_dispersal_weight_function.definition_content
-        profile_results["lineage.dispersal.rate.description"] = generating_model.lineage_dispersal_weight_function.description
+        profile_results["lineage.dispersal.weight.definition"] = generating_model.lineage_dispersal_weight_function.definition_content
+        profile_results["lineage.dispersal.weight.description"] = generating_model.lineage_dispersal_weight_function.description
+        profile_results["global.dispersal.rate"] = generating_model.global_dispersal_rate
+        profile_results["mean.dispersal.rate"] = generating_model.mean_dispersal_rate
         for trait_idx, trait in enumerate(generating_model.trait_types):
             profile_results["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
         return profile_results

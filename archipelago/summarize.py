@@ -230,10 +230,13 @@ class TreeSummarizer(object):
         summary_fieldnames = set()
         summary_results = []
         for tree in list(trees):
-            self.summarize_tree(tree)
-            processed_trees.append(tree)
-            summary_fieldnames.update(tree.stats.keys())
-            summary_results.append(collections.OrderedDict(tree.stats))
+            try:
+                self.summarize_tree(tree)
+                processed_trees.append(tree)
+                summary_fieldnames.update(tree.stats.keys())
+                summary_results.append(collections.OrderedDict(tree.stats))
+            except TreeSummarizer.IncompleteAreaRadiationException:
+                pass
         return processed_trees, summary_fieldnames, summary_results
 
     def summarize_tree(self, tree):
