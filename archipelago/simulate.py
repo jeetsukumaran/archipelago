@@ -365,23 +365,18 @@ class ArchipelagoSimulator(object):
                         continue
 
                     ## each source contributes $d$ probability to occupying destination (running 1a)
-                    event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
-                    event_rates.append(self.model.global_dispersal_rate)
-
-                    ## strict prob of range evolution, independent of number of sources (running 1b_
                     # event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
                     # event_rates.append(self.model.global_dispersal_rate)
-                    # break
 
-                    ## normalized over sources (part I) (running 1c)
-                    # sum_lineage_dispersal_weights_to_area += lineage_src_dest_dispersal_weight
-
-                # normalized over sources (part II) (running 1c)
-                # if sum_lineage_dispersal_weights_to_area:
-                #     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
-                #     event_rates.append(self.model.global_dispersal_rate)
+                    ## strict prob of range evolution, independent of number of sources (running 1b)
+                    event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                    event_rates.append(self.model.global_dispersal_rate)
+                    break
 
 
+                    ## each source contributes $d * w$ probability to occupying destination (running 1c)
+                    # event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                    # event_rates.append(self.model.global_dispersal_rate * lineage_src_dest_dispersal_weight)
 
 
                     # lineages_dispersing_between_areas[src_area_idx][dest_area_idx].add( (lineage, lineage_dispersal_weight) )
