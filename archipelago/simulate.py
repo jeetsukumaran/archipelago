@@ -395,7 +395,7 @@ class ArchipelagoSimulator(object):
                     continue
                 for lineage, lineage_dispersal_rate in dispersing_lineages:
                     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
-                    event_rates.append( lineage_dispersal_rate / lineage_dispersal_rate_normalization_factor )
+                    event_rates.append(area_dispersal_weight * (lineage_dispersal_rate/lineage_dispersal_rate_normalization_factor))
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 
