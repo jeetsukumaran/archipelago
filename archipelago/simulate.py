@@ -330,10 +330,6 @@ class ArchipelagoSimulator(object):
         #         num_current_lineages))
 
         for lineage in self.phylogeny.iterate_current_lineages():
-
-            # if self.debug_mode:
-            #     self.run_logger.debug("Scheduling events for lineage {}".format(lineage))
-
             # speciation
             speciation_rate = self.model.lineage_birth_rate_function(lineage)
             if speciation_rate:
@@ -362,22 +358,44 @@ class ArchipelagoSimulator(object):
                 #     proposed_state_idx = self.rng.choice(available)
                 #     event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                 #     event_rates.append(trait_transition_rate)
-            # dispersal
-            for area_idx, occurs in enumerate(lineage.distribution_vector):
+            # preprocess dispersal
+            lineages_dispersing_between_areas = collections.defaultdict( lambda: collections.defaultdict( set ) )
+            sum_lineage_dispersal_rates_for_areas = collections.defaultdict( lambda: collections.defaultdict( lambda: 0.0 ) )
+            for src_area_idx, occurs in enumerate(lineage.distribution_vector):
                 if not occurs:
                     continue
-                for dest_idx in self.model.geography.area_indexes:
-                    if dest_idx == area_idx:
+                for dest_area_idx in self.model.geography.area_indexes:
+                    if dest_area_idx == src_area_idx:
                         continue
-                    if lineage.distribution_vector[dest_idx]:
+                    if lineage.distribution_vector[dest_area_idx]:
                         # already occurs here: do we model it or not?
                         continue
-                    dispersal_weight = self.model.geography.dispersal_weights[area_idx][dest_idx]
                     lineage_dispersal_rate = self.model.lineage_dispersal_rate_function(lineage)
-                    dispersal_rate = dispersal_weight * lineage_dispersal_rate
-                    if dispersal_rate:
-                        event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_idx) )
-                        event_rates.append(dispersal_rate)
+                    if not lineage_dispersal_rate:
+                        continue
+                    lineages_dispersing_between_areas[src_area_idx][dest_area_idx].add( (lineage, lineage_dispersal_rate) )
+                    sum_lineage_dispersal_rates_for_areas[src_area_idx][dest_area_idx] += self.model.lineage_dispersal_rate_function(lineage_dispersal_rate)
+                    # dispersal_weight = self.model.geography.dispersal_weights[src_area_idx][dest_area_idx]
+                    # lineage_dispersal_rate = self.model.lineage_dispersal_rate_function(lineage)
+                    # dispersal_rate = dispersal_weight * lineage_dispersal_rate
+                    # if dispersal_rate:
+                    #     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                    #     event_rates.append(dispersal_rate)
+        # dispersal
+        for src_area_idx in self.model.geography.area_indexes:
+            for dest_area_idx in self.model.geography.area_indexes:
+                area_dispersal_weight = self.model.geography.dispersal_weights[src_area_idx][dest_area_idx]
+                if not area_dispersal_weight:
+                    continue
+                lineage_dispersal_rate_normalization_factor = sum_lineage_dispersal_rates_for_areas[src_area_idx][dest_area_idx]
+                if not lineage_dispersal_rate_normalization_factor:
+                    continue
+                dispersing_lineages = lineages_dispersing_between_areas[src_area_idx][dest_area_idx]
+                if not dispersing_lineages:
+                    continue
+                for lineage, lineage_dispersal_rate in dispersing_lineages:
+                    event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                    event_rates.append( lineage_dispersal_rate / lineage_dispersal_rate_normalization_factor )
         sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 
