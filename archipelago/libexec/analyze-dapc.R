@@ -43,18 +43,30 @@ getGroupingFieldName <- function(summary.df) {
 #       A data.frame consisting of a single-column, the grouping variable
 #   `predictors`: data.frame
 #       A data.frame consisting of (just) the predictor variables.
-createGroupAndPredictors <- function(summary.df) {
+extractGroupAndPredictors <- function(summary.df) {
     if (is.null(summary.df)) {
         return(NULL)
     }
     summary.df <- na.omit(summary.df)
     group <- summary.df[[getGroupingFieldName(summary.df)]]
-    predictors <- summary.df[,!(names(summary.df) %in% NON.PREDICTOR.FIELD.NAMES)]
+    predictors <- extractPredictors(summary.df)
     rv <- list(
         group=group,
         predictors=predictors
         )
     rv
+}
+
+# Given a data.frame, returns a list with two named elements:
+#   `predictors`: data.frame
+#       A data.frame consisting of (just) the predictor variables.
+extractPredictors <- function(summary.df) {
+    if (is.null(summary.df)) {
+        return(NULL)
+    }
+    summary.df <- na.omit(summary.df)
+    predictors <- summary.df[,!(names(summary.df) %in% NON.PREDICTOR.FIELD.NAMES)]
+    return(predictors)
 }
 
 # Primary (back-end) workhorse function.
@@ -116,7 +128,7 @@ calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficien
 # Front end for analysis: (optionally) filters data, constructs groups and
 # predictors, carries out DAPC analysis, and returns results.
 analyzeDAPC <- function(summary.df, n.pca, n.da, verbose.on.insufficient.groups=NULL) {
-    x <- createGroupAndPredictors(summary.df=summary.df)
+    x <- extractGroupAndPredictors(summary.df=summary.df)
     if (is.null(x)) {
         return(NULL)
     }
@@ -213,7 +225,7 @@ optimizeNumPCAxesForDataFrame <- function(
         n.pca.values=NULL,
         verbose=F
         ) {
-    groups.and.predictors <- createGroupAndPredictors(summary.df=summary.df)
+    groups.and.predictors <- extractGroupAndPredictors(summary.df=summary.df)
     if (is.null(groups.and.predictors)) {
         return(NULL)
     }
@@ -266,7 +278,7 @@ classifyData <- function(target.summary.stats,
                          n.da=NULL,
                          n.pca.optimization.penalty.weight=1.0
                          ) {
-    training.data <- createGroupAndPredictors(training.summary.stats)
+    training.data <- extractGroupAndPredictors(training.summary.stats)
     predictors <- training.data$predictors
     group <- training.data$group
 
@@ -301,8 +313,8 @@ classifyData <- function(target.summary.stats,
             group,
             n.pca=n.pca,
             n.da=n.da)
-    target.data <- createGroupAndPredictors(target.summary.stats)
-    pred.sup <- predict.dapc(trained.model$dapc.result, newdata=target.data$predictors)
+    target.predictors <- extractPredictors(target.summary.stats)
+    pred.sup <- predict.dapc(trained.model$dapc.result, newdata=target.predictors)
     results <- data.frame(pred.sup)
     results$n.pca <- n.pca
     results$n.da <- n.da
@@ -376,7 +388,7 @@ reportDataRegimes <- function(summary.df) {
 
 # Reports number of predictors in a data.frame
 numPredictors <-function(summary.df) {
-    x <- createGroupAndPredictors(summary.df=summary.df)
+    x <- extractGroupAndPredictors(summary.df=summary.df)
     if (is.null(x)) {
         return(NULL)
     } else {
