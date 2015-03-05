@@ -3,9 +3,23 @@
 import sys
 import os
 import argparse
+import collections
+import re
 from archipelago import model
 from archipelago import profile
 from archipelago import utility
+
+def parse_fieldname_and_value(labels):
+    if not labels:
+        return collections.OrderedDict()
+    fieldname_value_map = collections.OrderedDict()
+    for label in labels:
+        match = re.match(r"\s*(.*)\s*:\s*(.*)\s*", label)
+        if not match:
+            raise ValueError("Cannot parse fieldname and label (format required: fieldname:value): {}".format(label))
+        fieldname, value = match.groups(0)
+        fieldname_value_map[fieldname] = value
+    return fieldname_value_map
 
 def main():
     parser = argparse.ArgumentParser(
@@ -35,6 +49,9 @@ def main():
             default=None,
             help="Path to profile_results file (default: standard output)."
             )
+    output_options.add_argument("-l", "--labels",
+            action="append",
+            help="Labels to append to output (in format <FIELD-NAME>:value;)")
     output_options.add_argument( "--no-header-row",
             action="store_true",
             default=False,
@@ -45,6 +62,7 @@ def main():
             help="Append to output file if it already exists instead of overwriting.")
 
     args = parser.parse_args()
+    extra_fields = parse_fieldname_and_value(args.labels)
     source_filepaths = list(args.source_paths)
 
     if args.model_file:
@@ -65,6 +83,9 @@ def main():
                 schema=args.schema,
                 generating_model=archipelago_model,
                 )
+        if extra_fields:
+            for r in results:
+                r.update(extra_fields)
         profiles.extend(results)
     out = utility.open_output_file_for_csv_writer(
             filepath=args.output_filepath,
