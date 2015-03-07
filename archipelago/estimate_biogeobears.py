@@ -92,7 +92,7 @@ class BiogeobearsEstimator(object):
             ):
 
         param_settings = []
-        for param_name in ("b", "e", "d"):
+        for param_name in ("b", "e", "d", "j", "ysv", "y", "s", "v"):
             if "fixed_" + param_name in kwargs:
                 param_settings.append(PARAM_SETTING_TEMPLATE.format(
                         param_name=param_name, param_aspect="type", value='"fixed"'))

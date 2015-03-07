@@ -200,10 +200,29 @@ class ArchipelagoModel(object):
 
         # Dispersal submodel
         dispersal_d = dict(model_definition.pop("dispersal", {}))
-        if "lineage_dispersal_rate" in dispersal_d:
-            self.lineage_dispersal_rate_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_rate"), self.trait_types)
+        if "global_dispersal_rate" not in dispersal_d and "mean_dispersal_rate" not in dispersal_d:
+            raise TypeError("Exactly one of 'global_dispersal_rate' or 'mean_dispersal_rate' must be specified")
+        elif "global_dispersal_rate" in dispersal_d and "mean_dispersal_rate" in dispersal_d:
+            raise TypeError("No more than one of 'global_dispersal_rate' or 'mean_dispersal_rate' can be specified")
+        elif "global_dispersal_rate" in dispersal_d:
+            self.global_dispersal_rate = float(dispersal_d.pop("global_dispersal_rate"))
+            self.mean_dispersal_rate = None
+            if run_logger is not None:
+                run_logger.info("(DISPERSAL) Global dispersal rate is: {}".format(self.global_dispersal_rate))
+            self.geography.set_global_dispersal_rate(self.global_dispersal_rate)
         else:
-            self.lineage_dispersal_rate_function = RateFunction(
+            self.mean_dispersal_rate = float(dispersal_d.pop("mean_dispersal_rate"))
+            self.global_dispersal_rate = None
+            run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
+            self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
+        if run_logger is not None:
+            for a1, area1 in enumerate(self.geography.areas):
+                run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
+
+        if "lineage_dispersal_weight" in dispersal_d:
+            self.lineage_dispersal_weight_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_weight"), self.trait_types)
+        else:
+            self.lineage_dispersal_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda lineage: 0.01",
                     description="fixed: 0.01",
@@ -211,7 +230,7 @@ class ArchipelagoModel(object):
                     )
         if run_logger is not None:
             run_logger.info("(DISPERSAL) Setting lineage dispersal rate function: {desc}".format(
-                desc=self.lineage_dispersal_rate_function.description,))
+                desc=self.lineage_dispersal_weight_function.description,))
         if dispersal_d:
             raise TypeError("Unsupported dispersal model keywords: {}".format(dispersal_d))
 
@@ -291,7 +310,15 @@ class ArchipelagoModel(object):
 
     def dispersal_as_definition(self):
         d = collections.OrderedDict()
-        d["lineage_dispersal_rate"] = self.lineage_dispersal_rate_function.as_definition()
+        if self.global_dispersal_rate is not None and self.mean_dispersal_rate is not None:
+            raise TypeError("Both 'global_dispersal_rate' and 'mean_dispersal_rate' are populated")
+        elif self.global_dispersal_rate is None and self.mean_dispersal_rate is None:
+            raise TypeError("Neither 'global_dispersal_rate' and 'mean_dispersal_rate' are populated")
+        elif self.global_dispersal_rate is not None:
+            d["global_dispersal_rate"] = self.global_dispersal_rate
+        else:
+            d["mean_dispersal_rate"] = self.mean_dispersal_rate
+        d["lineage_dispersal_weight"] = self.lineage_dispersal_weight_function.as_definition()
         return d
 
     def termination_conditions_as_definition(self):
@@ -590,6 +617,9 @@ class Area(object):
         self.label = label
         self.is_supplemental = is_supplemental
         self.relative_diversity = relative_diversity
+        # this is here mainly for description purposes in
+        # `Area.as_definition()`; actual usage is through
+        # `Geography.dispersal_weights`
         self.dispersal_weights = dispersal_weights
 
     def as_definition(self):
@@ -707,6 +737,24 @@ class Geography(object):
         s = DistributionVector(num_areas=len(self.areas))
         return s
 
+    def set_global_dispersal_rate(self, global_dispersal_rate):
+        self.effective_dispersal_rates = []
+        for src_area_idx in self.area_indexes:
+            self.effective_dispersal_rates.append([])
+            for dest_area_idx in self.area_indexes:
+                self.effective_dispersal_rates[src_area_idx].append(self.dispersal_weights[src_area_idx][dest_area_idx] * global_dispersal_rate)
+
+    def set_mean_dispersal_rate(self, mean_dispersal_rate):
+        self.effective_dispersal_rates = []
+        for src_area_idx in self.area_indexes:
+            self.effective_dispersal_rates.append([])
+            for dest_area_idx in self.area_indexes:
+                weight = self.dispersal_weights[src_area_idx][dest_area_idx]
+                if weight:
+                    self.effective_dispersal_rates[src_area_idx].append(mean_dispersal_rate / weight)
+                else:
+                    self.effective_dispersal_rates[src_area_idx].append(0.0)
+
 class Lineage(dendropy.Node):
 
     def __init__(self,
@@ -777,10 +825,12 @@ class Phylogeny(dendropy.Tree):
         num_areas = len(self.model.geography.area_indexes)
         if num_presences <= 1:
             speciation_mode = 0
-        elif num_presences == num_areas:
-            speciation_mode = self.rng.randint(0, 2)
         else:
-            speciation_mode = self.rng.randint(0, 3)
+            speciation_mode = self.rng.randint(0, 2)
+        # elif num_presences == num_areas:
+        #     speciation_mode = self.rng.randint(0, 2)
+        # else:
+        #     speciation_mode = self.rng.randint(0, 3)
         if speciation_mode == 0:
             dist1 = lineage.distribution_vector.clone()
             dist2 = lineage.distribution_vector.clone()
