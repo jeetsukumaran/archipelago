@@ -368,7 +368,7 @@ class ArchipelagoSimulator(object):
                 if sum_of_dispersal_weights_to_dest:
                     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
                     event_rates.append(sum_of_dispersal_weights_to_dest)
-            sum_of_event_rates = sum(event_rates)
+        sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 
     def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
