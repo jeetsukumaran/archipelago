@@ -825,10 +825,12 @@ class Phylogeny(dendropy.Tree):
         num_areas = len(self.model.geography.area_indexes)
         if num_presences <= 1:
             speciation_mode = 0
-        elif num_presences == num_areas:
-            speciation_mode = self.rng.randint(0, 2)
         else:
-            speciation_mode = self.rng.randint(0, 3)
+            speciation_mode = self.rng.randint(0, 2)
+        # elif num_presences == num_areas:
+        #     speciation_mode = self.rng.randint(0, 2)
+        # else:
+        #     speciation_mode = self.rng.randint(0, 3)
         if speciation_mode == 0:
             dist1 = lineage.distribution_vector.clone()
             dist2 = lineage.distribution_vector.clone()
