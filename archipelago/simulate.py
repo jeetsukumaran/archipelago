@@ -351,22 +351,24 @@ class ArchipelagoSimulator(object):
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            for src_area_idx, occurs in enumerate(lineage.distribution_vector):
-                if not occurs:
-                    continue
-                for dest_area_idx in self.model.geography.area_indexes:
+            lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
+            if not lineage_dispersal_weight:
+                continue
+            for dest_area_idx in self.model.geography.area_indexes:
+                sum_of_dispersal_weights_to_dest = 0.0
+                for src_area_idx, occurs in enumerate(lineage.distribution_vector):
+                    if not occurs:
+                        continue
                     if dest_area_idx == src_area_idx:
                         continue
                     if lineage.distribution_vector[dest_area_idx]:
                         # already occurs here: do we model it or not?
                         continue
-                    lineage_src_dest_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage) * self.model.geography.effective_dispersal_rates[src_area_idx][dest_area_idx]
-                    if not lineage_src_dest_dispersal_weight:
-                        continue
+                    sum_of_dispersal_weights_to_dest +=  lineage_dispersal_weight * self.model.geography.effective_dispersal_rates[src_area_idx][dest_area_idx]
+                if sum_of_dispersal_weights_to_dest:
                     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
-                    # event_rates.append(self.model.global_dispersal_rate * lineage_src_dest_dispersal_weight)
-                    event_rates.append(lineage_src_dest_dispersal_weight)
-        sum_of_event_rates = sum(event_rates)
+                    event_rates.append(sum_of_dispersal_weights_to_dest)
+            sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates, sum_of_event_rates
 
     def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
