@@ -358,9 +358,9 @@ class ArchipelagoSimulator(object):
             if not lineage_dispersal_weight:
                 continue
             for dest_area_idx in self.model.geography.area_indexes:
-                if lineage.distribution_vector[dest_area_idx]:
-                    # already occurs here: do we model it or not?
-                    continue
+                # if lineage.distribution_vector[dest_area_idx]:
+                #     # already occurs here: do we model it or not?
+                #     continue
                 sum_of_dispersal_weights_to_dest = 0.0
                 for src_area_idx, occurs in enumerate(lineage.distribution_vector):
                     if not occurs:
