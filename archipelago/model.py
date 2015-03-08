@@ -216,7 +216,7 @@ class ArchipelagoModel(object):
             run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
             self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
         # right now, we either allow it or do not; future implementation will allow differential weights
-        self.allow_cladogenetic_jump_dispersal = bool(dispersal_d.get("cladogenetic_jump_dispersal_weight", False))
+        self.allow_founder_event_speciation = bool(dispersal_d.get("founder_event_speciation_weight", False))
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
                 run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
@@ -801,7 +801,7 @@ class Phylogeny(dendropy.Tree):
         if memo is None:
             memo = {}
         memo[id(self.model)] = self.model
-        memo[id(self.rng)] = self.rng
+        memo[id(self.rng)] = None #self.rng
         memo[id(self.run_logger)] = self.run_logger
         memo[id(self.taxon_namespace)] = self.taxon_namespace
         return dendropy.Tree.__deepcopy__(self, memo)
@@ -811,60 +811,7 @@ class Phylogeny(dendropy.Tree):
             yield lineage
 
     def split_lineage(self, lineage):
-
-        # speciation modes
-        # 0:  single-area sympatric speciation
-        #     -   ancestral range copied to both daughter species
-        # 1:  sympatric subset: multi-area sympatric speciation
-        #     -   d1: inherits complete range
-        #     -   d2: inherits single area in ancestral range
-        # 2:  vicariance
-        #     -   ancestral range divided up between two daughter species
-        # 3:  jump dispersal
-        #     -   single
-        presences = lineage.distribution_vector.presences()
-        num_presences = len(presences)
-        num_areas = len(self.model.geography.area_indexes)
-        if num_presences <= 1:
-            speciation_mode = 0
-        elif self.model.allow_cladogenetic_jump_dispersal:
-            speciation_mode = self.rng.randint(0, 3)
-        else:
-            speciation_mode = self.rng.randint(0, 2)
-        if speciation_mode == 0:
-            dist1 = lineage.distribution_vector.clone()
-            dist2 = lineage.distribution_vector.clone()
-        elif speciation_mode == 1:
-            dist1 = lineage.distribution_vector.clone()
-            dist2 = self.model.geography.new_distribution_vector()
-            # TODO: area diversity base speciation
-            dist2[ self.rng.choice(presences) ] = 1
-        elif speciation_mode == 2:
-            dist1 = self.model.geography.new_distribution_vector()
-            dist2 = self.model.geography.new_distribution_vector()
-            if num_presences == 2:
-                dist1[presences[0]] = 1
-                dist2[presences[1]] = 1
-            else:
-                n1 = self.rng.randint(1, num_presences-1)
-                n2 = num_presences - n1
-                if n2 == n1:
-                    n1 += 1
-                    n2 -= 1
-                sample1 = set(self.rng.sample(presences, n1))
-                for idx in self.model.geography.area_indexes:
-                    if idx in sample1:
-                        dist1[idx] = 1
-                    else:
-                        dist2[idx] = 1
-        elif speciation_mode == 3:
-            dist1 = lineage.distribution_vector.clone()
-            dist2 = self.model.geography.new_distribution_vector()
-            absences = [idx for idx in self.model.geography.area_indexes if idx not in presences]
-            dist2[ self.rng.choice(absences) ] = 1
-        else:
-            raise ValueError(speciation_mode)
-
+        dist1, dist2 = self._get_daughter_distributions(lineage)
         c1 = self.node_factory(
                 index=next(self.lineage_indexer),
                 distribution_vector=dist1,
@@ -905,6 +852,61 @@ class Phylogeny(dendropy.Tree):
                 self._make_lineage_extinct_on_phylogeny(lineage)
             else:
                 lineage.distribution_vector[ self.rng.choice(presences) ] = 0
+
+    def _get_daughter_distributions(self, lineage):
+        # speciation modes
+        # 0:  single-area sympatric speciation
+        #     -   ancestral range copied to both daughter species
+        # 1:  sympatric subset: multi-area sympatric speciation
+        #     -   d1: inherits complete range
+        #     -   d2: inherits single area in ancestral range
+        # 2:  vicariance
+        #     -   ancestral range divided up between two daughter species
+        # 3:  jump dispersal
+        #     -   single
+        presences = lineage.distribution_vector.presences()
+        num_presences = len(presences)
+        num_areas = len(self.model.geography.area_indexes)
+        if num_presences <= 1:
+            speciation_mode = 0
+        elif self.model.allow_founder_event_speciation:
+            speciation_mode = self.rng.randint(1, 3)
+        else:
+            speciation_mode = self.rng.randint(1, 2)
+        if speciation_mode == 0:
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = lineage.distribution_vector.clone()
+        elif speciation_mode == 1:
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = self.model.geography.new_distribution_vector()
+            # TODO: area diversity base speciation
+            dist2[ self.rng.choice(presences) ] = 1
+        elif speciation_mode == 2:
+            dist1 = self.model.geography.new_distribution_vector()
+            dist2 = self.model.geography.new_distribution_vector()
+            if num_presences == 2:
+                dist1[presences[0]] = 1
+                dist2[presences[1]] = 1
+            else:
+                n1 = self.rng.randint(1, num_presences-1)
+                n2 = num_presences - n1
+                if n2 == n1:
+                    n1 += 1
+                    n2 -= 1
+                sample1 = set(self.rng.sample(presences, n1))
+                for idx in self.model.geography.area_indexes:
+                    if idx in sample1:
+                        dist1[idx] = 1
+                    else:
+                        dist2[idx] = 1
+        elif speciation_mode == 3:
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = self.model.geography.new_distribution_vector()
+            absences = [idx for idx in self.model.geography.area_indexes if idx not in presences]
+            dist2[ self.rng.choice(absences) ] = 1
+        else:
+            raise ValueError(speciation_mode)
+        return dist1, dist2
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
         if len(self.current_lineages) == 1:
