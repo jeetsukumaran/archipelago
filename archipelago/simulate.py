@@ -21,7 +21,7 @@ from archipelago import model
 from archipelago import utility
 from archipelago import error
 
-def weighted_choice(seq, weights, rng=None):
+def weighted_choice(seq, weights, rng):
     """
     Selects an element out of seq, with probabilities of each element
     given by the list `weights` (which must be at least as long as the
@@ -37,7 +37,7 @@ def weighted_choice(seq, weights, rng=None):
         weights.append(1 - sum(weights))
     return seq[weighted_index_choice(weights, rng)]
 
-def weighted_index_choice(weights, rng=None):
+def weighted_index_choice(weights, sum_of_weights, rng):
     """
     (From: http://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/)
     The following is a simple function to implement weighted random choice in
@@ -52,7 +52,7 @@ def weighted_index_choice(weights, rng=None):
     returns a uniformly distributed value and larger chunks of the total
     weight will be skipped in the beginning.
     """
-    rnd = rng.uniform(0, 1) * sum(weights)
+    rnd = rng.uniform(0, 1) * sum_of_weights
     for i, w in enumerate(weights):
         rnd -= w
         if rnd < 0:
@@ -268,8 +268,8 @@ class ArchipelagoSimulator(object):
                         self.run_logger.info("{} lineages occurring in focal areas, {} lineages across all areas".format(ntips_in_focal_areas, ntips))
 
             ### EVENT SCHEDULING
-            event_calls, event_rates, sum_of_event_rates = self.schedule_events()
-
+            event_calls, event_rates = self.schedule_events()
+            sum_of_event_rates = sum(event_rates)
             if self.debug_mode:
                 if sum_of_event_rates == 0:
                     self.run_logger.debug("Sum of event rates is 0: {}".format(event_rates))
@@ -288,7 +288,10 @@ class ArchipelagoSimulator(object):
                 lineage.edge.length += time_till_event
 
             ### EVENT SELECTION AND EXECUTION
-            event_idx = weighted_index_choice(event_rates, self.rng)
+            event_idx = weighted_index_choice(
+                    weights=event_rates,
+                    sum_of_weights=sum_of_event_rates,
+                    rng=self.rng)
             if self.debug_mode:
                 self.run_logger.debug("Event {}: {}".format(num_events, event_calls[event_idx]))
             event_calls[event_idx][0](*event_calls[event_idx][1:])
@@ -364,12 +367,12 @@ class ArchipelagoSimulator(object):
                         continue
                     if dest_area_idx == src_area_idx:
                         continue
-                    sum_of_dispersal_weights_to_dest +=  lineage_dispersal_weight * self.model.geography.effective_dispersal_rates[src_area_idx][dest_area_idx]
+                    sum_of_dispersal_weights_to_dest += lineage_dispersal_weight * self.model.geography.effective_dispersal_rates[src_area_idx][dest_area_idx]
                 if sum_of_dispersal_weights_to_dest:
                     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
                     event_rates.append(sum_of_dispersal_weights_to_dest)
-        sum_of_event_rates = sum(event_rates)
-        return event_calls, event_rates, sum_of_event_rates
+        # sum_of_event_rates = sum(event_rates)
+        return event_calls, event_rates
 
     def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
         if focal_areas_tree_out is not None:
