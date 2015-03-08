@@ -636,7 +636,7 @@ class Area(object):
 class Geography(object):
 
     def __init__(self):
-        self.normalize_dispersal_weights = True
+        self.normalize_dispersal_weights = False
 
     def __iter__(self):
         return iter(self.areas)
@@ -716,7 +716,6 @@ class Geography(object):
         if self.normalize_dispersal_weights:
             for a1_idx, area1 in enumerate(self.areas):
                 normalization_factor = sum(self.dispersal_weights[a1_idx])
-                normalization_factor = 4
                 if normalization_factor:
                     for a2_idx, area2 in enumerate(self.areas):
                         self.dispersal_weights[a1_idx][a2_idx] /= normalization_factor
