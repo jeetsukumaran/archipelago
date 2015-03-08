@@ -860,6 +860,50 @@ class Phylogeny(dendropy.Tree):
         # 1:  sympatric subset: multi-area sympatric speciation
         #     -   d1: inherits complete range
         #     -   d2: inherits single area in ancestral range
+        # 2:  (single-area) allopatric vicariance
+        #     -   d1: single area
+        #     -   d2: all other areas
+        presences = lineage.distribution_vector.presences()
+        num_presences = len(presences)
+        num_areas = len(self.model.geography.area_indexes)
+        if num_presences <= 1:
+            speciation_mode = 0
+        else:
+            speciation_mode = self.rng.randint(1, 2)
+        if speciation_mode == 0:
+            # single-area sympatric speciation
+            #     -   ancestral range copied to both daughter species
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = lineage.distribution_vector.clone()
+        elif speciation_mode == 1:
+            # sympatric subset: multi-area sympatric speciation
+            #     -   d1: inherits complete range
+            #     -   d2: inherits single area in ancestral range
+            dist1 = lineage.distribution_vector.clone()
+            dist2 = self.model.geography.new_distribution_vector()
+            # TODO: area diversity base speciation
+            dist2[ self.rng.choice(presences) ] = 1
+        elif speciation_mode == 2:
+            # (single-area) allopatric vicariance
+            #     -   d1: single area
+            #     -   d2: all other areas
+            dist1 = self.model.geography.new_distribution_vector()
+            dist2 = self.model.geography.new_distribution_vector()
+            self.rng.shuffle(presences)
+            dist1[presences[0]] = 1
+            for idx in presences[1:]:
+                dist2[idx] = 1
+        else:
+            raise ValueError(speciation_mode)
+        return dist1, dist2
+
+    def _get_daughter_distributions_biogeobears(self, lineage):
+        # speciation modes
+        # 0:  single-area sympatric speciation
+        #     -   ancestral range copied to both daughter species
+        # 1:  sympatric subset: multi-area sympatric speciation
+        #     -   d1: inherits complete range
+        #     -   d2: inherits single area in ancestral range
         # 2:  vicariance
         #     -   ancestral range divided up between two daughter species
         # 3:  jump dispersal
