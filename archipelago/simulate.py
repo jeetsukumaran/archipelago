@@ -500,6 +500,8 @@ def repeat_run(
             random_seed = config_d.pop("random_seed", None)
             if random_seed is None:
                 random_seed = random.randint(0, sys.maxsize)
+        else:
+            random_seed = int(random_seed)
         run_logger.info("-archipelago- Initializing with random seed: {}".format(random_seed))
         config_d["rng"] = random.Random(random_seed)
     else:
