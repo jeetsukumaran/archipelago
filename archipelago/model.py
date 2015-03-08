@@ -215,6 +215,8 @@ class ArchipelagoModel(object):
             self.global_dispersal_rate = None
             run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
             self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
+        # right now, we either allow it or do not; future implementation will allow differential weights
+        self.allow_cladogenetic_jump_dispersal = bool(dispersal_d.get("cladogenetic_jump_dispersal_weight", False))
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
                 run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
@@ -825,12 +827,10 @@ class Phylogeny(dendropy.Tree):
         num_areas = len(self.model.geography.area_indexes)
         if num_presences <= 1:
             speciation_mode = 0
+        elif self.model.allow_cladogenetic_jump_dispersal:
+            speciation_mode = self.rng.randint(0, 3)
         else:
             speciation_mode = self.rng.randint(0, 2)
-        # elif num_presences == num_areas:
-        #     speciation_mode = self.rng.randint(0, 2)
-        # else:
-        #     speciation_mode = self.rng.randint(0, 3)
         if speciation_mode == 0:
             dist1 = lineage.distribution_vector.clone()
             dist2 = lineage.distribution_vector.clone()
