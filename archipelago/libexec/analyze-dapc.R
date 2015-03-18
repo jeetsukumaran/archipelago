@@ -71,6 +71,12 @@ extractPredictors <- function(summary.df) {
 
 # Primary (back-end) workhorse function.
 # Carries out the DAPC analysis, and packages the results.
+# Note that: misassigned.prop["unconstrained"] is the proportion of times that
+# an unconstrained model was wrongly classified (not the number of times a
+# "constrained" model was wrongly classified as "unconstrained"); similarly for
+# misassigned["constrained"].
+# In the same way, correct.assigns.prop["unconstrained"] is the proportion of
+# times the "unconstrained" model was correctly classified.
 calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=F) {
     num.groups <- length(unique(group))
     if (num.groups < 2) {
