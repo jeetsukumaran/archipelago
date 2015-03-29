@@ -790,6 +790,9 @@ class Phylogeny(dendropy.Tree):
                         distribution_vector=self.model.geography.new_distribution_vector(),
                         traits_vector=self.model.trait_types.new_traits_vector(),
                         )
+                for trait_idx in range(len(self.model.trait_types)):
+                    trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
+                    seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
                 seed_node.distribution_vector[0] = 1
                 kwargs["seed_node"] = seed_node
             dendropy.Tree.__init__(self, *args, **kwargs)
