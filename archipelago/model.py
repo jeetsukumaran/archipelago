@@ -455,11 +455,11 @@ class StatesVector(object):
     def __len__(self):
         return self._nchar
 
-    def __getitem__(self, trait_index):
-        return self._states[trait_index]
+    def __getitem__(self, idx):
+        return self._states[idx]
 
-    def __setitem__(self, trait_index, v):
-        self._states[trait_index] = v
+    def __setitem__(self, idx, v):
+        self._states[idx] = v
 
     def __repr__(self):
         return str(self._states)
@@ -793,7 +793,8 @@ class Phylogeny(dendropy.Tree):
                 for trait_idx in range(len(self.model.trait_types)):
                     trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
                     seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
-                seed_node.distribution_vector[0] = 1
+                initial_area = self.rng.randint(0, len(seed_node.distribution_vector)-1)
+                seed_node.distribution_vector[initial_area] = 1
                 kwargs["seed_node"] = seed_node
             dendropy.Tree.__init__(self, *args, **kwargs)
             self.current_lineages = set([self.seed_node])
