@@ -112,6 +112,10 @@ Full help on running the program is available by typing:
 
     $ archipelago-profile-trees.py --help
 
+This program takes as its input one or more trees, in either Newick, Nexus or
+NeXML format, with trait and geographical data encoded in the labels as
+described above.
+Options are available to specify the parameters that will be estimated.
 The output of the program will be a CSV (comma-separated value) file, with a
 single row for each tree passed in as output, and the columns the data fields.
 
@@ -199,3 +203,36 @@ And if the state of a lineage's "q1" trait was "2", the lineage-specific dispers
 
 Finally, the example specifies a termination condition of 50 (extant or tip) lineages occurring in the focal areas.
 
+The simulation produces as output a single ultrametric phylogeny for each replicate, with
+the trait and geographical data encoded in the labels.
+
+## Calculation of Summary Statistics
+
+The program "``archipelago-summarize.py``" calculates the suite of summary
+statistics used in the reported studies. It takes as its input one or more
+trees with the trait and geographical information encoded in the tip labels as
+described above.
+The output of the program is a table of summary statistics in CSV format, with
+one row per tree in input data, and in the same order.
+If the input data is the (encoded) target phylogeny, then the output will be the *target dataset*.
+If the input data are the results of the simulations, then the output will be the *training dataset*.
+The training data set needs to have a column with the field name
+"model.category" identifying the generating model for each row of data.
+This can be added by using the "``-l``" or "``--labels``" option of "``archipelago-summarize.py``".
+For example, if calculating summary statistics for data generated under a
+"constrained" model, "simulation1.focal-areas.trees":
+
+    $ archipelago-summarize.py -l model.category:constrained simulation1.focal-areas.trees
+
+## Classification of Target Data
+
+The program "``archipelago-classify.py``" takes a target dataset and one or
+more training data sets as input. The target dataset and training dataset(s)
+need to have the same set of summary statistics. The target dataset(s) need to
+have a column identifying the generating model for each element of data,
+"model.category". The number of principal component axes to retain for the DAPC
+function also needs to be specified. The recommended option is to specify
+"``--optimize-npca 0``".
+
+The output of the program will be a CSV table showing the posterior
+probabilities and model assignments of each of the items in the target dataset.
