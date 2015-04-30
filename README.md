@@ -1,0 +1,201 @@
+# Archipelago
+
+## Introduction
+
+This is a suite of programs to generate and analyze data under the Archipelago model.
+It consists of four programs:
+
+-   ``archipelago-profile-trees.py``
+    Calculates summary statistics for trees. Typically, this is used to derive
+    the calibration process parameter values for the simulator.
+
+-   ``archipelago-simulate.py``
+    Simulates data under the "Archipelago" model. Typically, this is used to
+    generate training data sets.
+
+-   ``archipelago-summarize.py``
+    Calculates summary statistics for a phylogeny. This will be used to derive
+    the target data from an empirical phylogeny.
+
+-   ``archipelago-classify.py``
+    Given a set of training data (summary statistics) and target data, classifies the target data using a Discriminant Analysis of Principal Components (DAPC).
+
+## Installation
+
+### Pre-requisites
+
+-   Python 2.7 or higher
+-   [DendroPy Phylogenetic Computing Library](http://dendropy.org/)
+-   [R](http://www.r-project.org/)
+-   The following *R* packages:
+    -   adegenet
+    -   picante
+    -   BioGeoBears
+    -   GEIGER
+
+### Installing from Source
+
+Run the following in the top-level directory of the project:
+
+    $ python setup.py install
+
+## Usage
+
+### Preparation of Data
+
+The primary input is an ultrametic (and rooted) phylogeny in which each of the
+tip lineages are associated with presence/absence data over a set of
+geographical areas, as well as one or more character traits. This information
+currently has to be encoded into the labels of the tips. Future versions of
+archipelago will provide programs that encode this information using data
+supplied by the user. Currently, however, users will have to manually encode
+this information themselves.
+
+The tip label for each lineage consists of three components separated by periods.
+For e.g.:
+
+    s68.120.0011
+
+The first component ("s68" in the above example) is an arbitrary species index
+that uniquely identifies each lineage.
+
+The second component ("110" in the above example) are the trait states for the
+species. Each value of each trait type for the lineage is represented by a
+numerical index, which can be between 0-9. In this example, there are three
+trait types, with the value of the first trait type "1", the second "2", and
+the third "0". All lineages in the system must have the same number of trait
+types (three, in this example), and the trait state values are assumed to be
+given in sequential order.
+
+The third component ("0011" in the above example) are the geographical
+presence/absence for the lineage, where "0" indicates the absence of a lineage
+from the area, and "1" indicates the presence. In this example, the lineage is
+absent from the first and second areas, but present in the third and fourth.
+All lineages must have their presences or absences specified in all areas.
+
+Consider a system given by the following phylogeny:
+
+    [&R] ((A:1,B:1):3,(C:3,(D:2,E:2):1):1);
+
+where the traits are represented by the following character matrix:
+
+    A   001
+    B   011
+    C   201
+    D   100
+    E   211
+
+and the distribution over six areas is represented by the following incidence matrix:
+
+    A   110001
+    B   010011
+    C   101101
+    D   001100
+    E   011111
+
+We would then encode this information in the phylogeny as follows:
+
+    [&R] ((A.001.110001:1,B.011.010011:1):3,(C.201.101101:3,(D.100.001100:2,E.211.011111:2):1):1);
+
+### Calculation of Calibration Parameters
+
+At the very least, we need to provide the simulation program,
+"``archipelago-simulate.py``" the following parameters:
+
+    (1) the birth rate
+    (2) the extinction rate
+    (3) the trait transition rate (for each of the trait types)
+    (4) the global dispersal rate
+
+This is done conveniently for us by the program: "``archipelago-profile-trees.py``".
+Full help on running the program is available by typing:
+
+    $ archipelago-profile-trees.py --help
+
+The output of the program will be a CSV (comma-separated value) file, with a
+single row for each tree passed in as output, and the columns the data fields.
+
+### Simulation of Training Data
+
+The simulation program is "``archipelago-simulate.py``".
+Full help is available by typing:
+
+    $ archipelago-simulate.py --help
+
+This program requires a *model* file, which a Python script containing a Python dictionary.
+For e.g.:
+
+    {
+        "areas": [
+            {'is_supplemental': True, 'label': 's1'}
+            {'is_supplemental': False, 'label': 'a1'},
+            {'is_supplemental': False, 'label': 'a2'},
+            {'is_supplemental': False, 'label': 'a3'},
+            {'is_supplemental': False, 'label': 'a4'},
+            {'is_supplemental': False, 'label': 'a5'},
+            {'is_supplemental': False, 'label': 'a6'},
+            ],
+        "traits" : [
+            {"label": "q1", "nstates": 3, "transition_rate": 0.01, },
+            {"label": "q2", "nstates": 2, "transition_rate": 0.01, },
+            {"label": "q3", "nstates": 2, "transition_rate": 0.01, },
+        ],
+        "diversification": {
+            "lineage_birth_rate": {
+                "definition_type": "fixed_value",
+                "definition": "0.01",
+            },
+            "lineage_death_rate": {
+                "definition_type": "fixed_value",
+                "definition": "0",
+            },
+        },
+        "dispersal": {
+            "global_dispersal_rate": 0.01,
+            "lineage_dispersal_weight": {
+                "definition_type": "fixed_value",
+                "definition": "0.01",
+            },
+        },
+        "termination_conditions": {
+            "target_focal_area_lineages": 50,
+        }
+    }
+
+The above example sets up a geography consisting of 6 focal areas, "a1" through
+"a6", and one supplemental area, "s1".
+As the connection weights for the areas are not specified (i.e. giving the relative weight of dispersal from area "a1" to area "a2" for example), then dispersal between all areas are assumed to be equal by default.
+Similarly, as the relative diversity weights of the areas are not specified,
+then the areas are all assumed to have equal diversity by default.
+
+Three traits are defined: "q1", with 3 states; "q2", with 2 states; and "q3", with 2 states.
+The trait evolution rate is 0.01 for all three trait types.
+As the optional trait evolution transition weight matrix is not specified, an
+equal-rate model is assumed by default
+
+The diversification regime gives constant/fixed birth rate of 0.01 and constant/fixed
+extinction/local extirpation rate of 0.0.
+
+The global dispersal rate is set to 0.01.
+Here, the lineage dispersal weight is also set to a fixed-value function that
+always returns 0.01.
+If we wanted to model a trait-dependent lineage-specific dispersal weight, where the weight of the dispersal depended on the trait state of trait type "q1", we might do something like:
+
+        "dispersal": {
+            "global_dispersal_rate": 0.01,
+            "lineage_dispersal_weight": {
+                "definition_type": "trait_state_index_map:q1",
+                "definition": [
+                    2.0,
+                    1.0,
+                    0.0
+                ]
+            },
+        },
+
+Here, if the state of a lineage's "q1" trait was "0", the lineage-specific dispersal weight would be 2.0.
+If the state of a lineage's "q1" trait was "1", the lineage-specific dispersal weight would be 1.0.
+And if the state of a lineage's "q1" trait was "2", the lineage-specific dispersal weight would be 0.0.
+
+Finally, the example specifies a termination condition of 50 (extant or tip) lineages occurring in the focal areas.
+
