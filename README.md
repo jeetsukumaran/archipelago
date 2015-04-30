@@ -11,14 +11,16 @@ It consists of four programs:
 
 -   ``archipelago-simulate.py``
     Simulates data under the "Archipelago" model. Typically, this is used to
-    generate training data sets.
+    generate phylogenies to be used to derive the training data sets.
 
 -   ``archipelago-summarize.py``
-    Calculates summary statistics for a phylogeny. This will be used to derive
-    the target data from an empirical phylogeny.
+    Calculates summary statistics for one or more phylogenies. This will be used to derive
+    the target data from an empirical phylogeny as well as the training data from simulated phylogenies.
 
 -   ``archipelago-classify.py``
-    Given a set of training data (summary statistics) and target data, classifies the target data using a Discriminant Analysis of Principal Components (DAPC).
+    Given a set of training data (summary statistics) and target data,
+    classifies the target data using a Discriminant Analysis of Principal
+    Components (DAPC).
 
 ## Installation
 
