@@ -73,7 +73,12 @@ def main():
                     suppress_internal_node_taxa=True,
                     suppress_external_node_taxa=True,
                     )
-            processed_trees, sub_stats_fields, sub_results = tree_summarizer.summarize_trees(trees)
+            processed_trees, sub_stats_fields, sub_results = tree_summarizer.summarize_trees(
+                    trees,
+                    # lineage_data_source=lineage_data_source,
+                    # traits_filepath=traits_filepath,
+                    # distribution_filepath=distribution_filepath,
+                    )
             stats_fields.update(sub_stats_fields)
             if extra_fields:
                 for r in sub_results:

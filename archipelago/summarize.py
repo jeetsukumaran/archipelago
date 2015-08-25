@@ -280,10 +280,10 @@ class TreeSummarizer(object):
         self.restore_tree_taxa(tree)
 
     def preprocess_tree_taxa(self, tree):
-        model.ArchipelagoModel.decode_tree_lineages_from_labels(
+        model.ArchipelagoModel.set_lineage_data(
                 tree=tree,
                 leaf_nodes_only=True,
-                encoded_source='node')
+                lineage_data_source='node')
         tree.original_taxon_namespace = tree.taxon_namespace
         tree.taxon_namespace = dendropy.TaxonNamespace()
         for node_idx, node in enumerate(tree.leaf_node_iter()):

@@ -117,19 +117,21 @@ class ArchipelagoModel(object):
         return traits_vector, distribution_vector
 
     @staticmethod
-    def decode_tree_lineages_from_labels(
+    def set_lineage_data(
             tree,
             leaf_nodes_only=False,
-            encoded_source="node",
+            lineage_data_source="node",
+            traits_filepath=None,
+            distribution_filepath=None,
             ):
-        if encoded_source == "node":
+        if lineage_data_source == "node":
             _decode = lambda x: ArchipelagoModel.decode_label(x.label)
-        elif encoded_source == "taxon":
+        elif lineage_data_source == "taxon":
             _decode = lambda x: ArchipelagoModel.decode_label(x.taxon.label)
         else:
-            raise ValueError("'encoded_source' must be 'node' or 'taxon'")
+            raise ValueError("'lineage_data_source' must be 'node' or 'taxon'")
         for nd in tree:
-            if (not leaf_nodes_only or not nd._child_nodes) and (encoded_source == "node" or nd.taxon is not None):
+            if (not leaf_nodes_only or not nd._child_nodes) and (lineage_data_source == "node" or nd.taxon is not None):
                 traits_vector, distribution_vector = _decode(nd)
                 nd.traits_vector = traits_vector
                 nd.distribution_vector = distribution_vector

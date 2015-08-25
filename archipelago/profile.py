@@ -154,6 +154,10 @@ class ArchipelagoProfiler(object):
             trees_filepath,
             schema="newick",
             generating_model=None,
+            is_lineages_decoded=False,
+            lineage_data_source="node",
+            traits_filepath=None,
+            distribution_filepath=None,
             ):
         trees = dendropy.TreeList.get_from_path(
                 trees_filepath,
@@ -165,15 +169,21 @@ class ArchipelagoProfiler(object):
         profiles = self.profile_trees(
                 trees=trees,
                 generating_model=generating_model,
-                is_lineages_decoded=False,
-                decode_lineages_from="node",)
+                is_lineages_decoded=is_lineages_decoded,
+                lineage_data_source=lineage_data_source,
+                traits_filepath=traits_filepath,
+                distribution_filepath=distribution_filepath,
+                )
         return profiles
 
     def profile_trees(self,
             trees,
             generating_model=None,
             is_lineages_decoded=False,
-            decode_lineages_from="node"):
+            lineage_data_source="node",
+            traits_filepath=None,
+            distribution_filepath=None,
+            ):
         profiles = []
         for tree_idx, tree in enumerate(trees):
             if hasattr(trees, "tree_filepath"):
@@ -182,7 +192,11 @@ class ArchipelagoProfiler(object):
             r = self.profile_tree(
                     tree=tree,
                     generating_model=generating_model,
-                    is_lineages_decoded=is_lineages_decoded)
+                    is_lineages_decoded=is_lineages_decoded,
+                    lineage_data_source=lineage_data_source,
+                    traits_filepath=traits_filepath,
+                    distribution_filepath=distribution_filepath,
+                    )
             profiles.append(r)
         return profiles
 
@@ -190,12 +204,18 @@ class ArchipelagoProfiler(object):
             tree,
             generating_model=None,
             is_lineages_decoded=False,
-            decode_lineages_from="node"):
+            lineage_data_source="node",
+            traits_filepath=None,
+            distribution_filepath=None,
+            ):
         if not is_lineages_decoded:
-            model.ArchipelagoModel.decode_tree_lineages_from_labels(
+            model.ArchipelagoModel.set_lineage_data(
                     tree=tree,
                     leaf_nodes_only=True,
-                    encoded_source=decode_lineages_from)
+                    lineage_data_source=lineage_data_source,
+                    traits_filepath=traits_filepath,
+                    distribution_filepath=distribution_filepath,
+                    )
 
         # intitialize profile_results
         profile_results = collections.OrderedDict()
