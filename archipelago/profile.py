@@ -157,7 +157,7 @@ class ArchipelagoProfiler(object):
             is_lineages_decoded=False,
             lineage_data_source="node",
             traits_filepath=None,
-            distribution_filepath=None,
+            areas_filepath=None,
             ):
         trees = dendropy.TreeList.get_from_path(
                 trees_filepath,
@@ -172,7 +172,7 @@ class ArchipelagoProfiler(object):
                 is_lineages_decoded=is_lineages_decoded,
                 lineage_data_source=lineage_data_source,
                 traits_filepath=traits_filepath,
-                distribution_filepath=distribution_filepath,
+                areas_filepath=areas_filepath,
                 )
         return profiles
 
@@ -182,7 +182,7 @@ class ArchipelagoProfiler(object):
             is_lineages_decoded=False,
             lineage_data_source="node",
             traits_filepath=None,
-            distribution_filepath=None,
+            areas_filepath=None,
             ):
         profiles = []
         for tree_idx, tree in enumerate(trees):
@@ -195,7 +195,7 @@ class ArchipelagoProfiler(object):
                     is_lineages_decoded=is_lineages_decoded,
                     lineage_data_source=lineage_data_source,
                     traits_filepath=traits_filepath,
-                    distribution_filepath=distribution_filepath,
+                    areas_filepath=areas_filepath,
                     )
             profiles.append(r)
         return profiles
@@ -206,7 +206,7 @@ class ArchipelagoProfiler(object):
             is_lineages_decoded=False,
             lineage_data_source="node",
             traits_filepath=None,
-            distribution_filepath=None,
+            areas_filepath=None,
             ):
         if not is_lineages_decoded:
             model.ArchipelagoModel.set_lineage_data(
@@ -214,7 +214,7 @@ class ArchipelagoProfiler(object):
                     leaf_nodes_only=True,
                     lineage_data_source=lineage_data_source,
                     traits_filepath=traits_filepath,
-                    distribution_filepath=distribution_filepath,
+                    areas_filepath=areas_filepath,
                     )
 
         # intitialize profile_results

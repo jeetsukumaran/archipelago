@@ -38,6 +38,20 @@ def main():
             default="newick",
             choices=["nexus", "newick"],
             help="Input data format (default: '%(default)s').")
+    source_options.add_argument("-r", "--range-data-file",
+            default=None,
+            help="Lineage range data file (in Phylip/BayArea/BioGeoBEARS format)."
+                 " If not provided, lineage range data must be encoded in tip labels."
+                "  If provided, lienage traits data file must be provided as well using"
+                "  '-t'/'--traits-data-file' option."
+            )
+    source_options.add_argument("-t", "--traits-data-file",
+            default=None,
+            help="Lineage traits data file (in Phylip format)."
+                 " If not provided, lineage traits data must be encoded in tip labels."
+                "  If provided, lienage range data file must be provided as well using"
+                "  '-t'/'--range-data-file' option."
+            )
     source_options.add_argument("-m", "--model-file",
             default=None,
             help="Model file(s) for the input tree file(s)."
@@ -65,6 +79,15 @@ def main():
     extra_fields = parse_fieldname_and_value(args.labels)
     source_filepaths = list(args.source_paths)
 
+    if args.range_data_file is not None and args.traits_data_file is None:
+        sys.exit("If specifying '--range-data-file', must also specify '--traits-data-file'")
+    elif args.range_data_file is None and args.traits_data_file is not None:
+        sys.exit("If specifying '--traits-data-file', must also specify '--range-data-file'")
+    elif args.range_data_file is None and args.traits_data_file is not None:
+        lineage_data_source="filepath"
+    else:
+        lineage_data_source="node"
+
     if args.model_file:
         archipelago_model = model.ArchipelagoModel.from_path(args.model_file)
     else:
@@ -82,6 +105,9 @@ def main():
                 trees_filepath=source_filepath,
                 schema=args.schema,
                 generating_model=archipelago_model,
+                lineage_data_source=lineage_data_source,
+                traits_filepath=args.traits_data_file,
+                areas_filepath=args.range_data_file,
                 )
         if extra_fields:
             for r in results:

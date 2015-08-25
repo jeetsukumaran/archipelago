@@ -23,10 +23,11 @@ setup(
             "bin/archipelago-profile-trees.py",
             "bin/archipelago-simulate.py",
             "bin/archipelago-summarize.py",
+            "bin/archipelago-generate-data-files-from-tip-labels.py",
             ],
     url="http://pypi.python.org/pypi/archipelago/",
     license="LICENSE.txt",
     description="A Project",
-    long_description=open("README.rst").read(),
+    long_description=open("README.md").read(),
     # install_requires=[ ],
 )

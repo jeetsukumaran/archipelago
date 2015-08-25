@@ -77,7 +77,7 @@ def main():
                     trees,
                     # lineage_data_source=lineage_data_source,
                     # traits_filepath=traits_filepath,
-                    # distribution_filepath=distribution_filepath,
+                    # areas_filepath=areas_filepath,
                     )
             stats_fields.update(sub_stats_fields)
             if extra_fields:

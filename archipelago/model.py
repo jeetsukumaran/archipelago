@@ -122,7 +122,7 @@ class ArchipelagoModel(object):
             leaf_nodes_only=False,
             lineage_data_source="node",
             traits_filepath=None,
-            distribution_filepath=None,
+            areas_filepath=None,
             ):
         if lineage_data_source == "node":
             _decode = lambda x: ArchipelagoModel.decode_label(x.label)
