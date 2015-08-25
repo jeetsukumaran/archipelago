@@ -9,7 +9,7 @@ import dendropy
 from archipelago import model
 from archipelago.profile import ArchipelagoProfiler
 
-def create_traits_data_file(traits_data_file_path, tree, num_trait_types):
+def create_traits_data_file(traits_data_file_path, tree, num_trait_types, output_format):
     lineage_trait_states = collections.OrderedDict()
     for trait_idx in range(num_trait_types):
         state_symbols = {}
@@ -25,31 +25,50 @@ def create_traits_data_file(traits_data_file_path, tree, num_trait_types):
                 lineage_trait_states[lineage_label].append(symbol)
             except KeyError:
                 lineage_trait_states[lineage_label] = [ symbol ]
+    if output_format == "csv":
+        lineage_separator = ","
+        char_separator = ","
+    elif output_format == "phylip":
+        lineage_separator = "\t"
+        char_separator = "\t"
+    else:
+        raise ValueError("Unrecognized format: '{}'".format(output_format))
     with open(traits_data_file_path, "w") as dataf:
+        if output_format == "phylip":
+            dataf.write("{}\t{}\n".format(len(tree.taxon_namespace), num_trait_types))
         for lineage_label in lineage_trait_states:
-            traits = ",".join(lineage_trait_states[lineage_label])
-            dataf.write("{},{}\n".format(lineage_label, traits))
+            traits = char_separator.join(lineage_trait_states[lineage_label])
+            dataf.write("{}{}{}\n".format(lineage_label, lineage_separator, traits))
         dataf.flush()
         dataf.close()
 
-def create_range_data_file(output_path, tree):
+def create_range_data_file(output_path, tree, output_format):
     sep = "\t"
     area_labels = ["a{}".format(idx+1) for idx, a in enumerate(tree.taxon_namespace[0].distribution_vector)]
-    dataf = open(output_path, "w")
     # dataf.write("{num_lineages}\t{num_areas}\t({area_labels})\n".format(
     #     num_lineages=len(tree.taxon_namespace),
     #     num_areas=len(area_labels),
     #     area_labels=" ".join(area_labels),
     #     ))
-    dataf.write("{num_lineages}\t{num_areas}\n".format(
-        num_lineages=len(tree.taxon_namespace),
-        num_areas=len(area_labels),
-        ))
-    for taxon in tree.taxon_namespace:
-        incidences = [str(i) for i in taxon.distribution_vector]
-        dataf.write("{}{}{}\n".format(taxon.label, sep, "".join(incidences)))
-    dataf.flush()
-    dataf.close()
+    if output_format == "csv":
+        lineage_separator = ","
+        char_separator = ","
+    elif output_format == "phylip":
+        lineage_separator = "\t"
+        char_separator = "\t"
+    else:
+        raise ValueError("Unrecognized format: '{}'".format(output_format))
+    with open(output_path, "w") as dataf:
+        if output_format == "phylip":
+            dataf.write("{num_lineages}\t{num_areas}\n".format(
+                num_lineages=len(tree.taxon_namespace),
+                num_areas=len(area_labels),
+                ))
+        for taxon in tree.taxon_namespace:
+            incidences = [str(i) for i in taxon.distribution_vector]
+            dataf.write("{}{}{}\n".format(taxon.label, lineage_separator, char_separator.join(incidences)))
+        dataf.flush()
+        dataf.close()
 
 
 def main():
@@ -59,13 +78,23 @@ def main():
             "source_paths",
             nargs="+",
             help="Path(s) to tree files.")
-    source_options.add_argument("-f", "--format",
-            dest="schema",
+    source_options.add_argument("-f", "--input-format",
+            dest="input_schema",
             type=str,
             default="newick",
             choices=["nexus", "newick"],
             help="Input data format (default: '%(default)s').")
-    # output_options = parser.add_argument_group("Output Options")
+    output_options = parser.add_argument_group("Output Options")
+    output_options.add_argument("--range-data-format",
+            type=str,
+            default="phylip",
+            choices=["phylip", "csv"],
+            help="Range data format (default: '%(default)s').")
+    output_options.add_argument("--traits-data-format",
+            type=str,
+            default="phylip",
+            choices=["phylip", "csv"],
+            help="Traits data format (default: '%(default)s').")
     # output_options.add_argument("-o", "--output-filepath",
     #         default=None,
     #         help="Path to profile_results file (default: standard output)."
@@ -86,7 +115,7 @@ def main():
     source_filepaths = list(args.source_paths)
     tree_yielder = dendropy.Tree.yield_from_files(
             files=source_filepaths,
-            schema=args.schema,
+            schema=args.input_schema,
             suppress_internal_node_taxa=True,
             suppress_external_node_taxa=True,
             )
@@ -119,12 +148,13 @@ def main():
             node.taxon.traits_vector = node.traits_vector
             node.taxon.distribution_vector = node.distribution_vector
         output_file_stem = "{}.{:04d}".format(source_filepaths[tree_yielder.current_file_index], source_tree_idx+1)
-        create_range_data_file(output_path=output_file_stem + ".ranges.txt", tree=tree)
+        create_range_data_file(output_path=output_file_stem + ".ranges", tree=tree, output_format=args.range_data_format)
         num_trait_types = len(tree.taxon_namespace[0].traits_vector)
         create_traits_data_file(
-                traits_data_file_path=output_file_stem + ".traits.csv",
+                traits_data_file_path=output_file_stem + ".traits",
                 tree=tree,
                 num_trait_types=num_trait_types,
+                output_format=args.traits_data_format,
                 )
 
 
