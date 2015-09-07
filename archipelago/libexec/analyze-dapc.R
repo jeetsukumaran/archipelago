@@ -321,10 +321,11 @@ classifyData <- function(target.summary.stats,
             n.da=n.da)
     target.predictors <- extractPredictors(target.summary.stats)
     pred.sup <- predict.dapc(trained.model$dapc.result, newdata=target.predictors)
-    results <- data.frame(pred.sup)
-    results$n.pca <- n.pca
-    results$n.da <- n.da
-    results
+    classification.results <- data.frame(pred.sup)
+    classification.results$n.pca <- n.pca
+    classification.results$n.da <- n.da
+    classification.results
+    results <- list(classification.results=classification.results, trained.model=trained.model)
 }
 
 # Classifies target data.
@@ -374,7 +375,7 @@ classifyDataFromFiles <- function(
                             n.pca.optimization.penalty.weight=n.pca.optimization.penalty.weight
                             )
     if (!is.null(output.path)) {
-        write.csv(results, output.path, row.names=FALSE)
+        write.csv(results$classification.results, output.path, row.names=FALSE)
     }
     results
 }

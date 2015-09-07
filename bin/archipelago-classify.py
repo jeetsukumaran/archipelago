@@ -118,6 +118,11 @@ def main():
             action="store_true",
             default=False,
             help="Do not write performance output.")
+    output_options.add_argument(
+            "--describe-trained-model",
+            default=None,
+            metavar="FILEPATH",
+            help="Path to to store the assessment of the DA function (default: do not store).")
     output_options.add_argument( "--append",
             action="store_true",
             default=False,
@@ -166,7 +171,6 @@ def main():
         except ValueError:
             sys.exit("Invalid integer specified for '--npca': '{}'".format(args.set_npca))
 
-
     r_commands = []
     r_commands.append("source('{}')".format(archipelago.libexec_filepath("analyze-dapc.R")))
     r_commands.append("""
@@ -184,6 +188,11 @@ def main():
                 nda=nda,
                 optimization_penalty_factor=optimization_penalty_factor,
                 ))
+    if args.describe_trained_model:
+        r_commands.append("sink('{}')".format(args.describe_trained_model))
+        r_commands.append("print(results$trained.model)")
+        r_commands.append("sink()")
+
 
     returncode, stdout, stderr = rstats.call(r_commands)
     # assert os.path.exists(r_script_path)
