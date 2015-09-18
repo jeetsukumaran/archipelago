@@ -257,7 +257,7 @@ class ArchipelagoModel(object):
             self.global_dispersal_rate = None
             run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
             self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
-        self.founder_event_speciation_weight = float(dispersal_d.pop("founder_event_speciation_weight", 1.0))
+        self.founder_event_speciation_weight = float(dispersal_d.pop("founder_event_speciation_weight", 0.0))
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
                 run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
