@@ -21,42 +21,6 @@ from archipelago import model
 from archipelago import utility
 from archipelago import error
 
-def weighted_choice(seq, weights, rng):
-    """
-    Selects an element out of seq, with probabilities of each element
-    given by the list `weights` (which must be at least as long as the
-    length of `seq` - 1).
-    """
-    if weights is None:
-        weights = [1.0/len(seq) for count in range(len(seq))]
-    else:
-        weights = list(weights)
-    if len(weights) < len(seq) - 1:
-        raise Exception("Insufficient number of weights specified")
-    if len(weights) == len(seq) - 1:
-        weights.append(1 - sum(weights))
-    return seq[weighted_index_choice(weights, rng)]
-
-def weighted_index_choice(weights, sum_of_weights, rng):
-    """
-    (From: http://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/)
-    The following is a simple function to implement weighted random choice in
-    Python. Given a list of weights, it returns an index randomly, according
-    to these weights [1].
-    For example, given [2, 3, 5] it returns 0 (the index of the first element)
-    with probability 0.2, 1 with probability 0.3 and 2 with probability 0.5.
-    The weights need not sum up to anything in particular, and can actually be
-    arbitrary Python floating point numbers.
-    If we manage to sort the weights in descending order before passing them
-    to weighted_choice_sub, it will run even faster, since the random call
-    returns a uniformly distributed value and larger chunks of the total
-    weight will be skipped in the beginning.
-    """
-    rnd = rng.uniform(0, 1) * sum_of_weights
-    for i, w in enumerate(weights):
-        rnd -= w
-        if rnd < 0:
-            return i
 
 class ArchipelagoSimulator(object):
 
@@ -288,7 +252,7 @@ class ArchipelagoSimulator(object):
                 lineage.edge.length += time_till_event
 
             ### EVENT SELECTION AND EXECUTION
-            event_idx = weighted_index_choice(
+            event_idx = model.weighted_index_choice(
                     weights=event_rates,
                     sum_of_weights=sum_of_event_rates,
                     rng=self.rng)

@@ -18,6 +18,46 @@ import dendropy
 from archipelago import utility
 from archipelago import error
 
+ALL_SPECIATION_MODES = [1,2,3,4]
+
+def weighted_choice(seq, weights, rng):
+    """
+    Selects an element out of seq, with probabilities of each element
+    given by the list `weights` (which must be at least as long as the
+    length of `seq` - 1).
+    """
+    if weights is None:
+        weights = [1.0/len(seq) for count in range(len(seq))]
+    else:
+        weights = list(weights)
+    if len(weights) < len(seq) - 1:
+        raise Exception("Insufficient number of weights specified")
+    sow = sum(weights)
+    if len(weights) == len(seq) - 1:
+        weights.append(1 - sow)
+    return seq[weighted_index_choice(weights, sow, rng)]
+
+def weighted_index_choice(weights, sum_of_weights, rng):
+    """
+    (From: http://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/)
+    The following is a simple function to implement weighted random choice in
+    Python. Given a list of weights, it returns an index randomly, according
+    to these weights [1].
+    For example, given [2, 3, 5] it returns 0 (the index of the first element)
+    with probability 0.2, 1 with probability 0.3 and 2 with probability 0.5.
+    The weights need not sum up to anything in particular, and can actually be
+    arbitrary Python floating point numbers.
+    If we manage to sort the weights in descending order before passing them
+    to weighted_choice_sub, it will run even faster, since the random call
+    returns a uniformly distributed value and larger chunks of the total
+    weight will be skipped in the beginning.
+    """
+    rnd = rng.uniform(0, 1) * sum_of_weights
+    for i, w in enumerate(weights):
+        rnd -= w
+        if rnd < 0:
+            return i
+
 class ArchipelagoModel(object):
 
     @classmethod
@@ -217,8 +257,7 @@ class ArchipelagoModel(object):
             self.global_dispersal_rate = None
             run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
             self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
-        # right now, we either allow it or do not; future implementation will allow differential weights
-        self.allow_founder_event_speciation = bool(dispersal_d.get("founder_event_speciation_weight", False))
+        self.founder_event_speciation_weight = float(dispersal_d.get("founder_event_speciation_weight", 0.0))
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
                 run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
@@ -879,8 +918,13 @@ class Phylogeny(dendropy.Tree):
         num_areas = len(self.model.geography.area_indexes)
         if num_presences <= 1:
             speciation_mode = 0
-        elif self.model.allow_founder_event_speciation and num_presences < num_areas:
-            speciation_mode = self.rng.randint(1, 4)
+        elif self.model.founder_event_speciation_weight > 0 and num_presences < num_areas:
+            lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
+            speciation_mode = weighted_choice(
+                    ALL_SPECIATION_MODES,
+                    [1, 1, 1, self.model.founder_event_speciation_weight * lineage_dispersal_weight],
+                    self.rng)
+            # speciation_mode = self.rng.randint(1, 4)
         else:
             speciation_mode = self.rng.randint(1, 3)
         if speciation_mode == 0:
@@ -932,61 +976,6 @@ class Phylogeny(dendropy.Tree):
         else:
             raise ValueError(speciation_mode)
         return dist1, dist2
-
-    # def _get_daughter_distributions_biogeobears(self, lineage):
-    #     # speciation modes
-    #     # 0:  single-area sympatric speciation
-    #     #     -   ancestral range copied to both daughter species
-    #     # 1:  sympatric subset: multi-area sympatric speciation
-    #     #     -   d1: inherits complete range
-    #     #     -   d2: inherits single area in ancestral range
-    #     # 2:  vicariance
-    #     #     -   ancestral range divided up between two daughter species
-    #     # 3:  jump dispersal
-    #     #     -   single
-    #     presences = lineage.distribution_vector.presences()
-    #     num_presences = len(presences)
-    #     num_areas = len(self.model.geography.area_indexes)
-    #     if num_presences <= 1:
-    #         speciation_mode = 0
-    #     elif self.model.allow_founder_event_speciation:
-    #         speciation_mode = self.rng.randint(1, 3)
-    #     else:
-    #         speciation_mode = self.rng.randint(1, 2)
-    #     if speciation_mode == 0:
-    #         dist1 = lineage.distribution_vector.clone()
-    #         dist2 = lineage.distribution_vector.clone()
-    #     elif speciation_mode == 1:
-    #         dist1 = lineage.distribution_vector.clone()
-    #         dist2 = self.model.geography.new_distribution_vector()
-    #         # TODO: area diversity base speciation
-    #         dist2[ self.rng.choice(presences) ] = 1
-    #     elif speciation_mode == 2:
-    #         dist1 = self.model.geography.new_distribution_vector()
-    #         dist2 = self.model.geography.new_distribution_vector()
-    #         if num_presences == 2:
-    #             dist1[presences[0]] = 1
-    #             dist2[presences[1]] = 1
-    #         else:
-    #             n1 = self.rng.randint(1, num_presences-1)
-    #             n2 = num_presences - n1
-    #             if n2 == n1:
-    #                 n1 += 1
-    #                 n2 -= 1
-    #             sample1 = set(self.rng.sample(presences, n1))
-    #             for idx in self.model.geography.area_indexes:
-    #                 if idx in sample1:
-    #                     dist1[idx] = 1
-    #                 else:
-    #                     dist2[idx] = 1
-    #     elif speciation_mode == 3:
-    #         dist1 = lineage.distribution_vector.clone()
-    #         dist2 = self.model.geography.new_distribution_vector()
-    #         absences = [idx for idx in self.model.geography.area_indexes if idx not in presences]
-    #         dist2[ self.rng.choice(absences) ] = 1
-    #     else:
-    #         raise ValueError(speciation_mode)
-    #     return dist1, dist2
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
         if len(self.current_lineages) == 1:
