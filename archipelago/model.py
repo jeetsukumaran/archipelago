@@ -353,6 +353,7 @@ class ArchipelagoModel(object):
         model_definition["traits"] = self.trait_types.as_definition()
         model_definition["diversification"] = self.diversification_as_definition()
         model_definition["dispersal"] = self.dispersal_as_definition()
+        model_definition["cladogenesis"] = self.cladogenesis_as_definition()
         model_definition["termination_conditions"] = self.termination_conditions_as_definition()
         json.dump(model_definition, out, indent=4, separators=(',', ': '))
 
@@ -373,6 +374,14 @@ class ArchipelagoModel(object):
         else:
             d["mean_dispersal_rate"] = self.mean_dispersal_rate
         d["lineage_dispersal_weight"] = self.lineage_dispersal_weight_function.as_definition()
+        return d
+
+    def cladogenesis_as_definition(self):
+        d = collections.OrderedDict()
+        d["sympatric_subset_speciation_weight"] = self.cladogenesis_sympatric_subset_speciation_weight
+        d["single_area_vicariance_speciation_weight"] = self.cladogenesis_single_area_vicariance_speciation_weight
+        d["widespread_vicariance_speciation_weight"] = self.cladogenesis_widespread_vicariance_speciation_weight
+        d["founder_event_speciation_weight"] = self.cladogenesis_founder_event_speciation_weight
         return d
 
     def termination_conditions_as_definition(self):
