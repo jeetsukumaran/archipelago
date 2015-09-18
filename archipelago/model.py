@@ -18,8 +18,6 @@ import dendropy
 from archipelago import utility
 from archipelago import error
 
-ALL_SPECIATION_MODES = [1,2,3,4]
-
 def weighted_choice(seq, weights, rng):
     """
     Selects an element out of seq, with probabilities of each element
@@ -257,8 +255,6 @@ class ArchipelagoModel(object):
             self.global_dispersal_rate = None
             run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
             self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
-        self.founder_event_speciation_weight = float(dispersal_d.pop("founder_event_speciation_weight", 0.0))
-        run_logger.info("(DISPERSAL) Base weight of founder event speciation ('jump dispersal') weight: {} (note that the effective weight of this event is actually the product of this and the lineage-specific dispersal weight, with all other speciation modes getting a weight of 1.0)".format(self.founder_event_speciation_weight))
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
                 run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
@@ -276,7 +272,21 @@ class ArchipelagoModel(object):
             run_logger.info("(DISPERSAL) Setting lineage dispersal rate function: {desc}".format(
                 desc=self.lineage_dispersal_weight_function.description,))
         if dispersal_d:
-            raise TypeError("Unsupported dispersal model keywords: {}".format(dispersal_d))
+            raise TypeError("Unsupported dispersal model keywords in anagenetic dispersal submodel: {}".format(dispersal_d))
+
+        # Cladogenetic range inheritance submodel
+        cladogenesis_d = dict(model_definition.pop("cladogenesis", {}))
+        self.cladogenesis_sympatric_subset_speciation_weight = float(cladogenesis_d.pop("sympatric_subset_speciation_weight", 1.0))
+        self.cladogenesis_single_area_vicariance_speciation_weight = float(cladogenesis_d.pop("single_area_vicariance_speciation_weight", 1.0))
+        self.cladogenesis_widespread_vicariance_speciation_weight = float(cladogenesis_d.pop("widespread_vicariance_speciation_weight", 1.0))
+        self.cladogenesis_founder_event_speciation_weight = float(cladogenesis_d.pop("founder_event_speciation_weight", 0.0))
+        if cladogenesis_d:
+            raise TypeError("Unsupported keywords in cladogenesis submodel: {}".format(cladogenesis_d))
+        if run_logger is not None:
+            run_logger.info("(CLADOGENESIS) Base weight of sympatric subset speciation mode: {}".format(self.cladogenesis_sympatric_subset_speciation_weight))
+            run_logger.info("(CLADOGENESIS) Base weight of single area vicariance speciation mode: {}".format(self.cladogenesis_single_area_vicariance_speciation_weight))
+            run_logger.info("(CLADOGENESIS) Base weight of widespread vicariance speciation mode: {}".format(self.cladogenesis_widespread_vicariance_speciation_weight))
+            run_logger.info("(CLADOGENESIS) Base weight of founder event speciation ('jump dispersal') mode: {} (note that the effective weight of this event for each lineage is actually the product of this and the lineage-specific dispersal weight)".format(self.cladogenesis_founder_event_speciation_weight))
 
         termination_conditions_d = dict(model_definition.pop("termination_conditions", {}))
         self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
@@ -919,15 +929,23 @@ class Phylogeny(dendropy.Tree):
         num_areas = len(self.model.geography.area_indexes)
         if num_presences <= 1:
             speciation_mode = 0
-        elif self.model.founder_event_speciation_weight > 0 and num_presences < num_areas:
-            lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
-            speciation_mode = weighted_choice(
-                    ALL_SPECIATION_MODES,
-                    [1, 1, 1, self.model.founder_event_speciation_weight * lineage_dispersal_weight],
-                    self.rng)
-            # speciation_mode = self.rng.randint(1, 4)
         else:
-            speciation_mode = self.rng.randint(1, 3)
+            if num_presences < num_areas:
+                lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
+                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * lineage_dispersal_weight
+            else:
+                fes_weight = 0.0
+            speciation_mode_weights = [
+                self.model.cladogenesis_sympatric_subset_speciation_weight,
+                self.model.cladogenesis_single_area_vicariance_speciation_weight,
+                self.model.cladogenesis_widespread_vicariance_speciation_weight,
+                fes_weight,
+            ]
+            sum_of_weights = sum(speciation_mode_weights)
+            speciation_mode = 1 + weighted_index_choice(
+                    weights=speciation_mode_weights,
+                    sum_of_weights=sum_of_weights,
+                    rng=self.rng)
         if speciation_mode == 0:
             # single-area sympatric speciation
             #     -   ancestral range copied to both daughter species
