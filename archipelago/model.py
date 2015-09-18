@@ -258,6 +258,7 @@ class ArchipelagoModel(object):
             run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
             self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
         self.founder_event_speciation_weight = float(dispersal_d.pop("founder_event_speciation_weight", 0.0))
+        run_logger.info("(DISPERSAL) Base weight of founder event speciation ('jump dispersal') weight: {} (note that the effective weight of this event is actually the product of this and the lineage-specific dispersal weight, with all other speciation modes getting a weight of 1.0)".format(self.founder_event_speciation_weight))
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
                 run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
