@@ -65,7 +65,8 @@ extractPredictors <- function(summary.df) {
         return(NULL)
     }
     summary.df <- na.omit(summary.df)
-    predictors <- summary.df[,!(names(summary.df) %in% NON.PREDICTOR.FIELD.NAMES)]
+    # predictors <- summary.df[,!(names(summary.df) %in% NON.PREDICTOR.FIELD.NAMES)]
+    predictors <- summary.df[, grepl('^predictor', names(summary.df))]
     return(predictors)
 }
 
@@ -386,8 +387,8 @@ classifyDataFromFiles <- function(
 
 # Reports the levels/values in each of non-predictor fields.
 reportDataRegimes <- function(summary.df) {
-    for (field.name in NON.PREDICTOR.FIELD.NAMES) {
-        if (field.name %in% colnames(summary.df)) {
+    for (field.name in colnames(summary.df)) {
+        if (!grepl('^predictor', field.name)) {
             cat(field.name, ": ", sort(unique(summary.df[,field.name])), "\n")
         }
     }
