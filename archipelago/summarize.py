@@ -17,7 +17,7 @@ class Rcalculator(object):
     def __init__(self):
         pass
 
-    def execute_rscript(self, script):
+    def execute_rscript(self, script, prefix_key="predictor."):
         cmd = []
         cmd.append("Rscript")
         cmd.append("--vanilla")
@@ -45,7 +45,7 @@ class Rcalculator(object):
                 value = float(parts[1].strip())
             except ValueError as e:
                 value = "NA"
-            results[key] = value
+            results[prefix_key + key] = value
             num_lines_with_results += 1
         return results
 
