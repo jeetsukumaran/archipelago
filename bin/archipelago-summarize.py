@@ -17,7 +17,7 @@ def parse_fieldname_and_value(labels):
         return collections.OrderedDict()
     fieldname_value_map = collections.OrderedDict()
     for label in labels:
-        match = re.match(r"\s*(.*)\s*:\s*(.*)\s*", label)
+        match = re.match(r"\s*(.*?)\s*:\s*(.*)\s*", label)
         if not match:
             raise ValueError("Cannot parse fieldname and label (format required: fieldname:value): {}".format(label))
         fieldname, value = match.groups(0)
