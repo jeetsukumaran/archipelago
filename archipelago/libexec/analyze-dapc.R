@@ -10,20 +10,6 @@ suppressMessages(library(adegenet))
 
 # These columns will be dropped from the training data set (they are
 # typically parameters used to generate/simulate data).
-NON.PREDICTOR.FIELD.NAMES <- c(
-               "dispersal.model", # legacy
-               "model.category",  # this is the key field
-               "birth.rate",
-               "death.rate",
-               "extinction.rate",
-               "dispersal.rate",
-               "trait.transition.rate",
-               "trait.evolution.rate",
-               "num.focal.areas",
-               "num.supplemental.areas",
-               "ntax"
-               )
-
 # This column has the model label or category as the value.
 CANDIDATE.GROUPING.FIELD.NAMES <- c( "model.category", "dispersal.model")
 getGroupingFieldName <- function(summary.df) {
@@ -65,7 +51,6 @@ extractPredictors <- function(summary.df) {
         return(NULL)
     }
     summary.df <- na.omit(summary.df)
-    # predictors <- summary.df[,!(names(summary.df) %in% NON.PREDICTOR.FIELD.NAMES)]
     predictors <- summary.df[, grepl('^predictor', names(summary.df))]
     return(predictors)
 }
