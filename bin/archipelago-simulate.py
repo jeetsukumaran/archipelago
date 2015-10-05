@@ -10,6 +10,7 @@ except ImportError:
 import archipelago
 from archipelago import simulate
 from archipelago import model
+from archipelago import utility
 
 def main():
     parser = argparse.ArgumentParser(
@@ -18,12 +19,18 @@ def main():
     model_options = parser.add_argument_group("Simulation Model")
     model_options.add_argument("model_file",
             nargs="?",
-            help="Path to file defining model dictionary")
+            help="Path to file defining the model.")
     model_options.add_argument("-f", "--model-format",
             dest="model_file_schema",
             choices=["json", "python"],
             default=None,
             help="Format of model file.")
+    model_options.add_argument("--create-example-model-file",
+            default=None,
+            help="Create an example model file.")
+    model_options.add_argument("--run-example-model",
+            action="store_true",
+            help="Run analysis under an example model.")
 
     output_options = parser.add_argument_group("Output Options")
     output_options.add_argument('-o', '--output-prefix',
@@ -61,8 +68,32 @@ def main():
 
     config_d = {}
     if args.model_file is None:
-        model_definition = {}
-        interpolate_missing_model_values = True
+        if args.run_example_model:
+            model_definition = {}
+            interpolate_missing_model_values = True
+        elif args.create_example_model_file:
+            run_logger = utility.RunLogger(
+                    name="archipelago",
+                    stderr_logging_level=args.stderr_logging_level,
+                    log_to_file=False,
+                    log_path="dummy",
+                    file_logging_level="error",
+                    )
+            example_model = model.ArchipelagoModel.from_definition(
+                model_definition={},
+                interpolate_missing_model_values=True,
+                run_logger=run_logger)
+            if args.create_example_model_file == "-":
+                out = sys.stdout
+            else:
+                out = open(os.path.expanduser(os.path.expandvars(args.create_example_model_file)), "w")
+            example_model.write_model(out)
+            sys.exit(0)
+        else:
+            sys.exit("Need to specify path to model specification file.\n"
+                     "Use option '--create-example-model-file' to generate an example model definition file.\n"
+                     "Use option '--run-example-model' to run the simulation under the example model.\n"
+                    )
     else:
         model_definition = model.ArchipelagoModel.get_model_definition_from_path(
                 filepath=args.model_file,
