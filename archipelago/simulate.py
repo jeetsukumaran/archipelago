@@ -57,6 +57,7 @@ class ArchipelagoSimulator(object):
         elif "model_definition" in kwargs:
             self.parse_model_definition(
                     model_definition=kwargs.pop("model_definition"),
+                    interpolate_missing_model_values=kwargs.pop("interpolate_missing_model_values"),
                     verbose_setup=verbose_setup)
         elif "model" in kwargs:
             self.model = kwargs.pop("model")
@@ -74,9 +75,13 @@ class ArchipelagoSimulator(object):
         # begin logging generations
         self.run_logger.system = self
 
-    def parse_model_definition(self, model_definition, verbose_setup=True):
+    def parse_model_definition(self,
+            model_definition,
+            interpolate_missing_model_values=False,
+            verbose_setup=True):
         self.model = model.ArchipelagoModel.from_definition(
                 model_definition=model_definition,
+                interpolate_missing_model_values=interpolate_missing_model_values,
                 run_logger=self.run_logger if verbose_setup else None)
         return self.model
 
@@ -403,6 +408,7 @@ def repeat_run(
         nreps,
         model_definition,
         config_d,
+        interpolate_missing_model_values=False,
         random_seed=None,
         stderr_logging_level="info",
         file_logging_level="debug",
@@ -423,6 +429,8 @@ def repeat_run(
     model_definition : dict
         Simulator model parameters as keyword-value pairs. To be re-used for
         each replicate.
+    interpolate_missing_model_values : bool
+        Allow missing values in model to be populated by default values (inadvisable).
     random_seed : integer
         Random seed to be used (for single random number generator across all
         replicates).
@@ -484,6 +492,7 @@ def repeat_run(
             archipelago_simulator = ArchipelagoSimulator(
                 model_definition=model_definition,
                 config_d=config_d,
+                interpolate_missing_model_values=interpolate_missing_model_values,
                 verbose_setup=num_restarts == 0 and current_rep == 0)
             try:
                 archipelago_simulator.run()

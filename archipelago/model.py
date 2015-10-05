@@ -113,10 +113,14 @@ class ArchipelagoModel(object):
                 run_logger=run_logger)
 
     @classmethod
-    def from_definition(cls, model_definition, run_logger):
+    def from_definition(cls,
+            model_definition,
+            run_logger,
+            interpolate_missing_model_values=False):
         archipelago_model = cls()
         archipelago_model.parse_definition(
                 model_definition=model_definition,
+                interpolate_missing_model_values=interpolate_missing_model_values,
                 run_logger=run_logger,
         )
         return archipelago_model
@@ -182,7 +186,8 @@ class ArchipelagoModel(object):
 
     def parse_definition(self,
             model_definition,
-            run_logger=None):
+            run_logger=None,
+            interpolate_missing_model_values=True):
 
         # initialize
         if model_definition is None:
@@ -192,7 +197,16 @@ class ArchipelagoModel(object):
 
         # Geography
         if "areas" not in model_definition:
-            raise ValueError("No areas defined")
+            if interpolate_missing_model_values:
+                model_definition["areas"] = [
+                        {'is_supplemental': False, 'label': 'a1'},
+                        {'is_supplemental': False, 'label': 'a2'},
+                        {'is_supplemental': False, 'label': 'a3'},
+                        {'is_supplemental': False, 'label': 'a4'},
+                        {'is_supplemental': True, 'label': 's1'}
+                ]
+            else:
+                raise ValueError("No areas defined")
         self.geography = Geography()
         self.geography.parse_definition(
                 copy.deepcopy(model_definition.pop("areas", [])),
@@ -241,8 +255,11 @@ class ArchipelagoModel(object):
         # Dispersal submodel
         dispersal_d = dict(model_definition.pop("dispersal", {}))
         if "global_dispersal_rate" not in dispersal_d and "mean_dispersal_rate" not in dispersal_d:
-            raise TypeError("Exactly one of 'global_dispersal_rate' or 'mean_dispersal_rate' must be specified")
-        elif "global_dispersal_rate" in dispersal_d and "mean_dispersal_rate" in dispersal_d:
+            if interpolate_missing_model_values:
+                dispersal_d["global_dispersal_rate"] = 0.01
+            else:
+                raise TypeError("Exactly one of 'global_dispersal_rate' or 'mean_dispersal_rate' must be specified")
+        if "global_dispersal_rate" in dispersal_d and "mean_dispersal_rate" in dispersal_d:
             raise TypeError("No more than one of 'global_dispersal_rate' or 'mean_dispersal_rate' can be specified")
         elif "global_dispersal_rate" in dispersal_d:
             self.global_dispersal_rate = float(dispersal_d.pop("global_dispersal_rate"))

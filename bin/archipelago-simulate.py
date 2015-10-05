@@ -17,6 +17,7 @@ def main():
             )
     model_options = parser.add_argument_group("Simulation Model")
     model_options.add_argument("model_file",
+            nargs="?",
             help="Path to file defining model dictionary")
     model_options.add_argument("-f", "--model-format",
             dest="model_file_schema",
@@ -59,14 +60,20 @@ def main():
     args = parser.parse_args()
 
     config_d = {}
-    model_definition = model.ArchipelagoModel.get_model_definition_from_path(
-            filepath=args.model_file,
-            schema=args.model_file_schema)
+    if args.model_file is None:
+        model_definition = {}
+        interpolate_missing_model_values = True
+    else:
+        model_definition = model.ArchipelagoModel.get_model_definition_from_path(
+                filepath=args.model_file,
+                schema=args.model_file_schema)
+        interpolate_missing_model_values = True
 
     simulate.repeat_run(
             output_prefix=args.output_prefix,
             nreps=args.nreps,
             model_definition=model_definition,
+            interpolate_missing_model_values=interpolate_missing_model_values,
             config_d=config_d,
             random_seed=args.random_seed,
             stderr_logging_level=args.stderr_logging_level,
