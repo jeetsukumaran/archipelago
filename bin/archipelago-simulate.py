@@ -92,7 +92,7 @@ def main():
         else:
             sys.exit("Need to specify path to model specification file.\n"
                      "Use option '--create-example-model-file' to generate an example model definition file.\n"
-                     "Use option '--run-example-model' to run the simulation under the example model.\n"
+                     "Use option '--run-example-model' to run the simulation under the example model."
                     )
     else:
         model_definition = model.ArchipelagoModel.get_model_definition_from_path(
