@@ -58,6 +58,10 @@ def weighted_index_choice(weights, sum_of_weights, rng):
 
 class ArchipelagoModel(object):
 
+    _TRAITS_SEPARATOR = "."
+    _LABEL_COMPONENTS_SEPARATOR = "#"
+    _NULL_TRAITS = "NA"
+
     @classmethod
     def create(
             cls,
@@ -126,27 +130,32 @@ class ArchipelagoModel(object):
             lineage,
             excluded_area_indexes=None):
         if lineage.traits_vector:
-            traits_v = "".join(str(i) for i in lineage.traits_vector)
+            traits_v = ArchipelagoModel._TRAITS_SEPARATOR.join(str(i) for i in lineage.traits_vector)
         else:
-            traits_v = "x"
+            traits_v = ArchipelagoModel._NULL_TRAITS
         if excluded_area_indexes is None:
             areas_v = "".join(str(i) for i in lineage.distribution_vector)
         else:
             areas_v = "".join(str(i) for idx, i in enumerate(lineage.distribution_vector) if idx not in excluded_area_indexes)
-        encoding = "s{}.{}.{}".format(lineage.index, traits_v, areas_v)
+        encoding = "s{lineage_index}{sep}{traits_v}{sep}{areas_v}".format(
+                lineage_index=lineage.index,
+                traits_v=traits_v,
+                areas_v=areas_v,
+                sep=ArchipelagoModel._LABEL_COMPONENTS_SEPARATOR)
         return encoding
 
     @staticmethod
     def decode_label(label):
-        parts = label.split(".")
+        parts = label.split(ArchipelagoModel._LABEL_COMPONENTS_SEPARATOR)
         traits_string = parts[1]
-        if not traits_string or traits_string == "x":
+        if not traits_string or traits_string == ArchipelagoModel._NULL_TRAITS:
             traits_vector = StatesVector(nchar=0)
         else:
+            traits_string_parts = traits_string.split(ArchipelagoModel._TRAITS_SEPARATOR)
             traits_vector = StatesVector(
-                    nchar=len(traits_string),
-                    # values=[int(i) for i in traits_string],
-                    values=[i for i in traits_string],
+                    nchar=len(traits_string_parts),
+                    values=[int(i) for i in traits_string_parts],
+                    # values=[i for i in traits_string_parts],
                     )
         distribution_string = parts[2]
         distribution_vector = DistributionVector(

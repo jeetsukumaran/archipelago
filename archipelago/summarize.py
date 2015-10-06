@@ -18,6 +18,10 @@ class Rcalculator(object):
         pass
 
     def execute_rscript(self, script, prefix_key="predictor."):
+        # x = open("t.R", "w")
+        # x.write(script)
+        # x.flush()
+        # x.close()
         cmd = []
         cmd.append("Rscript")
         cmd.append("--vanilla")
@@ -104,6 +108,23 @@ class Rcalculator(object):
                 normalized_unweighted_dists.append(normalized_unweighted_dist)
         rscript = []
         rscript.append("suppressMessages(library(picante))")
+        community_regimes = []
+        community_regimes.append(
+            ("Area", area_taxa, "by_area"),
+        )
+        # community_regimes.append(
+        #     ("Trait", trait_taxa, "by_area"),
+        # )
+        for trait_idx in trait_taxa:
+            # sys.stderr.write("{}: {}\n".format(individual_trait_taxa, trait_taxa[individual_trait_taxa]))
+            community_regimes.append(
+                    ("Trait.{}.".format(trait_idx), trait_taxa[trait_idx], "by_trait_{}".format(trait_idx))
+            )
+            # for trait_state in trait_taxa[trait_idx]:
+            #     community_regimes.append(
+            #             ("Trait.{}.{}".format(trait_idx, trait_state), trait_taxa[trait_idx][trait_state], "by_trait_{}_{}".format(trait_idx, trait_state))
+            #     )
+
         for dists, dists_desc in (
                     # (weighted_dists, "weighted"),
                     # (unweighted_dists, "unweighted"),
@@ -115,16 +136,15 @@ class Rcalculator(object):
                     taxon_names=taxon_names)
             cophenetic_dist_matrix_name = "{}_cophenetic_dist_matrix".format(dists_desc)
             rscript.append("{} <- {}".format(cophenetic_dist_matrix_name, cophenetic_dist_matrix_str))
-            for comm_prefix, comm_data, comm_desc in (
-                ("Area", area_taxa, "by_area"),
-                ("Trait", trait_taxa, "by_trait"),
-                    ):
+            for comm_prefix, comm_data, comm_desc in community_regimes:
                 comm_names = []
                 pa_data = []
                 for idx in comm_data:
                     comm_taxa = [taxon for taxon in comm_data[idx]]
                     # print("# {}: {}: {} of {}: {}\n".format(comm_desc, idx, len(comm_taxa), len(tree_taxa), ", ".join(t.label for t in comm_taxa)))
+                    # sys.stderr.write("# {}: {}: {} of {}: {}\n".format(comm_desc, idx, len(comm_taxa), len(tree.taxon_namespace), ", ".join(t.label for t in comm_taxa)))
                     comm_names.append("'{}{}'".format(comm_prefix, idx))
+                    # sys.stderr.write("comm_names={}\n".format(comm_names))
                     for taxon in tree.taxon_namespace:
                         if taxon in comm_taxa:
                             pa_data.append(1)
@@ -135,6 +155,7 @@ class Rcalculator(object):
                         data=pa_data,
                         comm_names=comm_names,
                         taxon_names=["'{}'".format(t.label) for t in tree.taxon_namespace])
+                # sys.stderr.write("{} <- {}\n".format(comm_pa_matrix_name, comm_pa_matrix_str))
                 rscript.append("{} <- {}".format(comm_pa_matrix_name, comm_pa_matrix_str))
                 nruns = 100
                 prefix = "{comm}.{dists}".format(comm=comm_pa_matrix_name,
@@ -148,7 +169,7 @@ class Rcalculator(object):
                         dists=cophenetic_dist_matrix_name,
                         nruns=nruns))
                     rscript.append("result.df <- as.data.frame(result)")
-                    if comm_desc == "by_trait":
+                    if comm_desc.startswith("by_trait"):
                         rscript.append("write(paste('{result_flag}', '{prefix}.{stat_type}.obs.Z.', rownames(result.df), ' = ', result.df${stat_type}.obs.z, '\\n', sep=''), {out})".format(
                             stat_type=stat_type,
                             result_flag=Rcalculator.RESULT_FLAG_LEADER,
@@ -248,6 +269,7 @@ class TreeSummarizer(object):
                 if area_presence:
                     area_taxa[area_idx].append(taxon)
             for trait_idx, trait_state in enumerate(taxon.traits_vector):
+                # sys.stderr.write("==> {}   {}   {}\n".format(trait_idx, trait_state,taxon))
                 trait_taxa[trait_idx][trait_state].append(taxon)
         num_areas = len(tree.taxon_namespace[0].distribution_vector)
         if len(area_taxa) < num_areas and self.drop_trees_not_occupying_all_areas:
@@ -275,7 +297,7 @@ class TreeSummarizer(object):
                 total_tree_length=total_tree_length,
                 total_tree_edges=total_tree_edges,
                 area_taxa=area_taxa,
-                trait_taxa=trait_taxa[0],
+                trait_taxa=trait_taxa,
                 )
         self.restore_tree_taxa(tree)
 
