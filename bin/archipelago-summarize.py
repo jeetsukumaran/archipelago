@@ -22,9 +22,11 @@ def parse_trait_states(labels):
         if not match:
             raise ValueError("Cannot parse fieldname and label (format required: fieldname:value): {}".format(label))
         fieldname, value = match.groups(0)
-        # the trait states need to be an integer if ArchipelagoModel.decode_label coerces
-        # the labels to integers
-        trait_states.append( (int(fieldname), int(value),) )
+        # The trait states need to be an integer if
+        # ArchipelagoModel.decode_label coerces the labels to integers.
+        # The reason we do NOT want it parsed to an integer value
+        # is to allow null traits 'NA', 'null', etc.
+        trait_states.append( (int(fieldname), value,) )
     return trait_states
 
 def parse_fieldname_and_value(labels):

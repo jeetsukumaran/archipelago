@@ -59,7 +59,7 @@ def weighted_index_choice(weights, sum_of_weights, rng):
 class ArchipelagoModel(object):
 
     _TRAITS_SEPARATOR = "."
-    _LABEL_COMPONENTS_SEPARATOR = "#"
+    _LABEL_COMPONENTS_SEPARATOR = "^"
     _NULL_TRAITS = "NA"
 
     @classmethod
@@ -154,11 +154,13 @@ class ArchipelagoModel(object):
             traits_string_parts = traits_string.split(ArchipelagoModel._TRAITS_SEPARATOR)
             traits_vector = StatesVector(
                     nchar=len(traits_string_parts),
-                    # the trait states need to be an integer if
+                    # The trait states need to be an integer if
                     # archipelago-summarize.py coerces the user input to
                     # integers
-                    values=[int(i) for i in traits_string_parts],
-                    # values=[i for i in traits_string_parts],
+                    # values=[int(i) for i in traits_string_parts],
+                    # The reason we do NOT want it parsed to an integer value
+                    # is to allow null traits 'NA', 'null', etc.
+                    values=[i for i in traits_string_parts],
                     )
         distribution_string = parts[2]
         distribution_vector = DistributionVector(

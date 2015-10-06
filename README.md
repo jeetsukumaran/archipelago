@@ -53,21 +53,23 @@ archipelago will provide programs that encode this information using data
 supplied by the user. Currently, however, users will have to manually encode
 this information themselves.
 
-The tip label for each lineage consists of three components separated by hash marks.
-For e.g.:
+The tip label for each lineage consists of three components separated by a
+carat ('``^``') character:
 
-    s68#1.2.0#0011
+    s68^1.2.0^0011
 
 The first component ("s68" in the above example) is an arbitrary species index
 that uniquely identifies each lineage.
 
 The second component ("1.2.0" in the above example) is the vector of trait
-states for the species. Each value of each trait type for the lineage is
-represented by a *0*-based *integer* index, separated by a period. In this
-example, there are three trait types, with the value of the first trait type
-"1", the second "2", and the third "0". All lineages in the system must have
-the same number of trait types (three, in this example), and the trait state
-values are assumed to be given in sequential order.
+states for the species. The states of each trait for the lineage is represented
+by an integer index separated by a period. In this example, there are three
+trait types, with the value of the first trait type "1", the second "2", and
+the third "0". Note that the first trait is indexed by 0, not 1. That is, if
+there are ``n`` states, then the set of valid trait state indexes is {0, 1, 2,
+..., n-1}. All lineages in the system must have the same number of trait types
+(three, in this example), and the trait state values are assumed to be given in
+sequential order.
 
 The third component ("0011" in the above example) is the geographical
 presence/absence vector for the lineage, where "0" indicates the absence of a
@@ -98,7 +100,7 @@ and the distribution over six areas is represented by the following incidence ma
 
 We would then encode this information in the phylogeny as follows:
 
-    [&R] ((A#0.0.1#110001:1,B#0.1.1#010011:1):3,(C#2.0.1#101101:3,(D#1.0.0#001100:2,E#2.1.1#011111:2):1):1);
+    [&R] ((A^0.0.1^110001:1,B^0.1.1^010011:1):3,(C^2.0.1^101101:3,(D^1.0.0^001100:2,E^2.1.1^011111:2):1):1);
 
 ### Calculation of Calibration Parameters
 
