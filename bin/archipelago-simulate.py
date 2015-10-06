@@ -12,6 +12,21 @@ from archipelago import simulate
 from archipelago import model
 from archipelago import utility
 
+def get_example_model():
+    model_definition = {}
+    model_definition["areas"] = [
+            {'is_supplemental': False, 'label': 'a1'},
+            {'is_supplemental': False, 'label': 'a2'},
+            {'is_supplemental': False, 'label': 'a3'},
+            {'is_supplemental': False, 'label': 'a4'},
+            {'is_supplemental': True, 'label': 's1'}
+    ]
+    model_definition["traits"] = [
+            {"label": "Trait1", "nstates": 3, "transition_rate": 0.01, },
+            {"label": "Trait2", "nstates": 2, "transition_rate": 0.01, },
+    ]
+    return model_definition
+
 def main():
     parser = argparse.ArgumentParser(
             description="{} Biogeographical Simulator".format(archipelago.description())
@@ -70,7 +85,7 @@ def main():
     config_d = {}
     if args.model_file is None:
         if args.run_example_model:
-            model_definition_source = {}
+            model_definition_source = get_example_model()
             model_definition_type = "python-dict"
             interpolate_missing_model_values = True
         elif args.create_example_model_file:
@@ -82,7 +97,7 @@ def main():
                     file_logging_level="error",
                     )
             example_model = model.ArchipelagoModel.from_definition_dict(
-                model_definition={},
+                model_definition_source = get_example_model(),
                 interpolate_missing_model_values=True,
                 run_logger=run_logger)
             if args.create_example_model_file == "-":
