@@ -154,6 +154,8 @@ class ArchipelagoModel(object):
             traits_string_parts = traits_string.split(ArchipelagoModel._TRAITS_SEPARATOR)
             traits_vector = StatesVector(
                     nchar=len(traits_string_parts),
+                    # the trait states need to be an integer if archipelago-summarize.py coerces
+                    # the user input to integers
                     values=[int(i) for i in traits_string_parts],
                     # values=[i for i in traits_string_parts],
                     )

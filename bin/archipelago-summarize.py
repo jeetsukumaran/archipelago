@@ -12,6 +12,20 @@ import re
 from archipelago import summarize
 from archipelago import utility
 
+def parse_trait_states(labels):
+    if not labels:
+        return collections.OrderedDict()
+    trait_states = []
+    for label in labels:
+        match = re.match(r"\s*(.*?)\s*:\s*(.*)\s*", label)
+        if not match:
+            raise ValueError("Cannot parse fieldname and label (format required: fieldname:value): {}".format(label))
+        fieldname, value = match.groups(0)
+        # the trait states need to be an integer if ArchipelagoModel.decode_label coerces
+        # the labels to integers
+        trait_states.append( (int(fieldname), int(value),) )
+    return trait_states
+
 def parse_fieldname_and_value(labels):
     if not labels:
         return collections.OrderedDict()
@@ -32,9 +46,12 @@ def main():
             nargs="+",
             help="Path(s) to simulated tree files.")
     summarization_options = parser.add_argument_group("Summarization Options")
-    summarization_options.add_argument("-i", "--ignore-trait",
+    summarization_options.add_argument("-x", "--exclude-trait",
             action="append",
-            help="0-based index of trait to ignore.")
+            help="0-based index of trait to exclude; multiple traits can be specified by repeating the option (e.g., '--exclude-trait 0 --ingore-trait 2').")
+    summarization_options.add_argument("-X", "--exclude-trait-state",
+            action="append",
+            help="States of traits to exclude, (in format <TRAIT-INDEX:STATE-INDEX>; e.g. '--exclude-trait-state 0:0 --exclude-trait-state 1:3').")
     summarization_options.add_argument("--no-drop-trees-not-spanning-all-areas",
             action="store_true",
             default=False,
@@ -62,9 +79,15 @@ def main():
             help="Suppress progress messages.")
     args = parser.parse_args()
     args.group_processed_trees_by_model = False
+    if args.exclude_trait:
+        trait_indexes_to_exclude = [int(i) for i in args.exclude_trait]
+    else:
+        trait_indexes_to_exclude = None
+    trait_states_to_exclude = parse_trait_states(args.exclude_trait_state)
     tree_summarizer = summarize.TreeSummarizer(
         drop_trees_not_spanning_all_areas=not args.no_drop_trees_not_spanning_all_areas,
-        trait_indexes_to_ignore=[int(i) for i in args.ignore_trait],
+        trait_indexes_to_exclude=trait_indexes_to_exclude,
+        trait_states_to_exclude=trait_states_to_exclude
     )
     summary_results = []
     output_root_dir = "."
