@@ -97,7 +97,7 @@ def main():
                     file_logging_level="error",
                     )
             example_model = model.ArchipelagoModel.from_definition_dict(
-                model_definition_source = get_example_model(),
+                model_definition=get_example_model(),
                 interpolate_missing_model_values=True,
                 run_logger=run_logger)
             if args.create_example_model_file == "-":
