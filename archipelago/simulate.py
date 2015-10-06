@@ -42,27 +42,18 @@ class ArchipelagoSimulator(object):
     def simple_node_label_function(node):
         return "s{}".format(node.index)
 
-    def __init__(self, **kwargs):
+    def __init__(self,
+            archipelago_model,
+            config_d,
+            is_verbose_setup):
 
         # configure
         self.elapsed_time = 0.0 # need to be here for logging
-        verbose_setup = kwargs.pop("verbose_setup", True)
-        config_d = dict(kwargs.pop("config_d", {}))
-        self.configure_simulator(config_d, verbose=verbose_setup)
-        # self.event_schedule_log = open(self.output_prefix + "event.log", "w")
+        config_d = dict(config_d) # make copy so we can pop items
+        self.configure_simulator(config_d, verbose=is_verbose_setup)
 
-        # model
-        if "model_definition" in kwargs and "model" in kwargs:
-            raise TypeError("Cannot specify both 'model_definition' and 'model'")
-        elif "model_definition" in kwargs:
-            self.parse_model_definition(
-                    model_definition=kwargs.pop("model_definition"),
-                    interpolate_missing_model_values=kwargs.pop("interpolate_missing_model_values"),
-                    verbose_setup=verbose_setup)
-        elif "model" in kwargs:
-            self.model = kwargs.pop("model")
-        else:
-            raise TypeError("Must specify at least one of 'model_definition' or 'model'")
+        # set up model
+        self.model = archipelago_model
 
         # initialize phylogeny
         self.phylogeny = model.Phylogeny(
@@ -74,16 +65,6 @@ class ArchipelagoSimulator(object):
 
         # begin logging generations
         self.run_logger.system = self
-
-    def parse_model_definition(self,
-            model_definition,
-            interpolate_missing_model_values=False,
-            verbose_setup=True):
-        self.model = model.ArchipelagoModel.from_definition(
-                model_definition=model_definition,
-                interpolate_missing_model_values=interpolate_missing_model_values,
-                run_logger=self.run_logger if verbose_setup else None)
-        return self.model
 
     def configure_simulator(self, config_d, verbose=True):
 
@@ -406,8 +387,9 @@ class ArchipelagoSimulator(object):
 def repeat_run(
         output_prefix,
         nreps,
-        model_definition,
-        config_d,
+        model_definition_source,
+        model_definition_type="python-dict",
+        config_d=None,
         interpolate_missing_model_values=False,
         random_seed=None,
         stderr_logging_level="info",
@@ -426,9 +408,20 @@ def repeat_run(
     config_d : dict
         Simulator configuration parameters as keyword-value pairs. To be
         re-used for each replicate.
-    model_definition : dict
-        Simulator model parameters as keyword-value pairs. To be re-used for
-        each replicate.
+    model_definition_source : object
+        See 'model_definition_type' argument for values this can take.
+    model_definition_type : str
+        Whether 'model_definition_source' is:
+
+            - 'python-dict' : a Python dictionary defining the model.
+            - 'python-dict-str' : a string providing a Python dictionary
+                defining the model.
+            - 'python-dict-filepath' : a path to a Python file to be evaluated;
+                the file should be a valid Python script containing nothing but a
+                dictionary defining the model.
+            - 'json-filepath': a path to a JSON file containing a dictionary
+                defining the model.
+
     interpolate_missing_model_values : bool
         Allow missing values in model to be populated by default values (inadvisable).
     random_seed : integer
@@ -446,6 +439,8 @@ def repeat_run(
     """
     if output_prefix is None:
         output_prefix = config_d.pop("output_prefix", "archipelago")
+    if config_d is None:
+        config_d = {}
     config_d["output_prefix"] = output_prefix
     if stderr_logging_level is None or stderr_logging_level.lower() == "none":
         log_to_stderr = False
@@ -489,11 +484,22 @@ def repeat_run(
         run_logger.info("-archipelago- Replicate {} of {}: Starting".format(current_rep+1, nreps))
         num_restarts = 0
         while True:
+            if num_restarts == 0 and current_rep == 0:
+                is_verbose_setup = True
+                model_setup_logger = run_logger
+            else:
+                is_verbose_setup = False
+                model_setup_logger = None
+            archipelago_model = model.ArchipelagoModel.create(
+                    model_definition_source=model_definition_source,
+                    model_definition_type=model_definition_type,
+                    interpolate_missing_model_values=interpolate_missing_model_values,
+                    run_logger=model_setup_logger,
+                    )
             archipelago_simulator = ArchipelagoSimulator(
-                model_definition=model_definition,
+                archipelago_model=archipelago_model,
                 config_d=config_d,
-                interpolate_missing_model_values=interpolate_missing_model_values,
-                verbose_setup=num_restarts == 0 and current_rep == 0)
+                is_verbose_setup=is_verbose_setup)
             try:
                 archipelago_simulator.run()
                 run_logger.system = None

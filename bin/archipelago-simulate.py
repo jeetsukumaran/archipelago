@@ -69,7 +69,8 @@ def main():
     config_d = {}
     if args.model_file is None:
         if args.run_example_model:
-            model_definition = {}
+            model_definition_source = {}
+            model_definition_type = "python-dict"
             interpolate_missing_model_values = True
         elif args.create_example_model_file:
             run_logger = utility.RunLogger(
@@ -79,7 +80,7 @@ def main():
                     log_path="dummy",
                     file_logging_level="error",
                     )
-            example_model = model.ArchipelagoModel.from_definition(
+            example_model = model.ArchipelagoModel.from_definition_dict(
                 model_definition={},
                 interpolate_missing_model_values=True,
                 run_logger=run_logger)
@@ -95,15 +96,30 @@ def main():
                      "Use option '--run-example-model' to run the simulation under the example model."
                     )
     else:
-        model_definition = model.ArchipelagoModel.get_model_definition_from_path(
-                filepath=args.model_file,
-                schema=args.model_file_schema)
-        interpolate_missing_model_values = True
+        if args.run_example_model:
+            sys.exit("Cannot run example model and specified model file ('{}') at the same time".format(args.model_file))
+        if args.create_example_model_file:
+            sys.exit("Cannot create example model and run specified model file ('{}') at the same time".format(args.model_file))
+        model_definition_source = args.model_file
+        if args.model_file_schema == "json":
+            model_definition_type = "json-filepath"
+        elif args.model_file_schema == "python":
+            model_definition_type = "python-dict-filepath"
+        else:
+            ext = os.path.splitext(args.model_file)[1]
+            if ext ==  ".json":
+                model_definition_type = "json-filepath"
+            elif ext == ".py":
+                model_definition_type = "python-dict-filepath"
+            else:
+                sys.exit("Model definition format cannot be diagnosed from extension. Need to specify '--model-format'.")
+        interpolate_missing_model_values = False
 
     simulate.repeat_run(
             output_prefix=args.output_prefix,
             nreps=args.nreps,
-            model_definition=model_definition,
+            model_definition_source=model_definition_source,
+            model_definition_type=model_definition_type,
             interpolate_missing_model_values=interpolate_missing_model_values,
             config_d=config_d,
             random_seed=args.random_seed,

@@ -55,6 +55,25 @@ def open_output_file_for_csv_writer(filepath, append=False):
         out = open(filepath, "ab" if append else "wb")
     return out
 
+def assert_in_collection(
+        items,
+        collection,
+        at_least_one=True,
+        no_more_than_one=True,
+        error_type=TypeError):
+    found = set()
+    for item in items:
+        if item in collection:
+            found.add(item)
+    if len(found) == 0:
+        if at_least_one and no_more_than_one:
+            raise error_type("Exactly one of the following must be specified: ".format(items))
+        elif at_least_one:
+            raise error_type("At least one of the following must be specified: ".format(items))
+    elif len(found) > 1 and no_more_than_one:
+        raise error_type("Only one of the following can be specified: ".format(found))
+    return found
+
 def dump_stack():
     for frame, filename, line_num, func, source_code, source_index in inspect.stack()[2:]:
         if source_code is None:
@@ -334,20 +353,14 @@ class RunLogger(object):
             logging_formatter.datefmt='%H:%M:%S'
 
     def supplemental_info_d(self):
-        if self._system is not None:
-            # return {
-            #   "simulation_time" : "[t = {:10.6f}] ".format(self._system.elapsed_time),
-            # }
-            if self._system.elapsed_time == 0:
-                return {
-                        "simulation_time" : "Setup: ",
-                        }
-            else:
-                return {
-                        "simulation_time" : "[t = {:13.6f}] ".format(self._system.elapsed_time),
-                        }
+        if self._system is None or self._system.elapsed_time == 0 :
+            return {
+                    "simulation_time" : "Setup: ",
+                    }
         else:
-            return None
+            return {
+                    "simulation_time" : "[t = {:13.6f}] ".format(self._system.elapsed_time),
+                    }
 
     def debug(self, msg):
         self._log.debug("[DEBUG] {}".format(msg), extra=self.supplemental_info_d())

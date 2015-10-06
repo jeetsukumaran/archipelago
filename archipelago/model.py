@@ -59,64 +59,60 @@ def weighted_index_choice(weights, sum_of_weights, rng):
 class ArchipelagoModel(object):
 
     @classmethod
-    def diagnose_model_file_schema(cls, filepath):
-        ext = os.path.splitext(filepath)[1]
-        if ext ==  ".json":
-            schema = "json"
-        elif ext == ".py":
-            schema = "python"
+    def create(
+            cls,
+            model_definition_source,
+            model_definition_type,
+            interpolate_missing_model_values=False,
+            run_logger=None,
+            ):
+        """
+        Create and return a model under which to run a simulation.
+
+        Parameters
+        ----------
+        model_definition_source : object
+            See 'model_definition_type' argument for values this can take.
+        model_definition_type : str
+            Whether 'model_definition_source' is:
+
+                - 'python-dict' : a Python dictionary defining the model.
+                - 'python-dict-str' : a string providing a Python dictionary
+                  defining the model.
+                - 'python-dict-filepath' : a path to a Python file to be evaluated;
+                  the file should be a valid Python script containing nothing but a
+                  dictionary defining the model.
+                - 'json-filepath': a path to a JSON file containing a dictionary
+                  defining the model.
+
+        Returns
+        -------
+        m : ArchipelagoModel
+            A fully-specified Archipelago model.
+
+        """
+        if model_definition_type == "python-dict-filepath":
+            src = open(model_definition_source, "r")
+            model_definition = eval(src.read())
+        elif model_definition_type == "python-dict-str":
+            model_definition = eval(model_definition_source)
+        elif model_definition_type == "python-dict":
+            model_definition = model_definition_source
+        elif model_definition_type == "json-filepath":
+            src = open(model_definition_source, "r")
+            model_definition = json.load(src)
         else:
-            raise ValueError("Schema cannot be diagnosed from extension: '{}'".format(ext))
-        return schema
-
-    @classmethod
-    def get_model_definition_from_path(cls, filepath, schema=None):
-        if schema is None:
-            schema = cls.diagnose_model_file_schema(filepath)
-        src = open(filepath, "r")
-        return cls.get_model_definition_from_file(src, schema)
-
-    @classmethod
-    def get_model_definition_from_file(cls, src, schema):
-        if schema == "json":
-            return json.load(src)
-        elif schema == "python":
-            return eval(src.read())
-        else:
-            raise ValueError("Unrecognized format: '{}'".format(schema))
-
-    @classmethod
-    def from_path(cls,
-            filepath,
-            schema=None,
-            run_logger=None):
-        if schema is None:
-            schema = cls.diagnose_model_file_schema(filepath)
-        src = open(filepath, "r")
-        return cls.from_file(
-                src=src,
-                schema=schema,
-                run_logger=run_logger)
-
-    @classmethod
-    def from_file(cls,
-            src,
-            schema,
-            run_logger=None):
-        if isinstance(src, str):
-            src = open(src, "r")
-        model_definition = cls.get_model_definition_from_file(
-                src=src,
-                schema=schema)
-        return cls.from_definition(
+            raise ValueError("Unrecognized model definition type: '{}'".format(model_definition_type))
+        return cls.from_definition_dict(
                 model_definition=model_definition,
-                run_logger=run_logger)
+                run_logger=run_logger,
+                interpolate_missing_model_values=interpolate_missing_model_values)
 
     @classmethod
-    def from_definition(cls,
+    def from_definition_dict(cls,
             model_definition,
-            run_logger,
-            interpolate_missing_model_values=False):
+            interpolate_missing_model_values=False,
+            run_logger=None):
         archipelago_model = cls()
         archipelago_model.parse_definition(
                 model_definition=model_definition,
@@ -222,7 +218,7 @@ class ArchipelagoModel(object):
         ## speciation
         diversification_d = dict(model_definition.pop("diversification", {}))
         if "lineage_birth_rate" in diversification_d:
-            self.lineage_birth_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_birth_rate"), self.trait_types)
+            self.lineage_birth_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_birth_rate"), self.trait_types)
         else:
             self.lineage_birth_rate_function = RateFunction(
                     definition_type="lambda_definition",
@@ -236,7 +232,7 @@ class ArchipelagoModel(object):
         ## extinction
         self.is_lineage_death_global = strtobool(str(diversification_d.pop("is_lineage_death_global", 0)))
         if "lineage_death_rate" in diversification_d:
-            self.lineage_death_rate_function = RateFunction.from_definition(diversification_d.pop("lineage_death_rate"), self.trait_types)
+            self.lineage_death_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_death_rate"), self.trait_types)
         else:
             self.lineage_death_rate_function = RateFunction(
                     definition_type="lambda_definition",
@@ -277,7 +273,7 @@ class ArchipelagoModel(object):
                 run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
 
         if "lineage_dispersal_weight" in dispersal_d:
-            self.lineage_dispersal_weight_function = RateFunction.from_definition(dispersal_d.pop("lineage_dispersal_weight"), self.trait_types)
+            self.lineage_dispersal_weight_function = RateFunction.from_definition_dict(dispersal_d.pop("lineage_dispersal_weight"), self.trait_types)
         else:
             self.lineage_dispersal_weight_function = RateFunction(
                     definition_type="lambda_definition",
@@ -411,7 +407,7 @@ class ArchipelagoModel(object):
 class RateFunction(object):
 
     @classmethod
-    def from_definition(cls, rate_function_d, trait_types):
+    def from_definition_dict(cls, rate_function_d, trait_types):
         rf = cls()
         rf.parse_definition(rate_function_d, trait_types)
         return rf
