@@ -11,6 +11,7 @@ import re
 
 from archipelago import summarize
 from archipelago import utility
+from archipelago.utility import USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE
 
 def parse_trait_states(labels):
     if not labels:
@@ -48,10 +49,16 @@ def main():
     summarization_options = parser.add_argument_group("Summarization Options")
     summarization_options.add_argument("-x", "--exclude-trait",
             action="append",
-            help="0-based index of trait to exclude; multiple traits can be specified by repeating the option (e.g., '--exclude-trait 0 --ingore-trait 2').")
+            help="Index of trait to exclude, with first trait indexed with value {}; multiple traits can be specified by repeating the option (e.g., '--exclude-trait {} --ingore-trait {}').".format(
+                USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE,
+                USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE,
+                USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE+1,
+                ))
     summarization_options.add_argument("-X", "--exclude-trait-state",
             action="append",
-            help="States of traits to exclude, (in format <TRAIT-INDEX:STATE-INDEX>; e.g. '--exclude-trait-state 0:0 --exclude-trait-state 1:3').")
+            help="States of traits to exclude, (in format <TRAIT-INDEX:STATE-INDEX>. Not that traits are {}-based indexed, and states are 0-based indexed. E.g. '--exclude-trait-state 1:0 --exclude-trait-state 1:3').".format(
+                USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE,
+                ))
     summarization_options.add_argument("--no-drop-trees-not-spanning-all-areas",
             action="store_true",
             default=False,
@@ -80,7 +87,8 @@ def main():
     args = parser.parse_args()
     args.group_processed_trees_by_model = False
     if args.exclude_trait:
-        trait_indexes_to_exclude = [int(i) for i in args.exclude_trait]
+        trait_indexes_to_exclude = [int(i) - USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE for i in args.exclude_trait]
+        assert -1 not in trait_indexes_to_exclude
     else:
         trait_indexes_to_exclude = None
     trait_states_to_exclude = parse_trait_states(args.exclude_trait_state)

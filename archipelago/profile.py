@@ -13,6 +13,7 @@ from dendropy.model import birthdeath
 from dendropy.utility import processio
 from archipelago import model
 from archipelago.estimate_biogeobears import BiogeobearsEstimator
+from archipelago.utility import USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE
 
 class ArchipelagoProfiler(object):
 
@@ -310,7 +311,7 @@ class ArchipelagoProfiler(object):
 
         if generating_model is None:
             num_trait_types = len(tree.taxon_namespace[0].traits_vector)
-            trait_names = ["trait{}".format(i+1) for i in range(num_trait_types)]
+            trait_names = ["{}".format(i+USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE) for i in range(num_trait_types)]
         else:
             num_trait_types = len(generating_model.trait_types)
             trait_names = [trait.label for trait in generating_model.trait_types]

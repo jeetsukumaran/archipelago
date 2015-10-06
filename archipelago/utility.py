@@ -44,6 +44,12 @@ import json
 _LOGGING_LEVEL_ENVAR = "ARCHIPELAGO_LOGGING_LEVEL"
 _LOGGING_FORMAT_ENVAR = "ARCHIPELAGO_LOGGING_FORMAT"
 
+IS_USER_SPECIFIED_TRAIT_TYPE_INDEX_0_BASED = False
+if IS_USER_SPECIFIED_TRAIT_TYPE_INDEX_0_BASED:
+    USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE = 0
+else:
+    USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE = 1
+
 def open_output_file_for_csv_writer(filepath, append=False):
     if filepath is None or filepath == "-":
         out = sys.stdout

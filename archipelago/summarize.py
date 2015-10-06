@@ -9,6 +9,7 @@ from dendropy.calculate import treemeasure
 from dendropy.model import birthdeath
 from dendropy.utility import processio
 from archipelago import model
+from archipelago.utility import USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE
 
 class Rcalculator(object):
 
@@ -118,7 +119,7 @@ class Rcalculator(object):
         for trait_idx in trait_taxa:
             # sys.stderr.write("{}: {}\n".format(individual_trait_taxa, trait_taxa[individual_trait_taxa]))
             community_regimes.append(
-                    ("Trait.{}.".format(trait_idx), trait_taxa[trait_idx], "by_trait_{}".format(trait_idx))
+                    ("Trait.{}.".format(trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE), trait_taxa[trait_idx], "by_trait_{}".format(trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE))
             )
             # for trait_state in trait_taxa[trait_idx]:
             #     community_regimes.append(
