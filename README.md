@@ -133,7 +133,7 @@ For e.g.:
 
     {
         "areas": [
-            {'is_supplemental': True, 'label': 's1'}
+            {'is_supplemental': True, 'label': 's1'},
             {'is_supplemental': False, 'label': 'a1'},
             {'is_supplemental': False, 'label': 'a2'},
             {'is_supplemental': False, 'label': 'a3'},
@@ -149,18 +149,18 @@ For e.g.:
         "diversification": {
             "lineage_birth_rate": {
                 "definition_type": "fixed_value",
-                "definition": "0.01",
+                "definition": 0.01,
             },
             "lineage_death_rate": {
                 "definition_type": "fixed_value",
-                "definition": "0",
+                "definition": 0,
             },
         },
         "dispersal": {
             "global_dispersal_rate": 0.01,
             "lineage_dispersal_weight": {
                 "definition_type": "fixed_value",
-                "definition": "0.01",
+                "definition": 0.01,
             },
         },
         "cladogenesis": {

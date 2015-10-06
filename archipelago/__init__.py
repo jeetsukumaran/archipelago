@@ -37,6 +37,8 @@ __version__ = "0.1.0"
 __archipelago_revision__ = None
 __archipelago_description__ = None
 
+from archipelago.simulate import repeat_run as run
+
 ARCHIPELAGO_HOME = os.path.dirname(os.path.abspath(__file__))
 
 def libexec_filepath(filename):
@@ -73,3 +75,4 @@ def description():
             revision_text = ""
         __archipelago_description__  = "{} {}{}".format(__project__, __version__, revision_text)
     return __archipelago_description__
+

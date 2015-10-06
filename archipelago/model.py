@@ -466,7 +466,7 @@ class RateFunction(object):
     def as_definition(self):
         d = collections.OrderedDict()
         d["definition_type"] = self.definition_type
-        if d["definition_type"] == "function":
+        if d["definition_type"] == "function_object":
             d["definition"] = str(self.definition_content)
         else:
             d["definition"] = self.definition_content
