@@ -26,35 +26,45 @@ def parse_fieldname_and_value(labels):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+    source_options = parser.add_argument_group("Source Options")
+    source_options.add_argument(
             "source_paths",
             nargs="+",
             help="Path(s) to simulated tree files.")
-    parser.add_argument("-l", "--labels",
+    summarization_options = parser.add_argument_group("Summarization Options")
+    summarization_options.add_argument("-i", "--ignore-trait",
+            action="append",
+            help="0-based index of trait to ignore.")
+    summarization_options.add_argument("--no-drop-trees-not-spanning-all-areas",
+            action="store_true",
+            default=False,
+            help="Do NOT skip trees that do not span all areas.")
+    output_options = parser.add_argument_group("Source Options")
+    output_options.add_argument("-l", "--labels",
             action="append",
             help="Labels to append to output (in format <FIELD-NAME>:value;)")
-    parser.add_argument(
+    output_options.add_argument(
             "-o", "--output-filepath",
             default=None,
             help="Path to output file.")
-    parser.add_argument( "--no-header-row",
+    output_options.add_argument( "--no-header-row",
             action="store_true",
             default=False,
             help="Do not write a header row.")
-    parser.add_argument( "--append",
+    output_options.add_argument( "--append",
             action="store_true",
             default=False,
             help="Append to output file if it already exists instead of overwriting.")
-    parser.add_argument("-q", "--quiet",
+    run_options = parser.add_argument_group("Run Options")
+    run_options.add_argument("-q", "--quiet",
             action="store_true",
             default=False,
             help="Suppress progress messages.")
     args = parser.parse_args()
     args.group_processed_trees_by_model = False
     tree_summarizer = summarize.TreeSummarizer(
-        drop_trees_not_occupying_all_areas=True,
-        drop_trees_not_occupying_all_traits=True,
-        drop_stunted_trees=True,
+        drop_trees_not_spanning_all_areas=not args.no_drop_trees_not_spanning_all_areas,
+        trait_indexes_to_ignore=[int(i) for i in args.ignore_trait],
     )
     summary_results = []
     output_root_dir = "."

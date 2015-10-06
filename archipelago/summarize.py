@@ -223,12 +223,32 @@ class TreeSummarizer(object):
         pass
 
     def __init__(self,
-            drop_trees_not_occupying_all_traits,
-            drop_trees_not_occupying_all_areas,
-            drop_stunted_trees,
+            drop_trees_not_spanning_all_areas=True,
+            trait_indexes_to_ignore=None,
+            trait_states_to_ignore=None,
             ):
-        self.drop_trees_not_occupying_all_areas = drop_trees_not_occupying_all_areas
-        self.drop_trees_not_occupying_all_traits = drop_trees_not_occupying_all_traits
+        """
+        Creates summaries for trees.
+
+        Parameters
+        ----------
+        drop_trees_not_spanning_all_areas : bool
+            Skip calculations for trees that do not span all areas.
+        trait_indexes_to_ignore : iterable
+            0-based indexes of traits to skip in calculations.
+        trait_states_to_ignore : iterable of tuples
+            Tuples in the form of (a,b), where 'a' is the 0-based index of the
+            trait and 'b' is the state to skip in calculations.
+        """
+        self.drop_trees_not_spanning_all_areas = drop_trees_not_spanning_all_areas
+        if trait_indexes_to_ignore:
+            self.trait_indexes_to_ignore = set(trait_indexes_to_ignore)
+        else:
+            self.trait_indexes_to_ignore = set([])
+        if trait_states_to_ignore:
+            self.trait_states_to_ignore = set(trait_states_to_ignore)
+        else:
+            self.trait_states_to_ignore = set([])
         self.rcalc = Rcalculator()
 
     def get_mean_patristic_distance(self, pdm, nodes):
@@ -270,9 +290,13 @@ class TreeSummarizer(object):
                     area_taxa[area_idx].append(taxon)
             for trait_idx, trait_state in enumerate(taxon.traits_vector):
                 # sys.stderr.write("==> {}   {}   {}\n".format(trait_idx, trait_state,taxon))
+                if self.trait_indexes_to_ignore and trait_idx in self.trait_indexes_to_ignore:
+                    continue
+                if self.trait_states_to_ignore and (trait_idx, trait_state) in self.trait_states_to_ignore:
+                    continue
                 trait_taxa[trait_idx][trait_state].append(taxon)
         num_areas = len(tree.taxon_namespace[0].distribution_vector)
-        if len(area_taxa) < num_areas and self.drop_trees_not_occupying_all_areas:
+        if len(area_taxa) < num_areas and self.drop_trees_not_spanning_all_areas:
             raise TreeSummarizer.IncompleteAreaRadiationException()
 
         # print("---")
