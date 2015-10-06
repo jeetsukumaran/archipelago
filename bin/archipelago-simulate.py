@@ -26,8 +26,9 @@ def main():
             default=None,
             help="Format of model file.")
     model_options.add_argument("--create-example-model-file",
+            metavar="FILEPATH.json",
             default=None,
-            help="Create an example model file.")
+            help="Create an example model file (in JSON format).")
     model_options.add_argument("--run-example-model",
             action="store_true",
             help="Run analysis under an example model.")
