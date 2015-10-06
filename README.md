@@ -128,7 +128,7 @@ Full help is available by typing:
 
     $ archipelago-simulate.py --help
 
-This program requires a *model* file, which a Python script containing a Python dictionary.
+This program requires a *model* file, which is a Python script containing a Python dictionary.
 For e.g.:
 
     {
