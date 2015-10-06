@@ -163,6 +163,12 @@ For e.g.:
                 "definition": "0.01",
             },
         },
+        "cladogenesis": {
+            "sympatric_subset_speciation_weight": 1.0,
+            "single_area_vicariance_speciation_weight": 1.0,
+            "widespread_vicariance_speciation_weight": 1.0,
+            "founder_event_speciation_weight": 0.0
+        },
         "termination_conditions": {
             "target_focal_area_lineages": 50,
         }
