@@ -387,7 +387,7 @@ class ArchipelagoProfiler(object):
         rcmds.append("traits <- read.csv('{}', header=F, row.names=1)".format(self.traits_data_file_name))
         for trait_idx, trait_name in enumerate(trait_names):
             trait_var = "trait{}".format(trait_idx)
-            rcmds.append("{} <- traits[,{}]".format(trait_var, trait_idx+1))
+            rcmds.append("{} <- round(traits[,{}])".format(trait_var, trait_idx+1))
             rcmds.append("names({}) <- row.names(traits)".format(trait_var))
             rcmds.append("m = fitDiscrete(tree1, {})".format(trait_var))
             rcmds.append(r"cat(c(m$opt$q12), sep='\n')")
