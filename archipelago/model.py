@@ -241,7 +241,7 @@ class ArchipelagoModel(object):
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            run_logger.info("(DIVERSIFICATION) Setting lineage birth rate function: {desc}".format(
+            run_logger.info("(DIVERSIFICATION) Setting lineage-specific birth rate function: {desc}".format(
                 desc=self.lineage_birth_rate_function.description,))
         ## extinction
         if "lineage_death_rate" in diversification_d:
@@ -254,7 +254,7 @@ class ArchipelagoModel(object):
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            run_logger.info("(DIVERSIFICATION) Setting lineage death rate function: {desc}".format(
+            run_logger.info("(DIVERSIFICATION) Setting lineage-specific death rate function: {desc}".format(
                 desc=self.lineage_death_rate_function.description,))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
@@ -272,12 +272,12 @@ class ArchipelagoModel(object):
             self.global_area_gain_rate = float(anagenetic_range_evolution_d.pop("global_area_gain_rate"))
             self.mean_area_gain_rate = None
             if run_logger is not None:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global dispersal rate is: {}".format(self.global_area_gain_rate))
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate is: {}".format(self.global_area_gain_rate))
             self.geography.set_global_area_gain_rate(self.global_area_gain_rate)
         else:
             self.mean_area_gain_rate = float(anagenetic_range_evolution_d.pop("mean_area_gain_rate"))
             self.global_area_gain_rate = None
-            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Mean dispersal rate is: {}".format(self.mean_area_gain_rate))
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Mean area gain rate is: {}".format(self.mean_area_gain_rate))
             self.geography.set_mean_area_gain_rate(self.mean_area_gain_rate)
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
@@ -293,7 +293,7 @@ class ArchipelagoModel(object):
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area gain weight function: {desc}".format(
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage-specific area gain weight function: {desc}".format(
                 desc=self.lineage_area_gain_weight_function.description,))
 
         ## extinction
@@ -308,21 +308,12 @@ class ArchipelagoModel(object):
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            # run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area loss (= {is_global}) rate function: {desc}".format(
-            #     is_global="global extinction" if self.treat_area_loss_rate_as_lineage_death_rate else "local extirpation",
-            #     desc=self.lineage_area_loss_rate_function.description,
-            #     ))
-            # if self.treat_area_loss_rate_as_lineage_death_rate:
-            #     run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage global extinction rate function: {desc}".format(
-            #         desc=self.lineage_area_loss_rate_function.description,
-            #         ))
-            # else:
-            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area loss weight function: {desc}".format(
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage-specific area loss weight function: {desc}".format(
                 desc=self.lineage_area_loss_rate_function.description,
                 ))
 
         if anagenetic_range_evolution_d:
-            raise TypeError("Unsupported dispersal model keywords in anagenetic range evolution submodel: {}".format(anagenetic_range_evolution_d))
+            raise TypeError("Unsupported keywords in anagenetic range evolution submodel: {}".format(anagenetic_range_evolution_d))
 
         # Cladogenetic range inheritance submodel
         cladogenesis_d = dict(model_definition.pop("cladogenetic_range_evolution", {}))
@@ -336,7 +327,7 @@ class ArchipelagoModel(object):
             run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of sympatric subset speciation mode: {}".format(self.cladogenesis_sympatric_subset_speciation_weight))
             run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of single area vicariance speciation mode: {}".format(self.cladogenesis_single_area_vicariance_speciation_weight))
             run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of widespread vicariance speciation mode: {}".format(self.cladogenesis_widespread_vicariance_speciation_weight))
-            run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of founder event speciation ('jump dispersal') mode: {} (note that the effective weight of this event for each lineage is actually the product of this and the lineage-specific dispersal weight)".format(self.cladogenesis_founder_event_speciation_weight))
+            run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of founder event speciation ('jump dispersal') mode: {} (note that the effective weight of this event for each lineage is actually the product of this and the lineage-specific area gain weight)".format(self.cladogenesis_founder_event_speciation_weight))
 
         termination_conditions_d = dict(model_definition.pop("termination_conditions", {}))
         self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
@@ -808,14 +799,14 @@ class Geography(object):
                 area1._area_gain_weights_d = [1.0] * len(self.areas)
                 area1._area_gain_weights_d[a1_idx] = 0.0
             if len(area1._area_gain_weights_d) != len(self.areas):
-                raise ValueError("Expecting exactly {} elements in dispersal weight vector for area '{}', but instead found {}: {}".format(
+                raise ValueError("Expecting exactly {} elements in area gain weight vector for area '{}', but instead found {}: {}".format(
                     len(self.areas), area1.label, len(area1._area_gain_weights_d), area1._area_gain_weights_d))
             self.area_gain_weights.append([])
             for a2_idx, area2 in enumerate(self.areas):
                 if a1_idx == a2_idx:
                     d = float(area1._area_gain_weights_d[a2_idx])
                     if d != 0:
-                        raise ValueError("Self-dispersal weight from area {label} to {label} must be 0.0, but instead found: {dw}".format(
+                        raise ValueError("Area gain weight from area {label} to {label} must be 0.0, but instead found: {dw}".format(
                             label=area1.label, dw=d))
                     self.area_gain_weights[a1_idx].append(0.0)
                 else:
@@ -834,9 +825,9 @@ class Geography(object):
                     area1.area_gain_weights = self.area_gain_weights[a1_idx]
         if run_logger is not None:
             if self.normalize_area_gain_weights:
-                weight_type = "Normalized dispersal"
+                weight_type = "Normalized area gain"
             else:
-                weight_type = "Dispersal"
+                weight_type = "Area gain"
             for a1, area1 in enumerate(self.areas):
                 run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.area_gain_weights[a1]))
 
