@@ -155,6 +155,11 @@ For e.g.:
                 "definition": "lambda lineage: 0.01",
                 "description": "fixed: 0.01"
             }
+            "lineage_death_rate": {
+                "definition_type": "lambda_definition",
+                "definition": "lambda lineage: 0.00",
+                "description": "fixed: 0.00"
+            }
         },
         "anagenetic_range_evolution": {
             "global_area_gain_rate": 0.01,
