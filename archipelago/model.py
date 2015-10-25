@@ -243,66 +243,76 @@ class ArchipelagoModel(object):
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Setting lineage birth rate function: {desc}".format(
                 desc=self.lineage_birth_rate_function.description,))
-        ## extinction
-        self.is_lineage_death_global = strtobool(str(diversification_d.pop("is_lineage_death_global", 0)))
-        if "lineage_death_rate" in diversification_d:
-            self.lineage_death_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_death_rate"), self.trait_types)
-        else:
-            self.lineage_death_rate_function = RateFunction(
-                    definition_type="lambda_definition",
-                    definition_content="lambda lineage: 0.0",
-                    description="fixed: 0.0",
-                    trait_types=self.trait_types,
-                    )
-        if run_logger is not None:
-            run_logger.info("(DIVERSIFICATION) Setting lineage death (= {is_global}) probability function: {desc}".format(
-                is_global="global extinction" if self.is_lineage_death_global else "local extirpation",
-                desc=self.lineage_death_rate_function.description,
-                ))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
         # Dispersal submodel
-        dispersal_d = dict(model_definition.pop("dispersal", {}))
-        if "global_dispersal_rate" not in dispersal_d and "mean_dispersal_rate" not in dispersal_d:
+        anagenetic_range_evolution_d = dict(model_definition.pop("anagenetic_range_evolution", {}))
+        if "global_area_gain_rate" not in anagenetic_range_evolution_d and "mean_area_gain_rate" not in anagenetic_range_evolution_d:
             if interpolate_missing_model_values:
-                dispersal_d["global_dispersal_rate"] = 0.01
+                anagenetic_range_evolution_d["global_area_gain_rate"] = 0.01
             else:
-                raise TypeError("Exactly one of 'global_dispersal_rate' or 'mean_dispersal_rate' must be specified")
-        if "global_dispersal_rate" in dispersal_d and "mean_dispersal_rate" in dispersal_d:
-            raise TypeError("No more than one of 'global_dispersal_rate' or 'mean_dispersal_rate' can be specified")
-        elif "global_dispersal_rate" in dispersal_d:
-            self.global_dispersal_rate = float(dispersal_d.pop("global_dispersal_rate"))
-            self.mean_dispersal_rate = None
+                raise TypeError("Exactly one of 'global_area_gain_rate' or 'mean_area_gain_rate' must be specified")
+        if "global_area_gain_rate" in anagenetic_range_evolution_d and "mean_area_gain_rate" in anagenetic_range_evolution_d:
+            raise TypeError("No more than one of 'global_area_gain_rate' or 'mean_area_gain_rate' can be specified")
+        elif "global_area_gain_rate" in anagenetic_range_evolution_d:
+            self.global_area_gain_rate = float(anagenetic_range_evolution_d.pop("global_area_gain_rate"))
+            self.mean_area_gain_rate = None
             if run_logger is not None:
-                run_logger.info("(DISPERSAL) Global dispersal rate is: {}".format(self.global_dispersal_rate))
-            self.geography.set_global_dispersal_rate(self.global_dispersal_rate)
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global dispersal rate is: {}".format(self.global_area_gain_rate))
+            self.geography.set_global_area_gain_rate(self.global_area_gain_rate)
         else:
-            self.mean_dispersal_rate = float(dispersal_d.pop("mean_dispersal_rate"))
-            self.global_dispersal_rate = None
-            run_logger.info("(DISPERSAL) Mean dispersal rate is: {}".format(self.mean_dispersal_rate))
-            self.geography.set_mean_dispersal_rate(self.mean_dispersal_rate)
+            self.mean_area_gain_rate = float(anagenetic_range_evolution_d.pop("mean_area_gain_rate"))
+            self.global_area_gain_rate = None
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Mean dispersal rate is: {}".format(self.mean_area_gain_rate))
+            self.geography.set_mean_area_gain_rate(self.mean_area_gain_rate)
         if run_logger is not None:
             for a1, area1 in enumerate(self.geography.areas):
-                run_logger.info("(DISPERSAL) Effective dispersal rates from area '{}': {}".format(area1.label, self.geography.effective_dispersal_rates[a1]))
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
 
-        if "lineage_dispersal_weight" in dispersal_d:
-            self.lineage_dispersal_weight_function = RateFunction.from_definition_dict(dispersal_d.pop("lineage_dispersal_weight"), self.trait_types)
+        if "lineage_area_gain_weight" in anagenetic_range_evolution_d:
+            self.lineage_area_gain_weight_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_gain_weight"), self.trait_types)
         else:
-            self.lineage_dispersal_weight_function = RateFunction(
+            self.lineage_area_gain_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda lineage: 0.01",
                     description="fixed: 0.01",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            run_logger.info("(DISPERSAL) Setting lineage dispersal rate function: {desc}".format(
-                desc=self.lineage_dispersal_weight_function.description,))
-        if dispersal_d:
-            raise TypeError("Unsupported dispersal model keywords in anagenetic dispersal submodel: {}".format(dispersal_d))
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area gain rate function: {desc}".format(
+                desc=self.lineage_area_gain_weight_function.description,))
+
+        ## extinction
+        self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
+        if "lineage_area_loss_rate" in anagenetic_range_evolution_d:
+            self.lineage_area_loss_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_loss_rate"), self.trait_types)
+        else:
+            self.lineage_area_loss_rate_function = RateFunction(
+                    definition_type="lambda_definition",
+                    definition_content="lambda lineage: 0.0",
+                    description="fixed: 0.0",
+                    trait_types=self.trait_types,
+                    )
+        if run_logger is not None:
+            # run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area loss (= {is_global}) rate function: {desc}".format(
+            #     is_global="global extinction" if self.treat_area_loss_rate_as_lineage_death_rate else "local extirpation",
+            #     desc=self.lineage_area_loss_rate_function.description,
+            #     ))
+            if self.treat_area_loss_rate_as_lineage_death_rate:
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage global extinction rate function: {desc}".format(
+                    desc=self.lineage_area_loss_rate_function.description,
+                    ))
+            else:
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area loss rate function: {desc}".format(
+                    desc=self.lineage_area_loss_rate_function.description,
+                    ))
+
+        if anagenetic_range_evolution_d:
+            raise TypeError("Unsupported dispersal model keywords in anagenetic dispersal submodel: {}".format(anagenetic_range_evolution_d))
 
         # Cladogenetic range inheritance submodel
-        cladogenesis_d = dict(model_definition.pop("cladogenesis", {}))
+        cladogenesis_d = dict(model_definition.pop("cladogenetic_range_evolution", {}))
         self.cladogenesis_sympatric_subset_speciation_weight = float(cladogenesis_d.pop("sympatric_subset_speciation_weight", 1.0))
         self.cladogenesis_single_area_vicariance_speciation_weight = float(cladogenesis_d.pop("single_area_vicariance_speciation_weight", 1.0))
         self.cladogenesis_widespread_vicariance_speciation_weight = float(cladogenesis_d.pop("widespread_vicariance_speciation_weight", 1.0))
@@ -310,10 +320,10 @@ class ArchipelagoModel(object):
         if cladogenesis_d:
             raise TypeError("Unsupported keywords in cladogenesis submodel: {}".format(cladogenesis_d))
         if run_logger is not None:
-            run_logger.info("(CLADOGENESIS) Base weight of sympatric subset speciation mode: {}".format(self.cladogenesis_sympatric_subset_speciation_weight))
-            run_logger.info("(CLADOGENESIS) Base weight of single area vicariance speciation mode: {}".format(self.cladogenesis_single_area_vicariance_speciation_weight))
-            run_logger.info("(CLADOGENESIS) Base weight of widespread vicariance speciation mode: {}".format(self.cladogenesis_widespread_vicariance_speciation_weight))
-            run_logger.info("(CLADOGENESIS) Base weight of founder event speciation ('jump dispersal') mode: {} (note that the effective weight of this event for each lineage is actually the product of this and the lineage-specific dispersal weight)".format(self.cladogenesis_founder_event_speciation_weight))
+            run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of sympatric subset speciation mode: {}".format(self.cladogenesis_sympatric_subset_speciation_weight))
+            run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of single area vicariance speciation mode: {}".format(self.cladogenesis_single_area_vicariance_speciation_weight))
+            run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of widespread vicariance speciation mode: {}".format(self.cladogenesis_widespread_vicariance_speciation_weight))
+            run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of founder event speciation ('jump dispersal') mode: {} (note that the effective weight of this event for each lineage is actually the product of this and the lineage-specific dispersal weight)".format(self.cladogenesis_founder_event_speciation_weight))
 
         termination_conditions_d = dict(model_definition.pop("termination_conditions", {}))
         self.target_focal_area_lineages = termination_conditions_d.pop("target_focal_area_lineages", None)
@@ -379,31 +389,31 @@ class ArchipelagoModel(object):
         model_definition["areas"] = self.geography.as_definition()
         model_definition["traits"] = self.trait_types.as_definition()
         model_definition["diversification"] = self.diversification_as_definition()
-        model_definition["dispersal"] = self.dispersal_as_definition()
-        model_definition["cladogenesis"] = self.cladogenesis_as_definition()
+        model_definition["anagenetic_range_evolution"] = self.anagenetic_range_evolution_as_definition()
+        model_definition["cladogenetic_range_evolution"] = self.cladogenetic_range_evolution_as_definition()
         model_definition["termination_conditions"] = self.termination_conditions_as_definition()
         json.dump(model_definition, out, indent=4, separators=(',', ': '))
 
     def diversification_as_definition(self):
         d = collections.OrderedDict()
         d["lineage_birth_rate"] = self.lineage_birth_rate_function.as_definition()
-        d["lineage_death_rate"] = self.lineage_death_rate_function.as_definition()
         return d
 
-    def dispersal_as_definition(self):
+    def anagenetic_range_evolution_as_definition(self):
         d = collections.OrderedDict()
-        if self.global_dispersal_rate is not None and self.mean_dispersal_rate is not None:
-            raise TypeError("Both 'global_dispersal_rate' and 'mean_dispersal_rate' are populated")
-        elif self.global_dispersal_rate is None and self.mean_dispersal_rate is None:
-            raise TypeError("Neither 'global_dispersal_rate' and 'mean_dispersal_rate' are populated")
-        elif self.global_dispersal_rate is not None:
-            d["global_dispersal_rate"] = self.global_dispersal_rate
+        if self.global_area_gain_rate is not None and self.mean_area_gain_rate is not None:
+            raise TypeError("Both 'global_area_gain_rate' and 'mean_area_gain_rate' are populated")
+        elif self.global_area_gain_rate is None and self.mean_area_gain_rate is None:
+            raise TypeError("Neither 'global_area_gain_rate' and 'mean_area_gain_rate' are populated")
+        elif self.global_area_gain_rate is not None:
+            d["global_area_gain_rate"] = self.global_area_gain_rate
         else:
-            d["mean_dispersal_rate"] = self.mean_dispersal_rate
-        d["lineage_dispersal_weight"] = self.lineage_dispersal_weight_function.as_definition()
+            d["mean_area_gain_rate"] = self.mean_area_gain_rate
+        d["lineage_area_gain_weight"] = self.lineage_area_gain_weight_function.as_definition()
+        d["lineage_area_loss_rate"] = self.lineage_area_loss_rate_function.as_definition()
         return d
 
-    def cladogenesis_as_definition(self):
+    def cladogenetic_range_evolution_as_definition(self):
         d = collections.OrderedDict()
         d["sympatric_subset_speciation_weight"] = self.cladogenesis_sympatric_subset_speciation_weight
         d["single_area_vicariance_speciation_weight"] = self.cladogenesis_single_area_vicariance_speciation_weight
@@ -663,7 +673,7 @@ class TraitTypes(object):
                             trait.transition_weights[a1_idx][a2_idx] /= normalization_factor
             self.trait_label_index_map[trait.label] = trait.index
             if run_logger is not None:
-                run_logger.info("(ECOLOGY) configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
+                run_logger.info("(TRAIT EVOLUTION) configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
                     idx=trait.index,
                     label=trait.label,
                     normalized="normalized " if self.normalize_transition_weights else "",
@@ -677,7 +687,7 @@ class TraitTypes(object):
         # if len(self.trait_types) < 1:
         #     raise ValueError("No traits defined")
         if run_logger is not None:
-            run_logger.info("(ECOLOGY) Total of {} traits defined{}{}".format(
+            run_logger.info("(TRAIT EVOLUTION) Total of {} traits defined{}{}".format(
                 len(self.trait_types),
                 ": " if self.trait_types else "",
                 ", ".join("'{}'".format(a.label) for a in self.trait_types),
@@ -701,7 +711,7 @@ class Area(object):
             label=None,
             is_supplemental=False,
             relative_diversity=None,
-            dispersal_weights=None,
+            area_gain_weights=None,
             ):
         self.index = index
         self.label = label
@@ -709,8 +719,8 @@ class Area(object):
         self.relative_diversity = relative_diversity
         # this is here mainly for description purposes in
         # `Area.as_definition()`; actual usage is through
-        # `Geography.dispersal_weights`
-        self.dispersal_weights = dispersal_weights
+        # `Geography.area_gain_weights`
+        self.area_gain_weights = area_gain_weights
 
     def as_definition(self):
         d = collections.OrderedDict()
@@ -718,13 +728,13 @@ class Area(object):
         d["label"] = self.label
         d["is_supplemental"] = self.is_supplemental
         d["relative_diversity"] = self.relative_diversity
-        d["dispersal_weights"] = self.dispersal_weights
+        d["area_gain_weights"] = self.area_gain_weights
         return d
 
 class Geography(object):
 
     def __init__(self):
-        self.normalize_dispersal_weights = False
+        self.normalize_area_gain_weights = False
 
     def __iter__(self):
         return iter(self.areas)
@@ -752,7 +762,7 @@ class Geography(object):
                 relative_diversity=area_d.pop("relative_diversity", 1.0),
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
-            area._dispersal_weights_d = list(area_d.pop("dispersal_weights", [])) # delay processing until all areas have been defined
+            area._area_gain_weights_d = list(area_d.pop("area_gain_weights", [])) # delay processing until all areas have been defined
             self.areas.append(area)
             self.area_label_index_map[area.label] = area.index
             self.area_indexes.append(area.index)
@@ -778,43 +788,43 @@ class Geography(object):
                 len(self.areas),
                 ", ".join("'{}'".format(a.label) for a in self.areas),
                 ))
-        self.dispersal_weights = []
+        self.area_gain_weights = []
         for a1_idx, area1 in enumerate(self.areas):
-            if len(area1._dispersal_weights_d) == 0:
-                area1._dispersal_weights_d = [1.0] * len(self.areas)
-                area1._dispersal_weights_d[a1_idx] = 0.0
-            if len(area1._dispersal_weights_d) != len(self.areas):
+            if len(area1._area_gain_weights_d) == 0:
+                area1._area_gain_weights_d = [1.0] * len(self.areas)
+                area1._area_gain_weights_d[a1_idx] = 0.0
+            if len(area1._area_gain_weights_d) != len(self.areas):
                 raise ValueError("Expecting exactly {} elements in dispersal weight vector for area '{}', but instead found {}: {}".format(
-                    len(self.areas), area1.label, len(area1._dispersal_weights_d), area1._dispersal_weights_d))
-            self.dispersal_weights.append([])
+                    len(self.areas), area1.label, len(area1._area_gain_weights_d), area1._area_gain_weights_d))
+            self.area_gain_weights.append([])
             for a2_idx, area2 in enumerate(self.areas):
                 if a1_idx == a2_idx:
-                    d = float(area1._dispersal_weights_d[a2_idx])
+                    d = float(area1._area_gain_weights_d[a2_idx])
                     if d != 0:
                         raise ValueError("Self-dispersal weight from area {label} to {label} must be 0.0, but instead found: {dw}".format(
                             label=area1.label, dw=d))
-                    self.dispersal_weights[a1_idx].append(0.0)
+                    self.area_gain_weights[a1_idx].append(0.0)
                 else:
-                    d = float(area1._dispersal_weights_d[a2_idx])
-                    self.dispersal_weights[a1_idx].append(d)
-            # if area1._dispersal_weights_d:
-            #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._dispersal_weights_d))
-            area1.dispersal_weights = self.dispersal_weights[a1_idx]
-            del area1._dispersal_weights_d
-        if self.normalize_dispersal_weights:
+                    d = float(area1._area_gain_weights_d[a2_idx])
+                    self.area_gain_weights[a1_idx].append(d)
+            # if area1._area_gain_weights_d:
+            #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._area_gain_weights_d))
+            area1.area_gain_weights = self.area_gain_weights[a1_idx]
+            del area1._area_gain_weights_d
+        if self.normalize_area_gain_weights:
             for a1_idx, area1 in enumerate(self.areas):
-                normalization_factor = sum(self.dispersal_weights[a1_idx])
+                normalization_factor = sum(self.area_gain_weights[a1_idx])
                 if normalization_factor:
                     for a2_idx, area2 in enumerate(self.areas):
-                        self.dispersal_weights[a1_idx][a2_idx] /= normalization_factor
-                    area1.dispersal_weights = self.dispersal_weights[a1_idx]
+                        self.area_gain_weights[a1_idx][a2_idx] /= normalization_factor
+                    area1.area_gain_weights = self.area_gain_weights[a1_idx]
         if run_logger is not None:
-            if self.normalize_dispersal_weights:
+            if self.normalize_area_gain_weights:
                 weight_type = "Normalized dispersal"
             else:
                 weight_type = "Dispersal"
             for a1, area1 in enumerate(self.areas):
-                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.dispersal_weights[a1]))
+                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.area_gain_weights[a1]))
 
         # instead of recalculating every time
         self.area_nstates = [2 for i in self.areas]
@@ -827,23 +837,23 @@ class Geography(object):
         s = DistributionVector(num_areas=len(self.areas))
         return s
 
-    def set_global_dispersal_rate(self, global_dispersal_rate):
-        self.effective_dispersal_rates = []
+    def set_global_area_gain_rate(self, global_area_gain_rate):
+        self.effective_area_gain_rates = []
         for src_area_idx in self.area_indexes:
-            self.effective_dispersal_rates.append([])
+            self.effective_area_gain_rates.append([])
             for dest_area_idx in self.area_indexes:
-                self.effective_dispersal_rates[src_area_idx].append(self.dispersal_weights[src_area_idx][dest_area_idx] * global_dispersal_rate)
+                self.effective_area_gain_rates[src_area_idx].append(self.area_gain_weights[src_area_idx][dest_area_idx] * global_area_gain_rate)
 
-    def set_mean_dispersal_rate(self, mean_dispersal_rate):
-        self.effective_dispersal_rates = []
+    def set_mean_area_gain_rate(self, mean_area_gain_rate):
+        self.effective_area_gain_rates = []
         for src_area_idx in self.area_indexes:
-            self.effective_dispersal_rates.append([])
+            self.effective_area_gain_rates.append([])
             for dest_area_idx in self.area_indexes:
-                weight = self.dispersal_weights[src_area_idx][dest_area_idx]
+                weight = self.area_gain_weights[src_area_idx][dest_area_idx]
                 if weight:
-                    self.effective_dispersal_rates[src_area_idx].append(mean_dispersal_rate / weight)
+                    self.effective_area_gain_rates[src_area_idx].append(mean_area_gain_rate / weight)
                 else:
-                    self.effective_dispersal_rates[src_area_idx].append(0.0)
+                    self.effective_area_gain_rates[src_area_idx].append(0.0)
 
 class Lineage(dendropy.Node):
 
@@ -934,8 +944,8 @@ class Phylogeny(dendropy.Tree):
         self.current_lineages.add(c1)
         self.current_lineages.add(c2)
 
-    def extirpate_lineage(self, lineage):
-        if self.model.is_lineage_death_global:
+    def contract_lineage_range(self, lineage):
+        if self.model.treat_area_loss_rate_as_lineage_death_rate:
             self._make_lineage_extinct_on_phylogeny(lineage)
         else:
             presences = lineage.distribution_vector.presences()
@@ -967,8 +977,8 @@ class Phylogeny(dendropy.Tree):
             speciation_mode = 0
         else:
             if num_presences < num_areas:
-                lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
-                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * lineage_dispersal_weight
+                lineage_area_gain_weight = self.model.lineage_area_gain_weight_function(lineage)
+                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * lineage_area_gain_weight
             else:
                 fes_weight = 0.0
             speciation_mode_weights = [

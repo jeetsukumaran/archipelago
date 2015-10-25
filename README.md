@@ -151,22 +151,25 @@ For e.g.:
         ],
         "diversification": {
             "lineage_birth_rate": {
-                "definition_type": "fixed_value",
-                "definition": 0.01,
-            },
-            "lineage_death_rate": {
-                "definition_type": "fixed_value",
-                "definition": 0,
-            },
+                "definition_type": "lambda_definition",
+                "definition": "lambda lineage: 0.01",
+                "description": "fixed: 0.01"
+            }
         },
-        "dispersal": {
-            "global_dispersal_rate": 0.01,
-            "lineage_dispersal_weight": {
-                "definition_type": "fixed_value",
-                "definition": 0.01,
+        "anagenetic_range_evolution": {
+            "global_area_gain_rate": 0.01,
+            "lineage_area_gain_weight": {
+                "definition_type": "lambda_definition",
+                "definition": "lambda lineage: 0.01",
+                "description": "fixed: 0.01"
             },
+            "lineage_area_loss_rate": {
+                "definition_type": "lambda_definition",
+                "definition": "lambda lineage: 0.0",
+                "description": "fixed: 0.0"
+            }
         },
-        "cladogenesis": {
+        "cladogenetic_range_evolution": {
             "sympatric_subset_speciation_weight": 1.0,
             "single_area_vicariance_speciation_weight": 1.0,
             "widespread_vicariance_speciation_weight": 1.0,

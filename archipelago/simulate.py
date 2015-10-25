@@ -289,10 +289,10 @@ class ArchipelagoSimulator(object):
                 event_calls.append( (self.phylogeny.split_lineage, lineage) )
                 event_rates.append(speciation_rate)
             # extinction
-            extinction_rate = self.model.lineage_death_rate_function(lineage)
-            if extinction_rate:
-                event_calls.append( (self.phylogeny.extirpate_lineage, lineage) )
-                event_rates.append(extinction_rate)
+            area_loss_rate = self.model.lineage_area_loss_rate_function(lineage)
+            if area_loss_rate:
+                event_calls.append( (self.phylogeny.contract_lineage_range, lineage) )
+                event_rates.append(area_loss_rate)
             # trait evolution
             for trait_idx, current_state_idx in enumerate(lineage.traits_vector):
                 ## normalized
@@ -304,23 +304,23 @@ class ArchipelagoSimulator(object):
                         event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            lineage_dispersal_weight = self.model.lineage_dispersal_weight_function(lineage)
-            if not lineage_dispersal_weight:
+            lineage_area_gain_weight = self.model.lineage_area_gain_weight_function(lineage)
+            if not lineage_area_gain_weight:
                 continue
             for dest_area_idx in self.model.geography.area_indexes:
                 if lineage.distribution_vector[dest_area_idx]:
                     # already occurs here: do we model it or not?
                     continue
-                sum_of_dispersal_weights_to_dest = 0.0
+                sum_of_area_gain_weights_to_dest = 0.0
                 for src_area_idx, occurs in enumerate(lineage.distribution_vector):
                     if not occurs:
                         continue
                     if dest_area_idx == src_area_idx:
                         continue
-                    sum_of_dispersal_weights_to_dest += lineage_dispersal_weight * self.model.geography.effective_dispersal_rates[src_area_idx][dest_area_idx]
-                if sum_of_dispersal_weights_to_dest:
+                    sum_of_area_gain_weights_to_dest += lineage_area_gain_weight * self.model.geography.effective_area_gain_rates[src_area_idx][dest_area_idx]
+                if sum_of_area_gain_weights_to_dest:
                     event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
-                    event_rates.append(sum_of_dispersal_weights_to_dest)
+                    event_rates.append(sum_of_area_gain_weights_to_dest)
         # sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates
 
