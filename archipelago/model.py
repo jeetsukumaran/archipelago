@@ -688,7 +688,7 @@ class TraitTypes(object):
             self.trait_label_index_map[trait.label] = trait.index
             if run_logger is not None:
                 run_logger.info("(TRAIT EVOLUTION) configuring trait {idx}: '{label}': {nstates} states, transition rate of {trate} with {normalized}transition weights of {tweights}".format(
-                    idx=trait.index,
+                    idx=trait.index+1,
                     label=trait.label,
                     normalized="normalized " if self.normalize_transition_weights else "",
                     nstates=trait.nstates,
