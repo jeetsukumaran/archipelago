@@ -191,17 +191,16 @@ The trait evolution rate is 0.01 for all three trait types.
 As the optional trait evolution transition weight matrix is not specified, an
 equal-rate model is assumed by default
 
-The diversification regime gives constant/fixed birth rate of 0.01 and constant/fixed
-extinction/local extirpation rate of 0.0.
+The diversification regime gives constant/fixed birth rate of 0.01.
 
-The global dispersal rate is set to 0.01.
-Here, the lineage dispersal weight is also set to a fixed-value function that
+The global area gain rate (= dispersal rate in the DEC model) is set to 0.01.
+Here, the lineage area gain weight is also set to a fixed-value function that
 always returns 0.01.
-If we wanted to model a trait-dependent lineage-specific dispersal weight, where the weight of the dispersal depended on the trait state of trait type "q1", we might do something like:
+If we wanted to model a trait-dependent lineage-specific area gain weight, where the weight of the dispersal depended on the trait state of trait type "q1", we might do something like:
 
-        "dispersal": {
-            "global_dispersal_rate": 0.01,
-            "lineage_dispersal_weight": {
+        "anagenetic_range_evolution": {
+            "global_area_gain_rate": 0.01,
+            "lineage_area_gain_weight": {
                 "definition_type": "trait_state_index_map:q1",
                 "definition": [
                     2.0,
@@ -214,6 +213,8 @@ If we wanted to model a trait-dependent lineage-specific dispersal weight, where
 Here, if the state of a lineage's "q1" trait was "0", the lineage-specific dispersal weight would be 2.0.
 If the state of a lineage's "q1" trait was "1", the lineage-specific dispersal weight would be 1.0.
 And if the state of a lineage's "q1" trait was "2", the lineage-specific dispersal weight would be 0.0.
+
+The rate of area loss of a lineage (= "extinction" in the DEC model) is fixed to a constant value of 0.0.
 
 Finally, the example specifies a termination condition of 50 (extant or tip) lineages occurring in the focal areas.
 
