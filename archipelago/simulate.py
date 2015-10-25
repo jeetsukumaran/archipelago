@@ -289,6 +289,11 @@ class ArchipelagoSimulator(object):
                 event_calls.append( (self.phylogeny.split_lineage, lineage) )
                 event_rates.append(speciation_rate)
             # extinction
+            extinction_rate = self.model.lineage_death_rate_function(lineage)
+            if extinction_rate:
+                event_calls.append( (self.phylogeny.extinguish_lineage, lineage) )
+                event_rates.append(extinction_rate)
+            # extinction
             area_loss_rate = self.model.lineage_area_loss_rate_function(lineage)
             if area_loss_rate:
                 event_calls.append( (self.phylogeny.contract_lineage_range, lineage) )

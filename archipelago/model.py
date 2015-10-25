@@ -243,6 +243,19 @@ class ArchipelagoModel(object):
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Setting lineage birth rate function: {desc}".format(
                 desc=self.lineage_birth_rate_function.description,))
+        ## extinction
+        if "lineage_death_rate" in diversification_d:
+            self.lineage_death_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_death_rate"), self.trait_types)
+        else:
+            self.lineage_death_rate_function = RateFunction(
+                    definition_type="lambda_definition",
+                    definition_content="lambda lineage: 0.0",
+                    description="fixed: 0.0",
+                    trait_types=self.trait_types,
+                    )
+        if run_logger is not None:
+            run_logger.info("(DIVERSIFICATION) Setting lineage death rate function: {desc}".format(
+                desc=self.lineage_death_rate_function.description,))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
@@ -280,11 +293,11 @@ class ArchipelagoModel(object):
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area gain rate function: {desc}".format(
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area gain weight function: {desc}".format(
                 desc=self.lineage_area_gain_weight_function.description,))
 
         ## extinction
-        self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
+        # self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
         if "lineage_area_loss_rate" in anagenetic_range_evolution_d:
             self.lineage_area_loss_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_loss_rate"), self.trait_types)
         else:
@@ -299,17 +312,17 @@ class ArchipelagoModel(object):
             #     is_global="global extinction" if self.treat_area_loss_rate_as_lineage_death_rate else "local extirpation",
             #     desc=self.lineage_area_loss_rate_function.description,
             #     ))
-            if self.treat_area_loss_rate_as_lineage_death_rate:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage global extinction rate function: {desc}".format(
-                    desc=self.lineage_area_loss_rate_function.description,
-                    ))
-            else:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area loss rate function: {desc}".format(
-                    desc=self.lineage_area_loss_rate_function.description,
-                    ))
+            # if self.treat_area_loss_rate_as_lineage_death_rate:
+            #     run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage global extinction rate function: {desc}".format(
+            #         desc=self.lineage_area_loss_rate_function.description,
+            #         ))
+            # else:
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage area loss weight function: {desc}".format(
+                desc=self.lineage_area_loss_rate_function.description,
+                ))
 
         if anagenetic_range_evolution_d:
-            raise TypeError("Unsupported dispersal model keywords in anagenetic dispersal submodel: {}".format(anagenetic_range_evolution_d))
+            raise TypeError("Unsupported dispersal model keywords in anagenetic range evolution submodel: {}".format(anagenetic_range_evolution_d))
 
         # Cladogenetic range inheritance submodel
         cladogenesis_d = dict(model_definition.pop("cladogenetic_range_evolution", {}))
@@ -318,7 +331,7 @@ class ArchipelagoModel(object):
         self.cladogenesis_widespread_vicariance_speciation_weight = float(cladogenesis_d.pop("widespread_vicariance_speciation_weight", 1.0))
         self.cladogenesis_founder_event_speciation_weight = float(cladogenesis_d.pop("founder_event_speciation_weight", 0.0))
         if cladogenesis_d:
-            raise TypeError("Unsupported keywords in cladogenesis submodel: {}".format(cladogenesis_d))
+            raise TypeError("Unsupported keywords in cladogenetic range evolution submodel: {}".format(cladogenesis_d))
         if run_logger is not None:
             run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of sympatric subset speciation mode: {}".format(self.cladogenesis_sympatric_subset_speciation_weight))
             run_logger.info("(CLADOGENETIC RANGE EVOLUTION) Base weight of single area vicariance speciation mode: {}".format(self.cladogenesis_single_area_vicariance_speciation_weight))
@@ -397,6 +410,7 @@ class ArchipelagoModel(object):
     def diversification_as_definition(self):
         d = collections.OrderedDict()
         d["lineage_birth_rate"] = self.lineage_birth_rate_function.as_definition()
+        d["lineage_death_rate"] = self.lineage_death_rate_function.as_definition()
         return d
 
     def anagenetic_range_evolution_as_definition(self):
@@ -944,16 +958,16 @@ class Phylogeny(dendropy.Tree):
         self.current_lineages.add(c1)
         self.current_lineages.add(c2)
 
+    def extinguish_lineage(self, lineage):
+        self._make_lineage_extinct_on_phylogeny(lineage)
+
     def contract_lineage_range(self, lineage):
-        if self.model.treat_area_loss_rate_as_lineage_death_rate:
+        presences = lineage.distribution_vector.presences()
+        assert len(presences) > 0
+        if len(presences) == 1:
             self._make_lineage_extinct_on_phylogeny(lineage)
         else:
-            presences = lineage.distribution_vector.presences()
-            assert len(presences) > 0
-            if len(presences) == 1:
-                self._make_lineage_extinct_on_phylogeny(lineage)
-            else:
-                lineage.distribution_vector[ self.rng.choice(presences) ] = 0
+            lineage.distribution_vector[ self.rng.choice(presences) ] = 0
 
     def _get_daughter_distributions(self, lineage):
         # speciation modes
