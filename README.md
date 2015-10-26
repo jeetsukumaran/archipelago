@@ -104,25 +104,39 @@ We would then encode this information in the phylogeny as follows:
 
 ### Calculation of Calibration Parameters
 
-At the very least, we need to provide the simulation program,
-"``archipelago-simulate.py``" the following parameters:
+We can provide the simulation program, "``archipelago-simulate.py``", the following parameters:
 
-    (1) the birth rate
-    (2) the extinction rate
-    (3) the trait transition rate (for each of the trait types)
-    (4) the global dispersal rate
+-   diversification submodel parameters
+    -   the lineage birth rate (i.e., the speciation rate)
+    -   the lineage death rate (i.e., the extinction rate; note that this does *not* correspond to the "extinction" rate or "*e*" parameter as given in the DEC family of biogeographical models; this is the true extinction rate corresponding to the death rate in the birth-death model, just as the birth rate above corresponds to the birth rate in the same model; the rate corresponding to the extinction rate or "*e*" parameter in the DEC family of biogeographical models is the area loss rate, described below)
+-   trait submodel parameters
+    -   for *each* trait type defined, the trait transition rate (supplemented by an optional weight matrix if the rates are asymmetrical)
+-   anagenetic range evolution submodel parameters
+    -   the rate of area gain; this corresponds to the *global dispersal rate* (*d*) in the DEC family of biogeographical models
+    -   the rate of area loss; this corresponds to the *extinction rate* (*e*) in the DEC family of biogeographical models
+-   cladogenetic range evolution submodel parameters
+    -   the relative weights of the various speciation modes of the extended DEC family of biogeographical models
 
-This is done conveniently for us by the program: "``archipelago-profile-trees.py``".
-Full help on running the program is available by typing:
+The diversification submodel and the anagenetic range evolution submodel parameters can be specified as function, returning a value based on the trait state of a lineage, or as a fixed/constant value.
+Advanced usage allows you to define a Python function that takes a lineage as an argument, inspects various attributes or properties of the lineage (its distribution, trait states, etc.) and return the relevant rate.
+If you have an empirical or some other existing tree that will be used to calibrate the simulations, you can estimate the various process rates using various other programs:
 
-    $ archipelago-profile-trees.py --help
+-   the birth rate can be estimated under a pure birth or Yule model using DendroPy or any number of packages in R.
+-   the trait submodel parameters can be estimated using BayesTraits or the R package GEIGER
+-   the anagenetic submodel parameters can be estimated using BayArea if the number of areas is very large or lagrange or BioGeoBEARS if limited to a small number
+-   the cladogenetic submodel parameters can be estimated using lagrange or BioGeoBEARS, or just left at their default equal-weighted and excluding founder-event jump dispersal
 
-This program takes as its input one or more trees, in either Newick, Nexus or
-NeXML format, with trait and geographical data encoded in the labels as
-described above.
-Options are available to specify the parameters that will be estimated.
-The output of the program will be a CSV (comma-separated value) file, with a
-single row for each tree passed in as output, and the columns the data fields.
+<!--- is going to be This can be estimated through conventional ways. For example, the birth rate can be estimated  by the program: "``archipelago-profile-trees.py``". -->
+<!--- Full help on running the program is available by typing: -->
+
+<!---     $ archipelago-profile-trees.py --help -->
+
+<!--- This program takes as its input one or more trees, in either Newick, Nexus or -->
+<!--- NeXML format, with trait and geographical data encoded in the labels as -->
+<!--- described above. -->
+<!--- Options are available to specify the parameters that will be estimated. -->
+<!--- The output of the program will be a CSV (comma-separated value) file, with a -->
+
 
 ### Simulation of Training Data
 
