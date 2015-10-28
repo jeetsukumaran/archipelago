@@ -45,7 +45,7 @@ Run the following in the top-level directory of the project:
 
 ### Preparation of Data
 
-The primary input is an ultrametic (and rooted) phylogeny in which each of the
+The primary input is an ultrametric (and rooted) phylogeny in which each of the
 tip lineages are associated with presence/absence data over a set of
 geographical areas, as well as one or more character traits. This information
 currently has to be encoded into the labels of the tips. Future versions of
