@@ -1,0 +1,39 @@
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.bcf
+*.run.xml
+*.fls
+
+# Editor
+tags
+
+# svn crud
+.svn*
+
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.synctex.gz
+
+# OS
+.DS_Store
+
+# Project
+build/
+product/
+
