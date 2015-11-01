@@ -15,6 +15,7 @@
 \usepackage{graphicx}                     % Add graphics capabilities
 \usepackage{xspace}                        % smart space insertion after commands
 \usepackage{tabulary}
+\usepackage{listings}
 \usepackage[table]{xcolor} % http://tex.stackexchange.com/questions/5363/how-to-create-alternating-rows-in-a-table
 
 %%% Notation and Variables
@@ -34,6 +35,7 @@
 % \rowcolors{2}{gray!25}{gray!15}
 
 \title{ARCHIPELAGO}
+\author{Jeet Sukumaran}
 \maketitle
 
 \section{Introduction}
@@ -43,8 +45,33 @@ The theory and background to this model and its usage is described in the follow
 
 
 This software project, ``archipelago'' presents a suite of programs to generate and analyze data under the Archipelago model.
-The primary objective of the analysis is to *classify a dataset with respect to the model that generated it*.
+The primary objective of the analysis is to \textit{classify a dataset with respect to the model that generated it}.
 This is, thus, a computational biogeographical model selection analysis program that exploits the power and flexibility of the Archipelago model to allow you to ask and answer historical biogeographical questions of a nature and complexity that are not possible under any other approach.
 In particular, instead of asking questions about ancestral area patterns, you can ask questions about processes, and how some processes (e.g., ecology) affect other processes (e.g., dispersal or speciation).
+
+\section{Installation}
+
+\subsection{Pre-requisites}
+
+\begin{itemize}
+    \item Python 2.7 or higher
+    \item DendroPy Phylogenetic Computing Library, version 4 or above (\url{http://dendropy.org}).
+    \item R (\url{http://www.r-project.org/})
+    \item The following R packages:
+    \begin{itemize}
+        \item adegenet
+        \item picante
+        \item BioGeoBears
+        \item GEIGER
+    \end{itemize}
+\end{itemize}
+
+\subsection{Installation from Source}
+
+Run the following in the top-level directory of the project:
+
+\begin{lstlisting}
+    $ python setup.py install
+\end{lstlisting}
 
 \end{document}
