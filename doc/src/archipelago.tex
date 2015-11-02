@@ -19,15 +19,11 @@
 \usepackage[table]{xcolor} % http://tex.stackexchange.com/questions/5363/how-to-create-alternating-rows-in-a-table
 
 %%% Notation and Variables
-\newcommand{\hostTreeSamples}{\mathcal{T}}
-\newcommand{\sourceHostTree}{\bar{T}}
-\newcommand{\augmentedHostTreeSamples}{\mathbf{T}^{*}}
-\newcommand{\simulationTime}{\tau}
-\newcommand{\hostEvent}{\eta}
-\newcommand{\hostEventSchedule}{\mathcal{H}}
-\newcommand{\hostEventScheduleSamples}{\mathbb{H}}
-\newcommand{\symbiontTree}{\psi}
-\newcommand{\scaledSymbiontTree}{\psi\prime}
+
+\newcommand{\targetData}{D}
+\newcommand{\trainingData}[1]{D^{*#1}}
+\newcommand{\modelCategory}[1]{M_{#1}}
+\newcommand{\modelCategories}{\mathbf{M}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Main Document
@@ -45,8 +41,9 @@ The theory and background to this model and its usage is described in the follow
 
 
 This software project, ``archipelago'' presents a suite of programs to generate and analyze data under the Archipelago model.
-The primary objective of the analysis is to \textit{classify a dataset with respect to the model that generated it}.
-This is, thus, a computational biogeographical model selection analysis program that exploits the power and flexibility of the Archipelago model to allow you to ask and answer historical biogeographical questions of a nature and complexity that are not possible under any other approach.
+The primary objective of the analysis is \textit{model selection}: i.e., statistically identifying the model that generated a particular set of data.
+% to \textit{classify a dataset with respect to the model that generated it}.
+``archipelago'' is, thus, a computational biogeographical model selection analysis package that exploits the power and flexibility of the Archipelago model to allow you to ask and answer historical biogeographical questions of a nature and complexity that are not possible under any other approach.
 In particular, instead of asking questions about ancestral area patterns, you can ask questions about processes, and how some processes (e.g., ecology) affect other processes (e.g., dispersal or speciation).
 
 \section{Installation}
@@ -71,7 +68,25 @@ In particular, instead of asking questions about ancestral area patterns, you ca
 Run the following in the top-level directory of the project:
 
 \begin{lstlisting}
-    $ python setup.py install
+    python setup.py install
 \end{lstlisting}
+
+
+\section{Usage}
+
+\section{Overview of Workflow}
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.5]{figs/flowchart1.pdf}
+        % \caption{default}
+        % \label{fig:default}
+    \end{center}
+\end{figure}
+
+Let $\targetData$ be the \textit{target} data, consisting of an ultrametric phylogeny with each of the tips associated with a geographic range (presence/absence over one or more areas) as well as with set of trait states.
+Let $\modelCategories = \{\modelCategory{1}, \modelCategory{2}, ... \modelCategory{k}\}$ be a set of $k$ models that we are interested in studying.
+Our analytical objective is, for each $\modelCategory{i}, \modelCategory{i} \in \modelCategories$, estimate the probability that it generated the target data $\targetData$, relative to all the other models in $\modelCategories$.
+We achieve this by generating data under each of the models in $\modelCategories$, and then using this \textit{training data} to construct a machine learning classifier, i.e., a discriminant analysis function, that classifies the original data $\targetData$ with respect to each of the models in $\modelCategories$.
 
 \end{document}
