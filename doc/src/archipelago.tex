@@ -48,6 +48,18 @@ The primary objective of the analysis is \textit{model selection}: i.e., statist
 ``archipelago'' is, thus, a computational biogeographical model selection analysis package that exploits the power and flexibility of the Archipelago model to allow you to ask and answer historical biogeographical questions of a nature and complexity that are not possible under any other approach.
 In particular, instead of asking questions about ancestral area patterns, you can ask questions about processes, and how some processes (e.g., ecology) affect other processes (e.g., dispersal or speciation).
 
+As an example of a very basic analysis, let us consider testing whether or not dispersal is constrained by habitat association of a lineage (Figure).
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.5]{figs/Experimental-Design-1.pdf}
+        % \caption{default}
+        % \label{fig:default}
+    \end{center}
+\end{figure}
+We propose two different models, each corresponding to a different dispersal regime.
+In the ``unconstrained'' model, lineages are free to disperse between islands regardless of their habitat affinities.
+In the ``constrained'' model, ony lineages associated with the disturbed or open habitats can disperse between islands, while lineages associated with interior habitats are not able to disperse.
+
 \section{Installation}
 
 \subsection{Pre-requisites}
@@ -76,7 +88,7 @@ Run the following in the top-level directory of the project:
 
 \section{Usage}
 
-\section{Overview of Workflow}
+\subsection{Overview of Workflow}
 
 \begin{figure}[h!]
     \begin{center}
@@ -92,10 +104,13 @@ Let $\summaryStatisticFunction(\cdot)$ be a function that takes a set of data re
 Our analytical objective is, for each $\modelCategory{i}, \modelCategory{i} \in \modelCategories$, estimate the probability that it generated the target data $\targetData$, relative to all the other models in $\modelCategories$.
 The operational procedure consists of the following steps:
 \begin{enumerate}
-    \item \textbf{Training Data Simulation}: For each $\modelCategory{i}, \modelCategory{i} \in \modelCategories$, simulate $n$ replicates of data, $\trainingDataForModel{i}$. We label each replicate of this data with the name of the model that generated it (e.g., ``Model $i$''). The set of all data so generated constitutes the training data, $\trainingDataSet$.
-    \item \textbf{Summary Statistic Calculation}: Calculate summary statistics on the training data to yield, $\summaryStatisticFunction(\trainingDataSet)$, and summary statistics on the target data to yield $\summaryStatisticFunction(\targetData)$.
-    \item \textbf{Classification}: Construct a Discriminant Analysis (DA) function on principal components (PC) calculated on the training data set summary statistics, $\summaryStatisticFunction(\trainingDataSet)$; apply the discriminant analysis function to principal components calculated on the summary statistics of the target data, $\summaryStatisticFunction(\targetData)$.
+    \item \textbf{Simulation of Training Data}: For each $\modelCategory{i}, \modelCategory{i} \in \modelCategories$, simulate $n$ replicates of data, $\trainingDataForModel{i}$. We label each replicate of this data with the name of the model that generated it (e.g., ``Model $i$''). The set of all data so generated constitutes the training data, $\trainingDataSet$.
+    \item \textbf{Calculation of Summary Statistics}: Calculate summary statistics on the training data to yield, $\summaryStatisticFunction(\trainingDataSet)$, and summary statistics on the target data to yield $\summaryStatisticFunction(\targetData)$.
+    \item \textbf{Classification of Target Data}: Construct a Discriminant Analysis (DA) function on principal components (PC) calculated on the training data set summary statistics, $\summaryStatisticFunction(\trainingDataSet)$; apply the discriminant analysis function to principal components calculated on the summary statistics of the target data, $\summaryStatisticFunction(\targetData)$.
 \end{enumerate}
 
+\subsection{Simulation of Training Data}
+
+We use the program, ``\texttt{archipelago-simulate.py}'', to simulate the training data.
 
 \end{document}
