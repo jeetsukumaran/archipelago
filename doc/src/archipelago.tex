@@ -21,7 +21,9 @@
 %%% Notation and Variables
 
 \newcommand{\targetData}{D}
-\newcommand{\trainingData}[1]{D^{*#1}}
+\newcommand{\trainingDataForModel}[1]{D^{*#1}}
+\newcommand{\trainingDataSet}{\mathbf{D}^{*}}
+\newcommand{\summaryStatisticFunction}{S}
 \newcommand{\modelCategory}[1]{M_{#1}}
 \newcommand{\modelCategories}{\mathbf{M}}
 
@@ -85,8 +87,15 @@ Run the following in the top-level directory of the project:
 \end{figure}
 
 Let $\targetData$ be the \textit{target} data, consisting of an ultrametric phylogeny with each of the tips associated with a geographic range (presence/absence over one or more areas) as well as with set of trait states.
-Let $\modelCategories = \{\modelCategory{1}, \modelCategory{2}, ... \modelCategory{k}\}$ be a set of $k$ models that we are interested in studying.
+Let $\modelCategories = \{\modelCategory{1}, \modelCategory{2}, ... \modelCategory{m}\}$ be a set of $k$ models that we are interested in studying.
+Let $\summaryStatisticFunction(\cdot)$ be a function that takes a set of data returns a set of summary statistics.
 Our analytical objective is, for each $\modelCategory{i}, \modelCategory{i} \in \modelCategories$, estimate the probability that it generated the target data $\targetData$, relative to all the other models in $\modelCategories$.
-We achieve this by generating data under each of the models in $\modelCategories$, and then using this \textit{training data} to construct a machine learning classifier, i.e., a discriminant analysis function, that classifies the original data $\targetData$ with respect to each of the models in $\modelCategories$.
+The operational procedure consists of the following steps:
+\begin{enumerate}
+    \item \textbf{Training Data Simulation}: For each $\modelCategory{i}, \modelCategory{i} \in \modelCategories$, simulate $n$ replicates of data, $\trainingDataForModel{i}$. We label each replicate of this data with the name of the model that generated it (e.g., ``Model $i$''). The set of all data so generated constitutes the training data, $\trainingDataSet$.
+    \item \textbf{Summary Statistic Calculation}: Calculate summary statistics on the training data to yield, $\summaryStatisticFunction(\trainingDataSet)$, and summary statistics on the target data to yield $\summaryStatisticFunction(\targetData)$.
+    \item \textbf{Classification}: Construct a Discriminant Analysis (DA) function on principal components (PC) calculated on the training data set summary statistics, $\summaryStatisticFunction(\trainingDataSet)$; apply the discriminant analysis function to principal components calculated on the summary statistics of the target data, $\summaryStatisticFunction(\targetData)$.
+\end{enumerate}
+
 
 \end{document}
