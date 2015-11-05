@@ -34,6 +34,7 @@ def main():
     model_options = parser.add_argument_group("Simulation Model")
     model_options.add_argument("model_file",
             nargs="?",
+            metavar="MODEL-FILE",
             help="Path to file defining the model.")
     model_options.add_argument("-f", "--model-format",
             dest="model_file_schema",

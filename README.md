@@ -27,7 +27,7 @@ It consists of four programs:
 ### Pre-requisites
 
 -   Python 2.7 or higher
--   [DendroPy Phylogenetic Computing Library](http://dendropy.org/) ([Version 4 or above](https://github.com/jeetsukumaran/DendroPy/tree/DendroPy4))
+-   [DendroPy Phylogenetic Computing Library, Version 4 or above](http://dendropy.org/)
 -   [R](http://www.r-project.org/)
 -   The following *R* packages:
     -   adegenet
@@ -177,7 +177,7 @@ For e.g.:
         },
         "anagenetic_range_evolution": {
             "global_area_gain_rate": 0.01,
-            "lineage_area_gain_weight": {
+            "lineage_area_gain_rate": {
                 "definition_type": "lambda_definition",
                 "definition": "lambda lineage: 0.01",
                 "description": "fixed: 0.01"
@@ -219,7 +219,7 @@ If we wanted to model a trait-dependent lineage-specific area gain weight, where
 
         "anagenetic_range_evolution": {
             "global_area_gain_rate": 0.01,
-            "lineage_area_gain_weight": {
+            "lineage_area_gain_rate": {
                 "definition_type": "trait_state_index_map:q1",
                 "definition": [
                     2.0,
