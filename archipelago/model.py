@@ -261,32 +261,32 @@ class ArchipelagoModel(object):
 
         # Dispersal submodel
         anagenetic_range_evolution_d = dict(model_definition.pop("anagenetic_range_evolution", {}))
-        if "global_area_gain_rate" not in anagenetic_range_evolution_d and "mean_area_gain_rate" not in anagenetic_range_evolution_d:
-            if interpolate_missing_model_values:
-                anagenetic_range_evolution_d["global_area_gain_rate"] = 0.01
-            else:
-                raise TypeError("Exactly one of 'global_area_gain_rate' or 'mean_area_gain_rate' must be specified")
-        if "global_area_gain_rate" in anagenetic_range_evolution_d and "mean_area_gain_rate" in anagenetic_range_evolution_d:
-            raise TypeError("No more than one of 'global_area_gain_rate' or 'mean_area_gain_rate' can be specified")
-        elif "global_area_gain_rate" in anagenetic_range_evolution_d:
-            self.global_area_gain_rate = float(anagenetic_range_evolution_d.pop("global_area_gain_rate"))
-            self.mean_area_gain_rate = None
-            if run_logger is not None:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate is: {}".format(self.global_area_gain_rate))
-            self.geography.set_global_area_gain_rate(self.global_area_gain_rate)
-        else:
-            self.mean_area_gain_rate = float(anagenetic_range_evolution_d.pop("mean_area_gain_rate"))
-            self.global_area_gain_rate = None
-            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Mean area gain rate is: {}".format(self.mean_area_gain_rate))
-            self.geography.set_mean_area_gain_rate(self.mean_area_gain_rate)
-        if run_logger is not None:
-            for a1, area1 in enumerate(self.geography.areas):
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
+        # if "global_area_gain_rate" not in anagenetic_range_evolution_d and "mean_area_gain_rate" not in anagenetic_range_evolution_d:
+        #     if interpolate_missing_model_values:
+        #         anagenetic_range_evolution_d["global_area_gain_rate"] = 1.0
+        #     else:
+        #         raise TypeError("Exactly one of 'global_area_gain_rate' or 'mean_area_gain_rate' must be specified")
+        # if "global_area_gain_rate" in anagenetic_range_evolution_d and "mean_area_gain_rate" in anagenetic_range_evolution_d:
+        #     raise TypeError("No more than one of 'global_area_gain_rate' or 'mean_area_gain_rate' can be specified")
+        # elif "global_area_gain_rate" in anagenetic_range_evolution_d:
+        #     self.global_area_gain_rate = float(anagenetic_range_evolution_d.pop("global_area_gain_rate"))
+        #     self.mean_area_gain_rate = None
+        #     if run_logger is not None:
+        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate is: {}".format(self.global_area_gain_rate))
+        #     self.geography.set_global_area_gain_rate(self.global_area_gain_rate)
+        # else:
+        #     self.mean_area_gain_rate = float(anagenetic_range_evolution_d.pop("mean_area_gain_rate"))
+        #     self.global_area_gain_rate = None
+        #     run_logger.info("(ANAGENETIC RANGE EVOLUTION) Mean area gain rate is: {}".format(self.mean_area_gain_rate))
+        #     self.geography.set_mean_area_gain_rate(self.mean_area_gain_rate)
+        # if run_logger is not None:
+        #     for a1, area1 in enumerate(self.geography.areas):
+        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
 
-        if "lineage_area_gain_weight" in anagenetic_range_evolution_d:
-            self.lineage_area_gain_weight_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_gain_weight"), self.trait_types)
+        if "lineage_area_gain_rate" in anagenetic_range_evolution_d:
+            self.lineage_area_gain_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_gain_rate"), self.trait_types)
         else:
-            self.lineage_area_gain_weight_function = RateFunction(
+            self.lineage_area_gain_rate_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda lineage: 0.01",
                     description="fixed: 0.01",
@@ -294,7 +294,7 @@ class ArchipelagoModel(object):
                     )
         if run_logger is not None:
             run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage-specific area gain weight function: {desc}".format(
-                desc=self.lineage_area_gain_weight_function.description,))
+                desc=self.lineage_area_gain_rate_function.description,))
 
         ## extinction
         # self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
@@ -406,15 +406,15 @@ class ArchipelagoModel(object):
 
     def anagenetic_range_evolution_as_definition(self):
         d = collections.OrderedDict()
-        if self.global_area_gain_rate is not None and self.mean_area_gain_rate is not None:
-            raise TypeError("Both 'global_area_gain_rate' and 'mean_area_gain_rate' are populated")
-        elif self.global_area_gain_rate is None and self.mean_area_gain_rate is None:
-            raise TypeError("Neither 'global_area_gain_rate' and 'mean_area_gain_rate' are populated")
-        elif self.global_area_gain_rate is not None:
-            d["global_area_gain_rate"] = self.global_area_gain_rate
-        else:
-            d["mean_area_gain_rate"] = self.mean_area_gain_rate
-        d["lineage_area_gain_weight"] = self.lineage_area_gain_weight_function.as_definition()
+        # if self.global_area_gain_rate is not None and self.mean_area_gain_rate is not None:
+        #     raise TypeError("Both 'global_area_gain_rate' and 'mean_area_gain_rate' are populated")
+        # elif self.global_area_gain_rate is None and self.mean_area_gain_rate is None:
+        #     raise TypeError("Neither 'global_area_gain_rate' and 'mean_area_gain_rate' are populated")
+        # elif self.global_area_gain_rate is not None:
+        #     d["global_area_gain_rate"] = self.global_area_gain_rate
+        # else:
+        #     d["mean_area_gain_rate"] = self.mean_area_gain_rate
+        d["lineage_area_gain_rate"] = self.lineage_area_gain_rate_function.as_definition()
         d["lineage_area_loss_rate"] = self.lineage_area_loss_rate_function.as_definition()
         return d
 
@@ -716,7 +716,7 @@ class Area(object):
             label=None,
             is_supplemental=False,
             relative_diversity=None,
-            area_gain_weights=None,
+            area_connection_weights=None,
             ):
         self.index = index
         self.label = label
@@ -724,8 +724,8 @@ class Area(object):
         self.relative_diversity = relative_diversity
         # this is here mainly for description purposes in
         # `Area.as_definition()`; actual usage is through
-        # `Geography.area_gain_weights`
-        self.area_gain_weights = area_gain_weights
+        # `Geography.area_connection_weights`
+        self.area_connection_weights = area_connection_weights
 
     def as_definition(self):
         d = collections.OrderedDict()
@@ -733,13 +733,13 @@ class Area(object):
         d["label"] = self.label
         d["is_supplemental"] = self.is_supplemental
         d["relative_diversity"] = self.relative_diversity
-        d["area_gain_weights"] = self.area_gain_weights
+        d["area_connection_weights"] = self.area_connection_weights
         return d
 
 class Geography(object):
 
     def __init__(self):
-        self.normalize_area_gain_weights = False
+        self.normalize_area_connection_weights = False
 
     def __iter__(self):
         return iter(self.areas)
@@ -767,7 +767,7 @@ class Geography(object):
                 relative_diversity=area_d.pop("relative_diversity", 1.0),
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
-            area._area_gain_weights_d = list(area_d.pop("area_gain_weights", [])) # delay processing until all areas have been defined
+            area._area_connection_weights_d = list(area_d.pop("area_connection_weights", [])) # delay processing until all areas have been defined
             self.areas.append(area)
             self.area_label_index_map[area.label] = area.index
             self.area_indexes.append(area.index)
@@ -793,43 +793,43 @@ class Geography(object):
                 len(self.areas),
                 ", ".join("'{}'".format(a.label) for a in self.areas),
                 ))
-        self.area_gain_weights = []
+        self.area_connection_weights = []
         for a1_idx, area1 in enumerate(self.areas):
-            if len(area1._area_gain_weights_d) == 0:
-                area1._area_gain_weights_d = [1.0] * len(self.areas)
-                area1._area_gain_weights_d[a1_idx] = 0.0
-            if len(area1._area_gain_weights_d) != len(self.areas):
+            if len(area1._area_connection_weights_d) == 0:
+                area1._area_connection_weights_d = [1.0] * len(self.areas)
+                area1._area_connection_weights_d[a1_idx] = 0.0
+            if len(area1._area_connection_weights_d) != len(self.areas):
                 raise ValueError("Expecting exactly {} elements in area gain weight vector for area '{}', but instead found {}: {}".format(
-                    len(self.areas), area1.label, len(area1._area_gain_weights_d), area1._area_gain_weights_d))
-            self.area_gain_weights.append([])
+                    len(self.areas), area1.label, len(area1._area_connection_weights_d), area1._area_connection_weights_d))
+            self.area_connection_weights.append([])
             for a2_idx, area2 in enumerate(self.areas):
                 if a1_idx == a2_idx:
-                    d = float(area1._area_gain_weights_d[a2_idx])
+                    d = float(area1._area_connection_weights_d[a2_idx])
                     if d != 0:
                         raise ValueError("Area gain weight from area {label} to {label} must be 0.0, but instead found: {dw}".format(
                             label=area1.label, dw=d))
-                    self.area_gain_weights[a1_idx].append(0.0)
+                    self.area_connection_weights[a1_idx].append(0.0)
                 else:
-                    d = float(area1._area_gain_weights_d[a2_idx])
-                    self.area_gain_weights[a1_idx].append(d)
-            # if area1._area_gain_weights_d:
-            #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._area_gain_weights_d))
-            area1.area_gain_weights = self.area_gain_weights[a1_idx]
-            del area1._area_gain_weights_d
-        if self.normalize_area_gain_weights:
+                    d = float(area1._area_connection_weights_d[a2_idx])
+                    self.area_connection_weights[a1_idx].append(d)
+            # if area1._area_connection_weights_d:
+            #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._area_connection_weights_d))
+            area1.area_connection_weights = self.area_connection_weights[a1_idx]
+            del area1._area_connection_weights_d
+        if self.normalize_area_connection_weights:
             for a1_idx, area1 in enumerate(self.areas):
-                normalization_factor = sum(self.area_gain_weights[a1_idx])
+                normalization_factor = sum(self.area_connection_weights[a1_idx])
                 if normalization_factor:
                     for a2_idx, area2 in enumerate(self.areas):
-                        self.area_gain_weights[a1_idx][a2_idx] /= normalization_factor
-                    area1.area_gain_weights = self.area_gain_weights[a1_idx]
+                        self.area_connection_weights[a1_idx][a2_idx] /= normalization_factor
+                    area1.area_connection_weights = self.area_connection_weights[a1_idx]
         if run_logger is not None:
-            if self.normalize_area_gain_weights:
+            if self.normalize_area_connection_weights:
                 weight_type = "Normalized area gain"
             else:
                 weight_type = "Area gain"
             for a1, area1 in enumerate(self.areas):
-                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.area_gain_weights[a1]))
+                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.area_connection_weights[a1]))
 
         # instead of recalculating every time
         self.area_nstates = [2 for i in self.areas]
@@ -841,24 +841,6 @@ class Geography(object):
     def new_distribution_vector(self):
         s = DistributionVector(num_areas=len(self.areas))
         return s
-
-    def set_global_area_gain_rate(self, global_area_gain_rate):
-        self.effective_area_gain_rates = []
-        for src_area_idx in self.area_indexes:
-            self.effective_area_gain_rates.append([])
-            for dest_area_idx in self.area_indexes:
-                self.effective_area_gain_rates[src_area_idx].append(self.area_gain_weights[src_area_idx][dest_area_idx] * global_area_gain_rate)
-
-    def set_mean_area_gain_rate(self, mean_area_gain_rate):
-        self.effective_area_gain_rates = []
-        for src_area_idx in self.area_indexes:
-            self.effective_area_gain_rates.append([])
-            for dest_area_idx in self.area_indexes:
-                weight = self.area_gain_weights[src_area_idx][dest_area_idx]
-                if weight:
-                    self.effective_area_gain_rates[src_area_idx].append(mean_area_gain_rate / weight)
-                else:
-                    self.effective_area_gain_rates[src_area_idx].append(0.0)
 
 class Lineage(dendropy.Node):
 
@@ -982,8 +964,8 @@ class Phylogeny(dendropy.Tree):
             speciation_mode = 0
         else:
             if num_presences < num_areas:
-                lineage_area_gain_weight = self.model.lineage_area_gain_weight_function(lineage)
-                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * lineage_area_gain_weight
+                lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage)
+                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * lineage_area_gain_rate
             else:
                 fes_weight = 0.0
             speciation_mode_weights = [

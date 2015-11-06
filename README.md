@@ -27,7 +27,7 @@ It consists of four programs:
 ### Pre-requisites
 
 -   Python 2.7 or higher
--   [DendroPy Phylogenetic Computing Library](http://dendropy.org/) ([Version 4 or above](https://github.com/jeetsukumaran/DendroPy/tree/DendroPy4))
+-   [DendroPy Phylogenetic Computing Library, Version 4 or above](http://dendropy.org/)
 -   [R](http://www.r-project.org/)
 -   The following *R* packages:
     -   adegenet
@@ -47,4 +47,5 @@ Full documentation is available online here:
 
    http://jeetsukumaran.github.io/archipelago
 
-Or in the ``archipelago.pdf`` document found in the root directory of the project.
+or in the ``archipelago.pdf`` document found in the root directory of the
+project.
