@@ -1,0 +1,76 @@
+{
+  "areas": [
+    {
+      "label": "a1", "is_supplemental": false, "relative_diversity": 1.0,
+      "area_connection_weights": [0.0, 1.0, 1.0, 1.0, 1.0]
+    },
+    {
+      "label": "a2", "is_supplemental": false, "relative_diversity": 1.0,
+      "area_connection_weights": [1.0, 0.0, 1.0, 1.0, 1.0]
+    },
+    {
+      "label": "a3", "is_supplemental": false, "relative_diversity": 1.0,
+      "area_connection_weights": [1.0, 1.0, 0.0, 1.0, 1.0]
+    },
+    {
+      "label": "a4", "is_supplemental": false, "relative_diversity": 1.0,
+      "area_connection_weights": [1.0, 1.0, 1.0, 0.0, 1.0]
+    },
+    {
+      "label": "s1", "is_supplemental": true, "relative_diversity": 1.0,
+      "area_connection_weights": [1.0, 1.0, 1.0, 1.0, 0.0]
+    }
+ ],
+  "traits": [
+    {
+      "label": "Trait1", "nstates": 3, "transition_rate": 0.01,
+      "transition_weights": [
+          [0.0, 0.5, 0.5],
+          [0.5, 0.0, 0.5],
+          [0.5, 0.5, 0.0]
+      ]
+    },
+    {
+      "label": "Trait2", "nstates": 2, "transition_rate": 0.01,
+      "transition_weights": [
+          [0.0, 1.0],
+          [1.0, 0.0]
+      ]
+    }
+ ],
+  "diversification": {
+    "lineage_birth_rate": {
+      "definition_type": "lambda_definition",
+      "definition": "lambda lineage: 0.01",
+      "description": "fixed: 0.01"
+    },
+    "lineage_death_rate": {
+      "definition_type": "lambda_definition",
+      "definition": "lambda lineage: 0.0",
+      "description": "fixed: 0.0"
+    }
+  },
+  "anagenetic_range_evolution": {
+    "lineage_area_gain_rate": {
+      "definition_type": "lambda_definition",
+      "definition": "lambda lineage: 0.01",
+      "description": "fixed: 0.01"
+    },
+    "lineage_area_loss_rate": {
+      "definition_type": "lambda_definition",
+      "definition": "lambda lineage: 0.0",
+      "description": "fixed: 0.0"
+    }
+  },
+  "cladogenetic_range_evolution": {
+    "sympatric_subset_speciation_weight": 1.0,
+    "single_area_vicariance_speciation_weight": 1.0,
+    "widespread_vicariance_speciation_weight": 1.0,
+    "founder_event_speciation_weight": 0.0
+  },
+  "termination_conditions": {
+    "target_focal_area_lineages": 50,
+    "gsa_termination_focal_area_lineages": null,
+    "max_time": null
+  }
+}
