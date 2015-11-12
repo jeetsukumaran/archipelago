@@ -80,6 +80,8 @@
 \maketitle
 \setsecnumdepth{subsubsection}
 
+\tableofcontents
+
 \chapter{Introduction}
 
 ``Archipelago'' is the name of a generative phylogeny-based model that simultaneously incorporates the diversification processes of speciation and extinction nad the biogeographical processes of area gain (``dispersal'') and area loss (``extirpation''), with these processes being differentially regulated by ecological or other traits that are themselves co-evolving on the phylogeny.
@@ -187,7 +189,7 @@ The simulation program produces the following output:
 \subsection{Model Specification}
 \label{sec:model-specification}
 We specify the model under which we simulate data using \texttt{archipelago-simulate.py} by a \textit{model file}.
-This is a JSON or Python file providing a single dictionary as its only element.
+This is a JSON file providing a single dictionary as its only element.
 An example of a basic model specification is:
 % \lstinputlisting[language=Python]{source_filename.py}
 \lstinputlisting{includes/samplemodel1.json}
@@ -278,7 +280,89 @@ The model dictionary consists of the following elements:
 \subsection{Lineage-Specific Rate Function}
 
 A number of process rates (speciation, extinction, area gain, area loss) are specified in terms of a ``lineage-specific rate function''.
-This
+This allows the rate of the process to vary depending on the trait state or other attributes of the lineage.
+For each process, the rate function can be specified in one of four ways: a fixed value, a (Python) lambda expression, a trait state mapping, or as a Python function object.
+
+\subsubsection{Fixed-Value Lineage-Specific Rate Function}
+With a fixed-value lineage-specific rate function, the rate of the process is the same, fixed, constant value regardless of lineage.
+That is, all lineages unconditionally have the same rate for the process throughout their lifetimes in the simulation.
+A fixed-value lineage-specific rate function is specified by providing a dictionary like the following as the value for the process key:
+\begin{lstlisting}
+{
+    "definition_type": "fixed_value",
+    "definition": 0.01,
+}
+\end{lstlisting}
+The actual value of the ``definition'' entry would, of course, vary depending on the model.
+Typically, if not of analytical interest, this would be estimated based on the target data.
+Fixing the rate of a process to a value estimated from the target data is known as ``calibrating'' the model.
+More sophisticated approaches can be used to take into account uncertainty in the rate estimates.
+For example, sets of simulations can be run under different values of the process rate sampled from a prior.
+
+\subsubsection{Trait State Mapping Lineage-Specific Rate Function}
+Here, you provide a list of rate values for that processes parameter, with a one-to-one correspondence to the states of an trait defined previously.
+For example, if you have defined a trait with the label ``color'' and three states:
+\begin{lstlisting}
+{"label": "color", "nstates": 3, "transition_rate": 0.01}
+\end{lstlisting}
+you could define a process that takes on the rate of $0.0$ if the ``color'' trait of a lineage was in state $0$, $0.5$ if the trait was in state $1$, and $1.0$, if the trait was in state $2$ by specifying:
+\begin{lstlisting}
+{
+    "definition_type": "trait_state_index_map:color",
+    "definition": [0.0, 0.5, 1.0],
+}
+\end{lstlisting}
+
+\subsubsection{Lambda-Expression Rate Function}
+The rate function is given as a Python lambda function definition.
+The lambda function should take a single argument, an object of the ``Lineage'' class, and return a real value representing the rate of the process for this particular lineage at this particular point in time.
+For example, the following replicates the above trait state mapping:
+\begin{lstlisting}
+{
+    "definition_type": "lambda_definition",
+    "definition": "lambda lineage: 0.0 if lineage.traits_vector[0] == '0' else (0.5 if lineage.traits_vector[0] == '1' else 1.0)"
+}
+\end{lstlisting}
+Note that trait \textit{types} are 0-based numeric indexes, while trait states are character values, ``0'', ``1'', ``2``, etc. ``archipelago'' internally uses character values to specify trait states as this allows for special states such as ``NA'' or ``null''.
+
+As another example, the following inspects the distribution vector of a lineage and returns a rate of $1.0$ if the first area is occupied and $0.5$ if not:
+\begin{lstlisting}
+{
+    "definition_type": "lambda_definition",
+    "definition": "lambda lineage: 1.0 if lineage.distribution[0] == 1 else 0.5"
+}
+\end{lstlisting}
+In constrast to trait states, absence/presence in an (0-based indexed) area is indicated by \textit{numeric} values, $0$ and $1$, respectievly.
+% \begin{description}
+%     \item[``definition\_type'':] \hfill \\
+%         The type of function. The value associated with this key is one of the following string values, which communicates the type of function that is being defined:
+%         \begin{itemize}
+%             \item ``fixed\_value''
+%             \item ``lambda\_definition''
+%             \item ``trait\_state\_index\_map:TRAIT-LABEL''
+%             \item ``function\_object''
+%         \end{itemize}
+%     \item[``definition'':] \hfill \\
+%         The actual definition. The format and content of the value depends on the the ``\texttt{definition\_type}'', and is described below.
+%     \item[``description'':] \hfill \\
+%         The value of this is a string providing a description oft the rate
+% \end{description}
+% \begin{description}
+%     \item[``definition\_type'':] \hfill \\
+%         The type of function. The value associated with this key is one of the following string values:
+%         \begin{description}
+%             \item[``fixed\_value'':] if the definition for the function is a specified as fixed, real value. In this case, the rate of the process is considered invariant with respect to the lineage.
+%             \item[``lambda\_definition'':] if the definition for the function is given as a string value providing a (Python) lambda expression.
+%                 The lambda function should take a single argument, an object of the ``Lineage'' class, and return a real value representing the rate of the process for this particular lineage at this particular point in time.
+%             \item[``trait\_state\_index\_map:TRAIT-LABEL'':] if the definition for the rates is given as a list of values that are indexed by the state of the trait previously defined with the label, ``\verb+<TRAIT-LABEL>+''. The list should contain one value for every state of the trait. For example, given a trait defined as:
+% \begin{lstlisting}
+% {"label": "color", "nstates": 3, "transition_rate": 0.01}
+% \end{lstlisting}
+%             \item[``function\_object'':] if the definition for the function is a function object.
+%                 Note that this cannot be defined in a JSON file or in a Python file passed as input to the ``archipelago-simulate.py'' program.
+%                 For this option, the simulations need to be run using a dedicated user script that calls the library simulation routines directly.
+%                 While more complex than the ``archipelago-simulate.py'' program, this option provides the maximum flexibility and power in specifying the model, as it allows for an arbitrarily complex Python function, making use of user-defined classes and functions, as well as both standard and third-party libraries/packages.
+%         \end{description}
 
 % \subsection{``Calibrating'' the Models}
 
@@ -301,8 +385,6 @@ This
 
 \chapter{Walk-Through of a Basic Analysis}
 
-
-%%%%% EXAMPLE %%%%%%
 \begin{wrapfigure}{r}{0.6\textwidth}
 % \begin{figure}[h!]
   \vspace{-20pt}
@@ -315,6 +397,8 @@ This
 % \end{figure}
 \end{wrapfigure}
 
+\section{Analytical Objectives}
+
 As an example of a very basic analysis, let us consider testing whether or not dispersal is constrained by habitat association of a lineage (Figure).
 We propose two different models, each corresponding to a different dispersal regime.
 In the ``unconstrained'' model, lineages are free to disperse between islands regardless of their habitat affinities.
@@ -323,12 +407,48 @@ The habitat affinities of the lineages themselves are modeled as a discrete bina
 That is, each lineage has a habitat trait, which can either be in the ``disturbed'' or ``interior'' state, and the state of this trait determines whether or not the lineage is capable of dispersing in the ``constrained'' model.
 Thus, in the unconstrained model, lineages disperse between interior habitats on different islands directly.
 In the constrained model, on the other hand, lineages cannot disperse between interior habitats directly: they have to move into a disturbed habitat association in ecological space over evolutionary time, at which phase they are capable of dispersing into new islands, and then re-invade the interior habitats on those new islands by, again, moving into them in ecological space over evolutionary time.
-%%%%% EXAMPLE %%%%%%
+
+\section{Simulating the Training Data}
+
+We will simulate data under two classes of models: ``unconstrained'' and ``constrained''.
+In this analysis, we will be using the basic DEC biogeography model as our bigeography (sub)model.
+We will need to specify the following rates:
+
+\begin{itemize}
+    % \item[The cladogenesis (speciation or birth) rate] \hfill \\
+    %     In the DEC model as implemented by largrange and BioGeoBEARS, speciation is not an explicit process: the model is conditioned on the speciation event timings and structure given by the input phylogeny, which is (typically) taken as truth.
+    %     However, in Archipelago, we explicitly model the diversification process and sample phylogenies as part of the training data.
+    %     While Archipelago supports a full birth-death model, we will not be modeling lineage extinction directly under this model.
+    %     Instead, following the DEC model, we will model lineage extinction as part of
+    % \item[The (global) rate of area gain]
+    %     ...
+    % \item[The (global) rate of area loss]
+    \item The speciation or birth rate \hfill \\
+        \\
+        In the DEC model as implemented by largrange and BioGeoBEARS, speciation is not an explicit process: the model is conditioned on the speciation event timings and structure given by the input phylogeny, which is (typically) taken as truth.
+        However, in Archipelago, we explicitly model the diversification process and sample phylogenies as part of the training data.
+        While Archipelago supports a full birth-death model, we will not be modeling lineage extinction directly under this model.
+        Instead, following the DEC model, we will model lineage extinction as part of
+        The speciation process is a nuisance process with respect to our study question, and both ``unconstrained'' and ``constrained'' classes of models will be set to the same fixed speciation rates.
+        We will estimate the speciation rate under a pure-birth Yule model using the empirical target phylogeny.
+    \item The global rate of area gain \hfill \\
+        \\
+        This corresponds to the ``dispersal'' or ``$d$'' parameter in the DEC model.
+        We will estimate the speciation rate under the basic DEC model, using lagrange, BioGeoBEARS, BayArea, or RevBayes.
+        In the ``unconstrained'' class of model, this rate will be used unmodified.
+        In the ``constrained'' class of model, we will use a trait-state mapping function which will return a rate of $0$ if the lineage habitat trait is in ``interior'' state and \textit{twice} the global dispersal rate estimated if the lineage trait is ``disturbed'' state.
+        We use twice the rate so that the total dispersal flux across the system is maintained, given that, under an equal-rates traits model, we expect half the lineages to be in ``interior'' habitat state and consequently only half the lineages (the ones in the ``disturbed'' habitat state) to be actively dispersing.
+\end{itemize}
+
+Note that while the full Archipelago model supports a distinct extinction
 
 
+In both the ``unconstrained'' and ``constrained'' models, the diversification parameters are the same, and, with respect to the study objectives, the diversification process is essentially a nuisance process.
+We will thus set the diversification submodel to be the same in both models, i.e., with a fixed, constant birth rate regardless of lineage.
+We estimate the birth rate based on the empirical phylogeny using the ``R`` package ``\textit{GEIGER}``.
 
+While our models vary in \textit{how} the area gain rate (i.e. ``dispersal'' or ``d'' in the DEC model) is distributed across lineages, the \textit{total} area gain rate is the same across both models.
+We could estimate the global area gain rate for the biogeography submodel using lagrange, BioGeoBears, or BayArea.
 
-
-%%%%% EXAMPLE %%%%%%
 
 \end{document}
