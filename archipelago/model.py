@@ -875,6 +875,8 @@ class Phylogeny(dendropy.Tree):
     def __init__(self, *args, **kwargs):
         if kwargs:
             self.model = kwargs.pop("model")
+            self.model_id = self.model.model_id
+            self.annotations.add_bound_attribute("model_id")
             self.rng = kwargs.pop("rng")
             self.debug_mode = kwargs.pop("debug_mode")
             self.run_logger = kwargs.pop("run_logger")
