@@ -1,0 +1,36 @@
+{
+    "areas": [
+        { "is_supplemental": true, "label": "b1" },
+        { "is_supplemental": true, "label": "b2" },
+        { "is_supplemental": false, "label": "a1" },
+        { "is_supplemental": false, "label": "a2" },
+        { "is_supplemental": false, "label": "a3" },
+        { "is_supplemental": false, "label": "a4" }
+    ],
+    "traits": [
+        { "nstates": 2, "transition_rate": 0.062247, "label": "habitat" }
+    ],
+    "diversification": {
+        "lineage_birth_rate": {
+            "definition_type": "fixed_value",
+            "definition": 0.05486829846551938
+        },
+        "lineage_death_rate": {
+            "definition_type": "fixed_value",
+            "definition": 0.0
+        }
+    },
+    "anagenetic_range_evolution": {
+        "lineage_area_gain_rate": {
+            "definition_type": "trait_state_index_map:habitat",
+            "definition": [ 0.0359628, 0.0 ]
+        },
+        "lineage_area_loss_rate": {
+            "definition_type": "fixed_value",
+            "definition": 0.00257819
+        }
+    },
+    "termination_conditions": {
+        "target_focal_area_lineages": 365
+    }
+}
