@@ -199,6 +199,12 @@ An example of a basic model specification is:
 The model dictionary consists of the following elements:
 \begin{description}
 
+    \item[``model\_id'']  \hfill \\
+        This key takes an arbitrary string value that identifies the category or class of model being run.
+        It will serve as the identifier of all data generated under this model.
+        Each tree generated under this model will have the metadata item, ``\textit{model\_id}'', with this value associated with it.
+        Each set of summary statistics calculated on each tree will have an additional field, ``\textit{model\_id}`` added to it to document the generating model by the value given to this field.
+        The classification programn ``\textit{archipelago-classify.py}'', will expect the training data summary statistics to have a column with this name, and it will use the values of this column to determine the origin or source of the data.
     \item[``areas'']  \hfill \\
         This key defines the geographical template.
         Its corresponding value is a list of dictionaries with the following keys, with each dictionary defining a distinct area:

@@ -1,4 +1,5 @@
 {
+  model_id: "samplemodel1",
   "areas": [
     {
       "label": "a1", "is_supplemental": false, "relative_diversity": 1.0,
