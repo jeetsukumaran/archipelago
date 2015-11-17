@@ -205,6 +205,15 @@ class ArchipelagoModel(object):
         else:
             model_definition = dict(model_definition)
 
+        # mode identification
+        if "model_id" not in model_definition:
+            model_definition["model_id"] = "Model1"
+            if run_logger is not None:
+                run_logger.warning("Model identifier not specified: defaulting to '{}'".format(model_definition["model_id"]))
+        self.model_id = model_definition.pop("model_id", "Model1")
+        if run_logger is not None:
+            run_logger.info("Setting up model with identifier: '{}'".format(self.model_id))
+
         # Geography
         if "areas" not in model_definition:
             if interpolate_missing_model_values:
@@ -390,6 +399,7 @@ class ArchipelagoModel(object):
 
     def write_model(self, out):
         model_definition = collections.OrderedDict()
+        model_definition["model_id"] = self.model_id
         model_definition["areas"] = self.geography.as_definition()
         model_definition["traits"] = self.trait_types.as_definition()
         model_definition["diversification"] = self.diversification_as_definition()
