@@ -309,6 +309,7 @@ class TreeSummarizer(object):
 
         pdm = treemeasure.PatristicDistanceMatrix(tree=tree)
         tree.stats = collections.defaultdict(lambda:"NA")
+        tree.stats["model_id"] = tree.annotations.get_value("model_id", "NA")
         total_tree_length = 0.0
         total_tree_edges = 0.0
         for nd in tree:
