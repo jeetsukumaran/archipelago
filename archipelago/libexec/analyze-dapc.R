@@ -11,7 +11,7 @@ suppressMessages(library(adegenet))
 # These columns will be dropped from the training data set (they are
 # typically parameters used to generate/simulate data).
 # This column has the model label or category as the value.
-CANDIDATE.GROUPING.FIELD.NAMES <- c( "model.category", "dispersal.model")
+CANDIDATE.GROUPING.FIELD.NAMES <- c("model_id", "model.id", "model.category", "dispersal.model")
 getGroupingFieldName <- function(summary.df) {
     fieldnames <- colnames(summary.df)
     for (field.name in CANDIDATE.GROUPING.FIELD.NAMES) {
