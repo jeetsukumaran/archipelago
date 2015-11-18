@@ -202,9 +202,9 @@ The model dictionary consists of the following elements:
     \item[``model\_id'']  \hfill \\
         This key takes an arbitrary string value that identifies the category or class of model being run.
         It will serve as the identifier of all data generated under this model.
-        Each tree generated under this model will have the metadata item, ``\textit{model\_id}'', with this value associated with it.
-        Each set of summary statistics calculated on each tree will have an additional field, ``\textit{model\_id}`` added to it to document the generating model by the value given to this field.
-        The classification programn ``\textit{archipelago-classify.py}'', will expect the training data summary statistics to have a column with this name, and it will use the values of this column to determine the origin or source of the data.
+        Each tree generated under this model will have the metadata item, ``\texttt{model\_id}'', with this value associated with it.
+        Each set of summary statistics calculated on each tree will have an additional field, ``\texttt{model\_id}`` added to it to document the generating model by the value given to this field.
+        The classification programn ``\texttt{archipelago-classify.py}'', will expect the training data summary statistics to have a column with this name, and it will use the values of this column to determine the origin or source of the data.
     \item[``areas'']  \hfill \\
         This key defines the geographical template.
         Its corresponding value is a list of dictionaries with the following keys, with each dictionary defining a distinct area:
@@ -475,6 +475,12 @@ In the constrained model, on the other hand, lineages cannot disperse between in
 
 \section{The Target Data}
 
+We will analyze the data set discussed in Sukumaran \textit{et al.} 2015.
+This is a data set of birds in Wallacea, originally presented in Carstensen \textit{et al.} 2013.
+We will be focussing on a subset of 365 species for which sufficient ecological data is available that allows us to categorize them into either ``open'' (disturbed) or ``undisturbed'' habitat species.
+The data, model files, etc. for this analysis can be found in the ``\texttt{examples/wallacea\_bird\_dispersal\_by\_habitat/}'' subdirectory of the project directory.
+The subdirectory ``\texttt{original-data}'' has the full phylogeny of 549 species (``\texttt{master\_tree.nexus}''), from the Jetz \textit{et al.} (????) paper as well as a comma-separated value formatted file with the geographical, ecological, and other information from the Carstensen \textit{et al.} 2013 paper.
+
 \section{Simulating the Training Data}
 
 We will simulate data under two classes of models: ``unconstrained'' and ``constrained''.
@@ -523,5 +529,41 @@ Setting the parameters for the various processes (diversification, area gain, ar
 As noted above, this is typically done by setting the rates to estimates based on the target data.
 The \archipelagoPackage package provides a program, ``\texttt{archipelago-profile.py}'' that conveniently does this for you.
 It requires that the target phylogeny labels have \hyperref[sec:workflow-encoding-the-target-data]{trait and geographical data encoded}.
+The subdirectory ``\texttt{target-data}'' of the Wallacean example directory has the original phylogeny pruned down to the 365 species that are the focus of this study, with \hyperref[sec:workflow-encoding-the-target-data]{trait and geographical data encoded in the labels}.
+We can run the profiler program on this phylogeny to yield the training data process rate parameters:
+\begin{lstlisting}
+archipelago-profile.py --estimate-dec-lagrange target-data/wallacea.newick
+\end{lstlisting}
+if we have (the C++) \texttt{lagrange} installed, or, otherwise:
+\begin{lstlisting}
+archipelago-profile.py --estimate-dec-biogeobears target-data/wallacea.newick
+\end{lstlisting}
+if we want to estimate the DEC model parameters using \textit{BioGeoBEARS}.
+
+This program will provide a ``profile'' of this phylogeny (provide MLE's of speciation, trait transition, area loss, and area gain rates).
+The result is a comma-separated value (CSV) formatted-file with one entry per tree passed to it.
+As here we are only using a single tree, there is only one data row.
+The results can be seen in the file ``\texttt{wallacea.profile.csv}'' which includes the following information:
+
+
+\begin{table}[htp]
+\label{tbl:exampleProfile}
+\begin{center}
+\footnotesize
+\begin{tabulary}{\linewidth}{ L L }
+\hline \\ [-1.5ex] % for correct spacing between line and first row
+Field   &   Value \\
+\hline \\ [-1.5ex] % for correct spacing between line and first row
+num.tips                        & 365 \\
+root.age                        & 106.998428 \\
+pure.birth.rate                 & 0.05482309568853121 \\
+trait.1.est.transition.rate     & 0.062247 \\
+area.est.transition.rate        & 2.396912 \\
+biogeobears.dec.dispersal.rate  & 0.018156246 \\
+biogeobears.dec.extinction.rate & 0.002645152 \\
+\hline
+\end{tabulary}
+\end{center}
+\end{table}%
 
 \end{document}
