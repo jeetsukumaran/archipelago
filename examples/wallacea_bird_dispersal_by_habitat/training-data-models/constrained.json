@@ -1,5 +1,5 @@
 {
-    model_id: "constrained",
+    "model_id": "constrained",
     "areas": [
         { "is_supplemental": true, "label": "b1" },
         { "is_supplemental": true, "label": "b2" },

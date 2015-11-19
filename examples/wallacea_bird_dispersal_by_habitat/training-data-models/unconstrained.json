@@ -1,5 +1,5 @@
 {
-    model_id: "unconstrained",
+    "model_id": "unconstrained",
     "areas": [
         { "is_supplemental": true, "label": "b1" },
         { "is_supplemental": true, "label": "b2" },
