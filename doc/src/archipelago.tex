@@ -711,17 +711,40 @@ We condition on the the number of tips in the original data, $365$, for both mod
     }
 \end{lstlisting}
 
-\subsubsection{Running the Simulations}
+\subsection{Running the Simulations}
 We use the program ``\texttt{archipelago-simulate.py}'' to simulate the training data.
 We generate 200 replicates under each of the models, saving the results to appropriately named output locations:
 \begin{lstlisting}
-archipelago-simulate.py --nreps 200 --output-prefix unconstrained_training_data unconstrained.json
-archipelago-simulate.py --nreps 200 --output-prefix constrained_training_data unconstrained.json
+archipelago-simulate.py --nreps 200 --output-prefix unconstrained_training unconstrained.json
+archipelago-simulate.py --nreps 200 --output-prefix constrained_training unconstrained.json
 \end{lstlisting}
-The above commands will generate two sets of output files, one beginning with the prefix ``unconstrained\_training\_data'' and the other beginning with the prefix ``constrained\_training\_data''.
+The above commands will generate two sets of output files, one beginning with the prefix ``unconstrained\_training'' and the other beginning with the prefix ``constrained\_training''.
 See the \hyperref[sec:description-of-output-files]{output file description section} for details on the files produced.
 Here, we are interested in the files with the extension ``\texttt{.focal-areas.trees}``: these are the phylogenies that we need for the next stage.
 The above commands can be run on multiple computers simulataneously, or launched on the a multi-core computers multiple times in parallel, with all the ``\texttt{.focal-areas.trees}`` collected and passed to the next stage: summary statistic calculation.
+
+\section{Calculation of Summary Statistics}
+
+We calculate summary statistics on both the training data as well as the original empirical data.
+We use the program ``\texttt{archipelago-summarize.py}'' to calculate the summary statistics.
+This program takes the path of one or more phylogenies as arguments and produces a comma-separated value file of summary statistics as output, with one row of summary statistics for each phylogeny passed as input.
+While not a mandatory argument, explicitly specifying the output filenames using the ``\texttt{-o}'' or ``\texttt{--output-filepath}'' argument is a good idea; otherwise, output gets written to the standard output instead of being saved to a file.
+The input phylogenies must be in NEWICk format, and have \hyperref[sec:workflow-encoding-the-target-data]{trait and geographical data encoded in the labels}.
+The simulation program ``\texttt{archipelago-simulate.py}'' does this naturally, and, in addition, tags the trees with a model identifier label in such a way that ``\texttt{archipelago-summarize.py}'' recognizes this and adds it to the CSV file in a way that allows the next program in the pipeline, ``\texttt{archipelago-classify.py}'', to use it.
+Note that we must calculate the summary statistics of the training data \textit{separately} from the target data, and save the results of each to separate files.
+
+To calculate the summary statistics for the training data we issue the following command (assuming that the simulations in the previous step wrote their output to files with ``\texttt{unconstrained\_training}'' and ``\texttt{constrained\_training}'' prefixes:
+\begin{lstlisting}
+archipelago-summarize.py --output-filepath summaries/training.summaries.csv unconstrained_training.focal-areas.tree constrained_training.focal-areas.tree
+\end{lstlisting}
+This will result in a file with the name ``\texttt{training.summaries.csv}'' in the \texttt{summaries} subdirectory that contains all the training data summary statistics for the next stage.
+
+To calculate the summary statistics for the target data we issue the following command:
+\begin{lstlisting}
+archipelago-summarize.py --output-filepath summaries/target.summary.csv target-data/wallacea.newick
+\end{lstlisting}
+This will result in a file with the name ``\texttt{target.summary.csv}'' in the \texttt{summaries} subdirectory that contains the target data summary statistics for the next stage.
+
 
 
 \end{document}
