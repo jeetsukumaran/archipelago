@@ -728,7 +728,7 @@ The above commands can be run on multiple computers simulataneously, or launched
 We calculate summary statistics on both the training data as well as the original empirical data.
 We use the program ``\texttt{archipelago-summarize.py}'' to calculate the summary statistics.
 This program takes the path of one or more phylogenies as arguments and produces a comma-separated value file of summary statistics as output, with one row of summary statistics for each phylogeny passed as input.
-While not a mandatory argument, explicitly specifying the output filenames using the ``\texttt{-o}'' or ``\texttt{--output-filepath}'' argument is a good idea; otherwise, output gets written to the standard output instead of being saved to a file.
+While not a mandatory argument, explicitly specifying the output filenames using the ``\texttt{-o}'' or ``\texttt{--output-filepath}'' option is a good idea; otherwise, output gets written to the standard output instead of being saved to a file.
 The input phylogenies must be in NEWICk format, and have \hyperref[sec:workflow-encoding-the-target-data]{trait and geographical data encoded in the labels}.
 The simulation program ``\texttt{archipelago-simulate.py}'' does this naturally, and, in addition, tags the trees with a model identifier label in such a way that ``\texttt{archipelago-summarize.py}'' recognizes this and adds it to the CSV file in a way that allows the next program in the pipeline, ``\texttt{archipelago-classify.py}'', to use it.
 Note that we must calculate the summary statistics of the training data \textit{separately} from the target data, and save the results of each to separate files.
@@ -745,6 +745,27 @@ archipelago-summarize.py --output-filepath summaries/target.summary.csv target-d
 \end{lstlisting}
 This will result in a file with the name ``\texttt{target.summary.csv}'' in the \texttt{summaries} subdirectory that contains the target data summary statistics for the next stage.
 
+\section{Model Selection}
+
+The final stage of the analysis is where we attempt to classify the target data with respect to the generating model, i.e. model selection.
+We use the program ``\texttt{archipelago-classify.py}'' for this.
+This program takes, as a minimum, a path to a target data summary statistics file and one or more paths to training data summary statistics files.
+The first positional argument is take to be the target data summary statistics file while the remaining positional arguments are taken to be the training data summary statistics files.
+As above, it is a good idea to explicitly specify and output filepath using the ``\texttt{-o}'' option to save the output to a file.
+In addition, it is \textit{highly} recommended to use the ``\texttt{--describe-trained-model}'' option to save details about the machine learning model used to classify the target data.
+We also need to tell the classifier how many principal components to use to build the discriminant analysis function.
+We will use the ``\texttt{--optimize-npca}'' to tell the classifier to use as the number of principal components that maximize the probability of correctly (re-)classifying the training data, with  penalty factor of $0$ (i.e., do not apply a penalty weight for each principal component used).
+So, for example, we run our the classification program on the data that we have generated above using the following command:
+\begin{lstlisting}
+archipelago-classify.py --optimize-npca 0 -o result.csv --describe-trained-model dapc-details.txt summaries/target.summary.csv summaries/training.summaries.csv
+\end{lstlisting}
+This primary classifier output, written to ``\texttt{result.csv}'' in the above, is comma-separated value file which include the following fields:
+\begin{description}
+    \item[assign] \hfill \\
+        The value of this field is the identifer (name or label) of the generating model that most probably generated the data.
+    \item[posterior.\texttt{<MODEL\_ID>}] \hfill \\
+        This is the relative weight in support of the model with the identifier ``\texttt{<MODEL\_ID>}''.
+\end{description}
 
 
 \end{document}
