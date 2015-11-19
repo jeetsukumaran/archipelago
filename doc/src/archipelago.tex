@@ -172,6 +172,7 @@ will run 100 replicates under the model specified in the file ``model1.json'' an
 
 The simulation program produces the following output:
 \begin{description}
+    \label{sec:description-of-output-files}
     \SpecialItem
         \item[\texttt{<OUTPUT-PREFIX>.focal-areas.trees}] \hfill \\
             A collection of phylogenies in NEWICK format, where each phylogeny represents the result from a single simulation replicate.
@@ -309,6 +310,7 @@ More sophisticated approaches can be used to take into account uncertainty in th
 For example, sets of simulations can be run under different values of the process rate sampled from a prior.
 
 \subsubsection{Trait State Mapping Lineage-Specific Rate Function}
+\label{sec:trait-state-mapping}
 Here, you provide a list of rate values for that processes parameter, with a one-to-one correspondence to the states of an trait defined previously.
 For example, if you have defined a trait with the label ``color'' and three states:
 \begin{lstlisting}
@@ -627,9 +629,99 @@ Here, following the DEC model, we do not explicitly model extinction of lineages
     }
 },\end{lstlisting}
 
+The anagenetic rate of area gain is where the models differ.
+In the ``unconstrained'' model, the rate of area gain is a fixed, constant value, as estimated on the original data:
+\begin{lstlisting}
+"anagenetic_range_evolution": {
+    "lineage_area_gain_rate": {
+        "definition_type": "fixed_value",
+        "definition": 0.018156246
+    },
+    .
+    .
+    .
+\end{lstlisting}
+However, in the ``constrained'' model, we only allow lineages that are associated with a state index of ``0'' (which we are arbitrarily assigning to mean the ``open'' or ``disturbed'' state) are allowed to disperse.
+Lineages that are associated with a state index of ``1'' are restricted from dispersing.
+We use a \hyperref[sec:trait-state-mapping]{trait state mapping} function to specify this regime.
+Here, we identify the trait by the label that we assigned to it in the trait definition (``habitat'') in the ``definition\_type'' field, and for the ``definition'' field we provide a list of values, with each element in the list specifying the rate rate for the state with the corresponding index, so that the first rate is associated with the first trait state, the second rate is associated with the second trait state, and so on.
+Note that we \textit{double} the estimated rate of area gain ($0.036312492 = 2 \times 0.018156246$).
+This is because we want to maintain the same overall dispersal flux in the system as in the empirical data.
+We used a factor of $2$ based on the fact that, for the equal-rates trait model we are assuming here, the equilibrium frequency of each state is $0.5$.
+Thus, at equilibrium, only half the lineages will be in the dispersal state, $0$, which means that only half the lineages will be dispersing.
+If we were to naively assign the estimated dispersal rate to the area gain rate, we would end up with half as much dispersal in the system as in the original data.
+This can easily be verified by simulating data under this and then re-estimating the dispersal rates.
+By assigning twice the estimated dispersal rate as the area gain rate, to account for the fact that only half the lineages are dispersing, we correctly achieve parity with the dispersal rate in the original data.
+\begin{lstlisting}
+"anagenetic_range_evolution": {
+    "lineage_area_gain_rate": {
+        "definition_type": "trait_state_index_map:habitat",
+        "definition": [ 0.036312492, 0.0 ]
+    },
+    .
+    .
+    .
+\end{lstlisting}
 
+If an asymmetric rates trait transition model is used, we would have to calculate the dispersal flux at equilibrium and correct the area gain rate using the appropriate factor to compensate.
+For example, if the asymetrical-rate trait transition matrix has the following value:
+\begin{align*}
+\begin{bmatrix}
+    0         &  7.55786 \\
+    30.403915 & 0        \\
+\end{bmatrix}
+\end{align*}
+then the stationary frequency of the first and second states are $0.8009086$ and $0.1990914$, respectively.
+This means that if we were the restrict dispersal only to the first state, we would only have approximately $0.80$ of the lineages dispersing, and thus the total dispersal flux would fall short of that estimated from the empirical data.
+To compensate, we would have to increase the area gain rate by a factor of $\frac{1}{0.8009086}=1.248582$, for a total rate of $0.02266844$ instead of $0.018156246$.
+This system would be specified by the following
+\begin{lstlisting}
+"traits": [
+    { "label": habitat, "nstates": 2, "transition_rate": 1.0,
+    "transition_weights":[[0,7.557866],[30.403915,0]]}
+],
+"anagenetic_range_evolution": {
+    "lineage_area_gain_rate": {
+        "definition_type": "trait_state_index_map:habitat",
+        "definition": [ 0.036312492, 0.0 ]
+    },
+    .
+    .
+    .
+\end{lstlisting}
 
-The number of tips (``\texttt{num.tips}'') will be used to set the termination conditions for each simulation:
+For the area loss rate, again, both models are identical, and we use a fixed, constant value as estimated from the original data:
+\begin{lstlisting}
+"anagenetic_range_evolution": {
+    .
+    .
+    .
+    "lineage_area_loss_rate": {
+        "definition_type": "fixed_value",
+        "definition": 0.00257819
+    }
+}
+\end{lstlisting}
+
+Finally, we specify the duration for which to run each of the simulations.
+We condition on the the number of tips in the original data, $365$, for both models:
+\begin{lstlisting}
+    "termination_conditions": {
+        "target_focal_area_lineages": 365
+    }
+\end{lstlisting}
+
+\subsubsection{Running the Simulations}
+We use the program ``\texttt{archipelago-simulate.py}'' to simulate the training data.
+We generate 200 replicates under each of the models, saving the results to appropriately named output locations:
+\begin{lstlisting}
+archipelago-simulate.py --nreps 200 --output-prefix unconstrained_training_data unconstrained.json
+archipelago-simulate.py --nreps 200 --output-prefix constrained_training_data unconstrained.json
+\end{lstlisting}
+The above commands will generate two sets of output files, one beginning with the prefix ``unconstrained\_training\_data'' and the other beginning with the prefix ``constrained\_training\_data''.
+See the \hyperref[sec:description-of-output-files]{output file description section} for details on the files produced.
+Here, we are interested in the files with the extension ``\texttt{.focal-areas.trees}``: these are the phylogenies that we need for the next stage.
+The above commands can be run on multiple computers simulataneously, or launched on the a multi-core computers multiple times in parallel, with all the ``\texttt{.focal-areas.trees}`` collected and passed to the next stage: summary statistic calculation.
 
 
 \end{document}
