@@ -244,7 +244,7 @@ class ArchipelagoSimulator(object):
                     rng=self.rng)
             if self.debug_mode:
                 self.run_logger.debug("Event {}: {}".format(num_events, event_calls[event_idx]))
-            event_calls[event_idx][0](*event_calls[event_idx][1:])
+            event_calls[event_idx][0](**event_calls[event_idx][1])
 
             ### DEBUG
             if self.debug_mode:
@@ -284,19 +284,19 @@ class ArchipelagoSimulator(object):
 
         for lineage in self.phylogeny.iterate_current_lineages():
             # speciation
-            speciation_rate = self.model.lineage_birth_rate_function(lineage)
+            speciation_rate = self.model.lineage_birth_rate_function(lineage=lineage)
             if speciation_rate:
-                event_calls.append( (self.phylogeny.split_lineage, lineage) )
+                event_calls.append( (self.phylogeny.split_lineage, {"lineage": lineage}) )
                 event_rates.append(speciation_rate)
             # extinction
-            extinction_rate = self.model.lineage_death_rate_function(lineage)
+            extinction_rate = self.model.lineage_death_rate_function(lineage=lineage)
             if extinction_rate:
-                event_calls.append( (self.phylogeny.extinguish_lineage, lineage) )
+                event_calls.append( (self.phylogeny.extinguish_lineage, {"lineage": lineage}) )
                 event_rates.append(extinction_rate)
             # extinction
-            area_loss_rate = self.model.lineage_area_loss_rate_function(lineage)
+            area_loss_rate = self.model.lineage_area_loss_rate_function(lineage=lineage)
             if area_loss_rate:
-                event_calls.append( (self.phylogeny.contract_lineage_range, lineage) )
+                event_calls.append( (self.phylogeny.contract_lineage_range, {"lineage": lineage}) )
                 event_rates.append(area_loss_rate)
             # trait evolution
             for trait_idx, current_state_idx in enumerate(lineage.traits_vector):
@@ -306,12 +306,9 @@ class ArchipelagoSimulator(object):
                         continue
                     trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[current_state_idx][proposed_state_idx]
                     if trait_transition_rate:
-                        event_calls.append( (self.phylogeny.evolve_trait, lineage, trait_idx, proposed_state_idx) )
+                        event_calls.append( (self.phylogeny.evolve_trait, {"lineage": lineage, "trait_idx": trait_idx, "proposed_state_idx": proposed_state_idx}) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage)
-            if not lineage_area_gain_rate:
-                continue
             for dest_area_idx in self.model.geography.area_indexes:
                 if lineage.distribution_vector[dest_area_idx]:
                     # already occurs here: do we model it or not?
@@ -322,9 +319,10 @@ class ArchipelagoSimulator(object):
                         continue
                     if dest_area_idx == src_area_idx:
                         continue
+                    lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=lineage, area=area)
                     sum_of_area_connection_weights_to_dest += lineage_area_gain_rate * self.model.geography.area_connection_weights[src_area_idx][dest_area_idx]
                 if sum_of_area_connection_weights_to_dest:
-                    event_calls.append( (self.phylogeny.disperse_lineage, lineage, dest_area_idx) )
+                    event_calls.append( (self.phylogeny.disperse_lineage, {"lineage": lineage, "area_idx": dest_area_idx}) )
                     event_rates.append(sum_of_area_connection_weights_to_dest)
         # sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates
