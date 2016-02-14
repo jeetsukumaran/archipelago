@@ -390,10 +390,11 @@ class Lineage(dendropy.Node):
         def __init__(self, lineage):
             self.lineage = lineage
 
-    def __init__(self, index, model):
+    def __init__(self, index, model, geography):
         dendropy.Node.__init__(self)
         self.index = index
         self.model = model
+        self.geography = geography
         self.areas = set()
         self.distribution_vector = None # not used in simulation; assigned and used in profile/summary statistic calculation
         self.traits_vector = self.model.trait_types.new_traits_vector()
@@ -401,7 +402,7 @@ class Lineage(dendropy.Node):
         self.edge.length = 0
 
     def copy_areas(self, other):
-        for area in self.model.geography.areas:
+        for area in self.geography.areas:
             if area in other.areas and area not in self.areas:
                 self.add_area(area)
             elif area not in other.areas and area in self.areas:
@@ -438,9 +439,9 @@ class Lineage(dendropy.Node):
     def distribution_bitstring(self, exclude_supplemental_areas=False):
         d = []
         if exclude_supplemental_areas:
-            areas = self.model.geography.focal_areas
+            areas = self.geography.focal_areas
         else:
-            areas = self.model.geography.areas
+            areas = self.geography.areas
         for a in areas:
             if a in self.areas:
                 d.append("1")
@@ -476,7 +477,7 @@ class Lineage(dendropy.Node):
             for trait_idx, trait in enumerate(self.model.trait_types):
                 self.annotations.add_new(trait.label, self.traits_vector[trait_idx])
             area_list = []
-            for area_idx, area in enumerate(self.model.geography.areas):
+            for area_idx, area in enumerate(self.geography.areas):
                 if exclude_supplemental_areas and area.is_supplemental:
                     continue
                 if self.distribution_vector[area_idx] == 1:
@@ -485,7 +486,7 @@ class Lineage(dendropy.Node):
         return label
 
     def debug_check(self):
-        for area in self.model.geography.areas:
+        for area in self.geography.areas:
             if area in self.areas:
                 assert self in area.lineages
             else:
@@ -499,6 +500,7 @@ class Phylogeny(dendropy.Tree):
 
     def __init__(self, *args, **kwargs):
         self.model = kwargs.pop("model")
+        self.geography = kwargs.pop("geography")
         self.model_id = self.model.model_id
         self.annotations.add_bound_attribute("model_id")
         self.rng = kwargs.pop("rng")
@@ -509,11 +511,12 @@ class Phylogeny(dendropy.Tree):
         seed_node = self.node_factory(
                 index=next(self.lineage_indexer),
                 model=self.model,
+                geography=self.geography,
                 )
         for trait_idx in range(len(self.model.trait_types)):
             trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
             seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
-        initial_area = self.rng.choice(self.model.geography.areas)
+        initial_area = self.rng.choice(self.geography.areas)
         seed_node.add_area(initial_area)
         kwargs["seed_node"] = seed_node
         dendropy.Tree.__init__(self, *args, **kwargs)
@@ -524,8 +527,8 @@ class Phylogeny(dendropy.Tree):
             yield lineage
 
     def split_lineage(self, lineage, area=None):
-        c1 = self.node_factory(index=next(self.lineage_indexer), model=self.model)
-        c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model)
+        c1 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography)
+        c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography)
         c1.copy_traits(lineage)
         c2.copy_traits(lineage)
         self._set_daughter_distributions(
@@ -559,7 +562,7 @@ class Phylogeny(dendropy.Tree):
         # 4:  founder-event jump dispersal
         #     -   single new area colonized
         num_presences = len(parent.areas)
-        num_areas = len(self.model.geography.areas)
+        num_areas = len(self.geography.areas)
         if num_presences <= 1:
             speciation_mode = 0
         else:
@@ -567,14 +570,14 @@ class Phylogeny(dendropy.Tree):
                 jump_dispersal_target_areas = []
                 jump_dispersal_target_rates = []
                 if self.model.is_area_specific_gain_rate:
-                    for jd_area in self.model.geography.areas:
+                    for jd_area in self.geography.areas:
                         if jd_area in parent.areas:
                             continue
                         jump_dispersal_target_areas.append(jd_area)
                         jump_dispersal_target_rates.append(self.model.lineage_area_gain_rate_function(lineage=parent, area=jd_area))
                 else:
                     parent_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=parent, area=None)
-                    for jd_area in self.model.geography.areas:
+                    for jd_area in self.geography.areas:
                         if jd_area in parent.areas:
                             continue
                         jump_dispersal_target_areas.append(jd_area)
@@ -642,8 +645,8 @@ class Phylogeny(dendropy.Tree):
                 assert n1 > 0
                 assert n2 > 0
                 sample1 = set(self.rng.sample(parent.areas, n1))
-                # assert len(sample1) < len(self.model.geography.areas)
-                for s_area in self.model.geography.areas:
+                # assert len(sample1) < len(self.geography.areas)
+                for s_area in self.geography.areas:
                     if s_area in sample1:
                         child1.add_area(s_area)
                     else:
@@ -688,7 +691,7 @@ class Phylogeny(dendropy.Tree):
 
     def focal_area_lineages(self):
         focal_area_lineages = set()
-        for area in self.model.geography.focal_areas:
+        for area in self.geography.focal_areas:
             focal_area_lineages.update(area.lineages)
         return focal_area_lineages
 
@@ -712,7 +715,7 @@ class Phylogeny(dendropy.Tree):
             memo = {}
         # Model is now volatile and changes state through simulation in a
         # number of ways: e.g., areas track lineages
-        # memo[id(self.model)] = self.model
+        memo[id(self.model)] = self.model
         memo[id(self.rng)] = None #self.rng
         memo[id(self.run_logger)] = self.run_logger
         memo[id(self.taxon_namespace)] = self.taxon_namespace
@@ -720,8 +723,9 @@ class Phylogeny(dendropy.Tree):
 
 class Geography(object):
 
-    def __init__(self):
+    def __init__(self, areas_definition, run_logger=None):
         self.normalize_area_connection_weights = False
+        self.parse_definition(areas_definition=areas_definition, run_logger=run_logger)
 
     def __iter__(self):
         return iter(self.areas)
@@ -729,15 +733,13 @@ class Geography(object):
     def __getitem__(self, idx):
         return self.areas[idx]
 
-    def parse_definition(self,
-            areas,
-            run_logger):
+    def parse_definition(self, areas_definition, run_logger=None):
         self.areas = []
         self.area_label_index_map = collections.OrderedDict()
         self.area_indexes = []
         self.focal_areas = []
         self.supplemental_areas = []
-        for area_idx, area_d in enumerate(areas):
+        for area_idx, area_d in enumerate(areas_definition):
             if "label" not in area_d:
                 raise ValueError("Area requires 'label' to be defined")
             area_label = str(area_d.pop("label", None))
@@ -819,10 +821,6 @@ class Geography(object):
     def as_definition(self):
         areas = [a.as_definition() for a in self.areas]
         return areas
-
-    def new_distribution_vector(self):
-        s = DistributionVector(num_areas=len(self.areas))
-        return s
 
 class ArchipelagoModel(object):
 
@@ -962,7 +960,7 @@ class ArchipelagoModel(object):
         if run_logger is not None:
             run_logger.info("Setting up model with identifier: '{}'".format(self.model_id))
 
-        # Geography
+        # geography
         if "areas" not in model_definition:
             if interpolate_missing_model_values:
                 model_definition["areas"] = [
@@ -974,10 +972,7 @@ class ArchipelagoModel(object):
                 ]
             else:
                 raise ValueError("No areas defined")
-        self.geography = Geography()
-        self.geography.parse_definition(
-                copy.deepcopy(model_definition.pop("areas", [])),
-                run_logger=run_logger)
+        self.geographical_definition = copy.deepcopy(model_definition.pop("areas"))
 
         # Ecology
         self.trait_types = TraitTypes()
@@ -1136,10 +1131,16 @@ class ArchipelagoModel(object):
         if model_definition:
             raise TypeError("Unsupported model keywords: {}".format(model_definition))
 
+    def new_geography(self, run_logger=None):
+        geography = Geography(
+                areas_definition=copy.deepcopy(self.geographical_definition),
+                run_logger=run_logger)
+        return geography
+
     def write_model(self, out):
         model_definition = collections.OrderedDict()
         model_definition["model_id"] = self.model_id
-        model_definition["areas"] = self.geography.as_definition()
+        model_definition["areas"] = self.geographical_definition
         model_definition["traits"] = self.trait_types.as_definition()
         model_definition["diversification"] = self.diversification_as_definition()
         model_definition["anagenetic_range_evolution"] = self.anagenetic_range_evolution_as_definition()

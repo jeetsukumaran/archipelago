@@ -54,10 +54,12 @@ class ArchipelagoSimulator(object):
 
         # set up model
         self.model = archipelago_model
+        self.geography = self.model.new_geography()
 
         # initialize phylogeny
         self.phylogeny = model.Phylogeny(
                 model=self.model,
+                geography=self.geography,
                 rng=self.rng,
                 debug_mode=self.debug_mode,
                 run_logger=self.run_logger,
@@ -332,7 +334,7 @@ class ArchipelagoSimulator(object):
                         event_calls.append( (self.phylogeny.evolve_trait, {"lineage": lineage, "trait_idx": trait_idx, "state_idx": proposed_state_idx}) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            for dest_area in self.model.geography.areas:
+            for dest_area in self.geography.areas:
                 if dest_area in lineage.areas:
                     # already occurs here: do we model it or not?
                     continue
@@ -341,7 +343,7 @@ class ArchipelagoSimulator(object):
                     if src_area is dest_area:
                         continue
                     lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=lineage, area=dest_area)
-                    sum_of_area_connection_weights_to_dest += lineage_area_gain_rate * self.model.geography.area_connection_weights[src_area.index][dest_area.index]
+                    sum_of_area_connection_weights_to_dest += lineage_area_gain_rate * self.geography.area_connection_weights[src_area.index][dest_area.index]
                 if sum_of_area_connection_weights_to_dest:
                     event_calls.append( (lineage.add_area, {"area": dest_area}) )
                     event_rates.append(sum_of_area_connection_weights_to_dest)
