@@ -366,7 +366,7 @@ class ArchipelagoSimulator(object):
 
     def write_focal_areas_tree(self, out, tree):
         if self.is_encode_nodes:
-            labelf = lambda x: self.model.encode_lineage(x,
+            labelf = lambda x: x.encode_lineage(
                     set_label=False,
                     add_annotation=self.is_annotate_nodes,
                     exclude_supplemental_areas=True)
@@ -382,7 +382,7 @@ class ArchipelagoSimulator(object):
 
     def write_all_areas_tree(self, out, tree):
         if self.is_encode_nodes:
-            labelf = lambda x: self.model.encode_lineage(x,
+            labelf = lambda x: x.encode_lineage(
                     set_label=False,
                     add_annotation=self.is_annotate_nodes,
                     exclude_supplemental_areas=False)

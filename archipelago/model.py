@@ -466,8 +466,9 @@ class Lineage(dendropy.Node):
             add_annotation=False,
             exclude_supplemental_areas=False,
             ):
+        label = self.compose_encoded_label(exclude_supplemental_areas=exclude_supplemental_areas)
         if set_label:
-            self.label = self.compose_encoded_label(exclude_supplemental_areas=exclude_supplemental_areas)
+            self.label = label
         if add_annotation:
             self.annotations.drop()
             self.annotations.add_new("traits", traits_v)
@@ -481,6 +482,7 @@ class Lineage(dendropy.Node):
                 if self.distribution_vector[area_idx] == 1:
                     area_list.append(area.label)
             self.annotations.add_new("areas", area_list)
+        return label
 
     def debug_check(self):
         for area in self.model.geography.areas:
@@ -708,7 +710,9 @@ class Phylogeny(dendropy.Tree):
     def __deepcopy__(self, memo=None):
         if memo is None:
             memo = {}
-        memo[id(self.model)] = self.model
+        # Model is now volatile and changes state through simulation in a
+        # number of ways: e.g., areas track lineages
+        # memo[id(self.model)] = self.model
         memo[id(self.rng)] = None #self.rng
         memo[id(self.run_logger)] = self.run_logger
         memo[id(self.taxon_namespace)] = self.taxon_namespace
@@ -1074,7 +1078,7 @@ class ArchipelagoModel(object):
         else:
             self.lineage_area_loss_rate_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.000",
+                    definition_content="lambda **kwargs: 0.01",
                     description="fixed: 0.000",
                     trait_types=self.trait_types,
                     )
@@ -1152,7 +1156,9 @@ class ArchipelagoModel(object):
 
     def anagenetic_range_evolution_as_definition(self):
         d = collections.OrderedDict()
+        d["is_area_specific_gain_rate"] = self.is_area_specific_gain_rate
         d["lineage_area_gain_rate"] = self.lineage_area_gain_rate_function.as_definition()
+        d["is_area_specific_loss_rate"] = self.is_area_specific_loss_rate
         d["lineage_area_loss_rate"] = self.lineage_area_loss_rate_function.as_definition()
         return d
 
