@@ -204,7 +204,7 @@ class ArchipelagoSimulator(object):
                 self.phylogeny._debug_check_tree()
                 for lineage in self.phylogeny.current_lineages:
                     assert lineage.is_extant
-                    assert len(lineage.distribution_vector.presences()) > 0
+                    assert lineage.areas
 
             ### LOGGING
             if self.log_frequency:
@@ -253,7 +253,7 @@ class ArchipelagoSimulator(object):
                 self.phylogeny._debug_check_tree()
                 for lineage in self.phylogeny.current_lineages:
                     assert lineage.is_extant
-                    assert len(lineage.distribution_vector.presences()) > 0
+                    assert lineage.areas
 
 
             ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
@@ -284,20 +284,40 @@ class ArchipelagoSimulator(object):
 
         for lineage in self.phylogeny.iterate_current_lineages():
             # speciation
-            speciation_rate = self.model.lineage_birth_rate_function(lineage=lineage)
-            if speciation_rate:
-                event_calls.append( (self.phylogeny.split_lineage, {"lineage": lineage}) )
-                event_rates.append(speciation_rate)
-            # extinction
+            if self.debug_mode:
+                assert lineage.is_extant
+                assert lineage.areas
+                lineage.debug_check()
+            if self.model.is_per_area_speciation:
+                for area in lineage.areas:
+                    speciation_rate = self.model.lineage_birth_rate_function(lineage=lineage, area=area)
+                    if speciation_rate:
+                        event_calls.append( (self.phylogeny.split_lineage, {"lineage": lineage, "area": area}) )
+                        event_rates.append(speciation_rate)
+            else:
+                speciation_rate = self.model.lineage_birth_rate_function(lineage=lineage, area=None)
+                if speciation_rate:
+                    event_calls.append( (self.phylogeny.split_lineage, {"lineage": lineage, "area": None}) )
+                    event_rates.append(speciation_rate)
+            # global extinction
             extinction_rate = self.model.lineage_death_rate_function(lineage=lineage)
             if extinction_rate:
                 event_calls.append( (self.phylogeny.extinguish_lineage, {"lineage": lineage}) )
                 event_rates.append(extinction_rate)
-            # extinction
-            area_loss_rate = self.model.lineage_area_loss_rate_function(lineage=lineage)
-            if area_loss_rate:
-                event_calls.append( (self.phylogeny.contract_lineage_range, {"lineage": lineage}) )
-                event_rates.append(area_loss_rate)
+            # local extinction
+            if self.model.is_area_specific_loss_rate:
+                for area in lineage.areas:
+                    per_area_loss_rate = self.model.lineage_area_loss_rate_function(lineage=lineage, area=area)
+                    if per_area_loss_rate:
+                        event_calls.append( (lineage.remove_area, {"area": area}) )
+                        event_rates.append(per_area_loss_rate)
+            else:
+                area_loss_rate = self.model.lineage_area_loss_rate_function(lineage=lineage, area=None)
+                if area_loss_rate:
+                    per_area_loss_rate = area_loss_rate / len(lineage.areas)
+                    for area in lineage.areas:
+                        event_calls.append( (lineage.remove_area, {"area": area}) )
+                        event_rates.append(per_area_loss_rate)
             # trait evolution
             for trait_idx, current_state_idx in enumerate(lineage.traits_vector):
                 ## normalized
@@ -306,23 +326,21 @@ class ArchipelagoSimulator(object):
                         continue
                     trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[current_state_idx][proposed_state_idx]
                     if trait_transition_rate:
-                        event_calls.append( (self.phylogeny.evolve_trait, {"lineage": lineage, "trait_idx": trait_idx, "proposed_state_idx": proposed_state_idx}) )
+                        event_calls.append( (self.phylogeny.evolve_trait, {"lineage": lineage, "trait_idx": trait_idx, "state_idx": proposed_state_idx}) )
                         event_rates.append(trait_transition_rate)
             # dispersal
-            for dest_area_idx in self.model.geography.area_indexes:
-                if lineage.distribution_vector[dest_area_idx]:
+            for dest_area in self.model.geography.areas:
+                if dest_area in lineage.areas:
                     # already occurs here: do we model it or not?
                     continue
                 sum_of_area_connection_weights_to_dest = 0.0
-                for src_area_idx, occurs in enumerate(lineage.distribution_vector):
-                    if not occurs:
+                for src_area in lineage.areas:
+                    if src_area is dest_area:
                         continue
-                    if dest_area_idx == src_area_idx:
-                        continue
-                    lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=lineage, area=area)
-                    sum_of_area_connection_weights_to_dest += lineage_area_gain_rate * self.model.geography.area_connection_weights[src_area_idx][dest_area_idx]
+                    lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=lineage, area=dest_area)
+                    sum_of_area_connection_weights_to_dest += lineage_area_gain_rate * self.model.geography.area_connection_weights[src_area.index][dest_area.index]
                 if sum_of_area_connection_weights_to_dest:
-                    event_calls.append( (self.phylogeny.disperse_lineage, {"lineage": lineage, "area_idx": dest_area_idx}) )
+                    event_calls.append( (lineage.add_area, {"area": dest_area}) )
                     event_rates.append(sum_of_area_connection_weights_to_dest)
         # sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates

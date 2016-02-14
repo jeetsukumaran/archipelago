@@ -352,10 +352,10 @@ class Area(object):
         self.lineages = set()
 
     def __str__(self):
-        return "Area_{}".format(self.area_idx)
+        return "Area_{}".format(self.index)
 
     def __repr__(self):
-        return "<archipelago.model.Area object at {} with index {}>".format(id(self), self.area_idx)
+        return "<archipelago.model.Area object at {} with index {}>".format(id(self), self.index)
 
     def add_lineage(self, lineage):
         assert lineage not in self.lineages
@@ -381,6 +381,10 @@ class Area(object):
 
 class Lineage(dendropy.Node):
 
+    _TRAITS_SEPARATOR = "."
+    _LABEL_COMPONENTS_SEPARATOR = "^"
+    _NULL_TRAITS = "NA"
+
     class NullDistributionException(object):
 
         def __init__(self, lineage):
@@ -391,19 +395,20 @@ class Lineage(dendropy.Node):
         self.index = index
         self.model = model
         self.areas = set()
+        self.distribution_vector = None # not used in simulation; assigned and used in profile/summary statistic calculation
         self.traits_vector = self.model.trait_types.new_traits_vector()
         self.is_extant = True
         self.edge.length = 0
 
     def copy_areas(self, other):
-        for area in self.geography.areas:
+        for area in self.model.geography.areas:
             if area in other.areas and area not in self.areas:
-                self.add_areas(area)
+                self.add_area(area)
             elif area not in other.areas and area in self.areas:
-                self.remove_areas(area)
+                self.remove_area(area)
 
     def add_area(self, area):
-        assert area not in self
+        assert area not in self.areas
         self.areas.add(area)
         area.lineages.add(self)
 
@@ -412,10 +417,10 @@ class Lineage(dendropy.Node):
             self.add_area(area)
 
     def remove_area(self, area):
-        assert area in self
+        assert area in self.areas
         self.areas.remove(area)
         area.lineages.remove(self)
-        if len(self.distribution_vector.presences()) == 0:
+        if len(self.areas) == 0:
             raise Lineage.NullDistributionException(self)
 
     def extinguish(self):
@@ -430,21 +435,59 @@ class Lineage(dendropy.Node):
     def copy_traits(self, other_lineage):
         self.traits_vector = other_lineage.traits_vector.clone()
 
+    def distribution_bitstring(self, exclude_supplemental_areas=False):
+        d = []
+        if exclude_supplemental_areas:
+            areas = self.model.geography.focal_areas
+        else:
+            areas = self.model.geography.areas
+        for a in areas:
+            if a in self.areas:
+                d.append("1")
+            else:
+                d.append("0")
+        return "".join(d)
+
+    def compose_encoded_label(self, exclude_supplemental_areas=None):
+        if self.traits_vector:
+            traits_v = Lineage._TRAITS_SEPARATOR.join(str(i) for i in self.traits_vector)
+        else:
+            traits_v = Lineage._NULL_TRAITS
+        areas_v = self.distribution_bitstring(exclude_supplemental_areas=exclude_supplemental_areas)
+        encoding = "s{self_index}{sep}{traits_v}{sep}{areas_v}".format(
+                self_index=self.index,
+                traits_v=traits_v,
+                areas_v=areas_v,
+                sep=Lineage._LABEL_COMPONENTS_SEPARATOR)
+        return encoding
+
+    def encode_lineage(self,
+            set_label=False,
+            add_annotation=False,
+            exclude_supplemental_areas=False,
+            ):
+        if set_label:
+            self.label = self.compose_encoded_label(exclude_supplemental_areas=exclude_supplemental_areas)
+        if add_annotation:
+            self.annotations.drop()
+            self.annotations.add_new("traits", traits_v)
+            self.annotations.add_new("distribution", areas_v)
+            for trait_idx, trait in enumerate(self.model.trait_types):
+                self.annotations.add_new(trait.label, self.traits_vector[trait_idx])
+            area_list = []
+            for area_idx, area in enumerate(self.model.geography.areas):
+                if exclude_supplemental_areas and area.is_supplemental:
+                    continue
+                if self.distribution_vector[area_idx] == 1:
+                    area_list.append(area.label)
+            self.annotations.add_new("areas", area_list)
+
     def debug_check(self):
         for area in self.model.geography.areas:
             if area in self.areas:
                 assert self in area.lineages
             else:
                 assert self not in area.lineages
-
-    def distribution_bitstring(self):
-        d = []
-        for a in self.model.geography.areas:
-            if a in self:
-                d.append("1")
-            else:
-                d.append("0")
-        return "".join(d)
 
 class Phylogeny(dendropy.Tree):
 
@@ -453,52 +496,45 @@ class Phylogeny(dendropy.Tree):
     node_factory = classmethod(node_factory)
 
     def __init__(self, *args, **kwargs):
-        if kwargs:
-            self.model = kwargs.pop("model")
-            self.model_id = self.model.model_id
-            self.annotations.add_bound_attribute("model_id")
-            self.rng = kwargs.pop("rng")
-            self.debug_mode = kwargs.pop("debug_mode")
-            self.run_logger = kwargs.pop("run_logger")
-            self.lineage_indexer = utility.IndexGenerator(0)
-            assert "seed_node" not in kwargs
-            seed_node = self.node_factory(
-                    index=next(self.lineage_indexer),
-                    model=self,
-                    )
-            for trait_idx in range(len(self.model.trait_types)):
-                trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
-                seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
-            initial_area = self.rng.choice(self.model.geography.areas)
-            seed_node.add_area(initial_area)
-            kwargs["seed_node"] = seed_node
-            dendropy.Tree.__init__(self, *args, **kwargs)
-            self.current_lineages = set([self.seed_node])
-
-    # def __deepcopy__(self, memo=None):
-    #     if memo is None:
-    #         memo = {}
-    #     memo[id(self.model)] = self.model
-    #     memo[id(self.rng)] = None #self.rng
-    #     memo[id(self.run_logger)] = self.run_logger
-    #     memo[id(self.taxon_namespace)] = self.taxon_namespace
-    #     return dendropy.Tree.__deepcopy__(self, memo)
+        self.model = kwargs.pop("model")
+        self.model_id = self.model.model_id
+        self.annotations.add_bound_attribute("model_id")
+        self.rng = kwargs.pop("rng")
+        self.debug_mode = kwargs.pop("debug_mode")
+        self.run_logger = kwargs.pop("run_logger")
+        self.lineage_indexer = utility.IndexGenerator(0)
+        assert "seed_node" not in kwargs
+        seed_node = self.node_factory(
+                index=next(self.lineage_indexer),
+                model=self.model,
+                )
+        for trait_idx in range(len(self.model.trait_types)):
+            trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
+            seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
+        initial_area = self.rng.choice(self.model.geography.areas)
+        seed_node.add_area(initial_area)
+        kwargs["seed_node"] = seed_node
+        dendropy.Tree.__init__(self, *args, **kwargs)
+        self.current_lineages = set([self.seed_node])
 
     def iterate_current_lineages(self):
         for lineage in self.current_lineages:
             yield lineage
 
-    def split_lineage(self, lineage):
-        c1 = self.node_factory(index=next(self.lineage_indexer))
-        c2 = self.node_factory(index=next(self.lineage_indexer))
+    def split_lineage(self, lineage, area=None):
+        c1 = self.node_factory(index=next(self.lineage_indexer), model=self.model)
+        c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model)
         c1.copy_traits(lineage)
         c2.copy_traits(lineage)
-        self._set_daughter_distributions(parent=lineage, child1=c1, child2=c2)
+        self._set_daughter_distributions(
+                parent=lineage,
+                child1=c1,
+                child2=c2,
+                area=area)
         if self.debug_mode:
-            self.run_logger.debug("Splitting {} with distribution {} under speciation mode {} to: {} (distribution: {}) and {} (distribution: {})".format(
+            self.run_logger.debug("Splitting {} with distribution {} to: {} (distribution: {}) and {} (distribution: {})".format(
                 lineage,
-                lineage.distribution_vector.presences(),
-                speciation_mode,
+                lineage.distribution_bitstring(),
                 c1,
                 c1.distribution_bitstring(),
                 c2,
@@ -516,15 +552,7 @@ class Phylogeny(dendropy.Tree):
     def extinguish_lineage(self, lineage):
         self._make_lineage_extinct_on_phylogeny(lineage)
 
-    # def contract_lineage_range(self, lineage):
-    #     presences = lineage.distribution_vector.presences()
-    #     assert len(presences) > 0
-    #     if len(presences) == 1:
-    #         self._make_lineage_extinct_on_phylogeny(lineage)
-    #     else:
-    #         lineage.distribution_vector[ self.rng.choice(presences) ] = 0
-
-    def _set_daughter_distributions(self, parent, child1, child2,):
+    def _set_daughter_distributions(self, parent, child1, child2, area):
         # speciation modes
         # 0:  single-area sympatric speciation
         #     -   ancestral range copied to both daughter species
@@ -545,8 +573,23 @@ class Phylogeny(dendropy.Tree):
             speciation_mode = 0
         else:
             if num_presences < num_areas:
-                parent_area_gain_rate = self.model.parent_area_gain_rate_function(parent)
-                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * parent_area_gain_rate
+                jump_dispersal_target_areas = []
+                jump_dispersal_target_rates = []
+                if self.model.is_area_specific_gain_rate:
+                    for area in self.model.geography.areas:
+                        if area in parent.areas:
+                            continue
+                        jump_dispersal_target_areas.append(area)
+                        jump_dispersal_target_rates.append(self.model.lineage_area_gain_rate_function(lineage=parent, area=area))
+                else:
+                    parent_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=parent, area=None)
+                    for area in self.model.geography.areas:
+                        if area in parent.areas:
+                            continue
+                        jump_dispersal_target_areas.append(area)
+                    per_area_gain_rate = parent_area_gain_rate / len(jump_dispersal_target_areas)
+                    jump_dispersal_target_rates = [per_area_gain_rate] * len(jump_dispersal_target_areas)
+                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * sum(jump_dispersal_target_rates)
             else:
                 fes_weight = 0.0
             speciation_mode_weights = [
@@ -570,12 +613,18 @@ class Phylogeny(dendropy.Tree):
             #     -   d1: inherits complete range
             #     -   d2: inherits single area in ancestral range
             child1.copy_areas(parent)
-            child2.add_area( self.rng.choice(tuple(parent.areas)) )
+            if area is None:
+                child2.add_area( self.rng.choice(tuple(parent.areas)) )
+            else:
+                child2.add_area(area)
         elif speciation_mode == 2:
             # (single-area) allopatric vicariance
             #     -   d1: single area
             #     -   d2: all other areas
-            selected_idx = self.rng.randrange(len(parent.areas))
+            if area is None:
+                selected_idx = self.rng.randrange(len(parent.areas))
+            else:
+                selected_idx = area.index
             for aidx, area in enumerate(parent.areas):
                 if aidx == selected_idx:
                     child2.add_area(area)
@@ -588,7 +637,7 @@ class Phylogeny(dendropy.Tree):
             if num_presences == 2:
                 dist = self.rng.shuffle(list(parent.areas))
                 child1.add_area(dist[0])
-                child1.add_area(dist[1])
+                child2.add_area(dist[1])
             else:
                 n1 = self.rng.randint(1, num_presences-1)
                 n2 = num_presences - n1
@@ -597,14 +646,18 @@ class Phylogeny(dendropy.Tree):
                     n2 -= 1
                 sample1 = set(self.rng.sample(parent.areas, n1))
                 for area in self.model.geography.areas:
-                    if idx in sample1:
+                    if area in sample1:
                         child1.add_area(area)
                     else:
                         child2.add_area(area)
         elif speciation_mode == 4:
             child1.copy_areas(parent)
-            absences = [area for area in self.model.geography.areas if area not in parent.areas]
-            child2.add_area(self.rng.choice(absences))
+            jump_target_idx = weighted_index_choice(
+                    weights=jump_dispersal_target_rates,
+                    sum_of_weights=fes_weight,
+                    rng=self.rng)
+            jump_target_area = jump_dispersal_target_areas[jump_target_idx]
+            child2.add_area(jump_target_area)
         else:
             raise ValueError(speciation_mode)
         return child1, child2
@@ -625,21 +678,12 @@ class Phylogeny(dendropy.Tree):
 
     def focal_area_lineages(self):
         focal_area_lineages = set()
-        for lineage in self.iterate_current_lineages():
-            for area_idx in self.model.geography.focal_area_indexes:
-                if lineage.distribution_vector[area_idx] == 1:
-                    focal_area_lineages.add(lineage)
-                    break
+        for area in self.model.geography.focal_areas:
+            focal_area_lineages.update(area.lineages)
         return focal_area_lineages
 
     def num_focal_area_lineages(self):
-        count = 0
-        for lineage in self.iterate_current_lineages():
-            for area_idx in self.model.geography.focal_area_indexes:
-                if lineage.distribution_vector[area_idx] == 1:
-                    count += 1
-                    break
-        return count
+        return len(self.focal_area_lineages())
 
     def extract_focal_areas_tree(self):
         # tcopy = Phylogeny(self)
@@ -653,11 +697,113 @@ class Phylogeny(dendropy.Tree):
             raise error.InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
         return tcopy
 
-class ArchipelagoModel(object):
+class Geography(object):
 
-    _TRAITS_SEPARATOR = "."
-    _LABEL_COMPONENTS_SEPARATOR = "^"
-    _NULL_TRAITS = "NA"
+    def __init__(self):
+        self.normalize_area_connection_weights = False
+
+    def __iter__(self):
+        return iter(self.areas)
+
+    def __getitem__(self, idx):
+        return self.areas[idx]
+
+    def parse_definition(self,
+            areas,
+            run_logger):
+        self.areas = []
+        self.area_label_index_map = collections.OrderedDict()
+        self.area_indexes = []
+        self.focal_areas = []
+        self.supplemental_areas = []
+        for area_idx, area_d in enumerate(areas):
+            if "label" not in area_d:
+                raise ValueError("Area requires 'label' to be defined")
+            area_label = str(area_d.pop("label", None))
+            if area_label in self.area_label_index_map:
+                raise ValueError("Area with label '{}' already defined".format(area_label))
+            area = Area(
+                index=area_idx,
+                label=area_label,
+                relative_diversity=area_d.pop("relative_diversity", 1.0),
+                is_supplemental=area_d.pop("is_supplemental", False)
+            )
+            area._area_connection_weights_d = list(area_d.pop("area_connection_weights", [])) # delay processing until all areas have been defined
+            self.areas.append(area)
+            self.area_label_index_map[area.label] = area.index
+            self.area_indexes.append(area.index)
+            if area.is_supplemental:
+                self.supplemental_areas.append(area)
+            else:
+                self.focal_areas.append(area)
+            if run_logger is not None:
+                run_logger.info("(GEOGRAPHY) Configuring area {idx}: '{label}' ({is_supplemental}; relative diversity: {relative_diversity})".format(
+                    idx=area.index,
+                    label=area.label,
+                    is_supplemental="supplemental" if area.is_supplemental else "primary",
+                    relative_diversity=area.relative_diversity,
+                    ))
+            if area_d:
+                raise TypeError("Unsupported area model keywords: {}".format(area_d))
+        if len(self.areas) < 1:
+            raise ValueError("No areas defined")
+        if len(self.focal_areas) < 1:
+            raise ValueError("No focal areas defined")
+        if run_logger is not None:
+            run_logger.info("(GEOGRAPHY) Total of {} areas defined: {}".format(
+                len(self.areas),
+                ", ".join("'{}'".format(a.label) for a in self.areas),
+                ))
+        self.area_connection_weights = []
+        for a1_idx, area1 in enumerate(self.areas):
+            if len(area1._area_connection_weights_d) == 0:
+                area1._area_connection_weights_d = [1.0] * len(self.areas)
+                area1._area_connection_weights_d[a1_idx] = 0.0
+            if len(area1._area_connection_weights_d) != len(self.areas):
+                raise ValueError("Expecting exactly {} elements in area gain weight vector for area '{}', but instead found {}: {}".format(
+                    len(self.areas), area1.label, len(area1._area_connection_weights_d), area1._area_connection_weights_d))
+            self.area_connection_weights.append([])
+            for a2_idx, area2 in enumerate(self.areas):
+                if a1_idx == a2_idx:
+                    d = float(area1._area_connection_weights_d[a2_idx])
+                    if d != 0:
+                        raise ValueError("Area gain weight from area {label} to {label} must be 0.0, but instead found: {dw}".format(
+                            label=area1.label, dw=d))
+                    self.area_connection_weights[a1_idx].append(0.0)
+                else:
+                    d = float(area1._area_connection_weights_d[a2_idx])
+                    self.area_connection_weights[a1_idx].append(d)
+            # if area1._area_connection_weights_d:
+            #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._area_connection_weights_d))
+            area1.area_connection_weights = self.area_connection_weights[a1_idx]
+            del area1._area_connection_weights_d
+        if self.normalize_area_connection_weights:
+            for a1_idx, area1 in enumerate(self.areas):
+                normalization_factor = sum(self.area_connection_weights[a1_idx])
+                if normalization_factor:
+                    for a2_idx, area2 in enumerate(self.areas):
+                        self.area_connection_weights[a1_idx][a2_idx] /= normalization_factor
+                    area1.area_connection_weights = self.area_connection_weights[a1_idx]
+        if run_logger is not None:
+            if self.normalize_area_connection_weights:
+                weight_type = "Normalized area gain"
+            else:
+                weight_type = "Area gain"
+            for a1, area1 in enumerate(self.areas):
+                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.area_connection_weights[a1]))
+
+        # instead of recalculating every time
+        self.area_nstates = [2 for i in self.areas]
+
+    def as_definition(self):
+        areas = [a.as_definition() for a in self.areas]
+        return areas
+
+    def new_distribution_vector(self):
+        s = DistributionVector(num_areas=len(self.areas))
+        return s
+
+class ArchipelagoModel(object):
 
     @classmethod
     def create(
@@ -723,43 +869,25 @@ class ArchipelagoModel(object):
         return archipelago_model
 
     @staticmethod
-    def compose_encoded_label(
-            lineage,
-            excluded_area_indexes=None):
-        if lineage.traits_vector:
-            traits_v = ArchipelagoModel._TRAITS_SEPARATOR.join(str(i) for i in lineage.traits_vector)
-        else:
-            traits_v = ArchipelagoModel._NULL_TRAITS
-        if excluded_area_indexes is None:
-            areas_v = "".join(str(i) for i in lineage.distribution_vector)
-        else:
-            areas_v = "".join(str(i) for idx, i in enumerate(lineage.distribution_vector) if idx not in excluded_area_indexes)
-        encoding = "s{lineage_index}{sep}{traits_v}{sep}{areas_v}".format(
-                lineage_index=lineage.index,
-                traits_v=traits_v,
-                areas_v=areas_v,
-                sep=ArchipelagoModel._LABEL_COMPONENTS_SEPARATOR)
-        return encoding
-
-    @staticmethod
-    def decode_label(label):
-        parts = label.split(ArchipelagoModel._LABEL_COMPONENTS_SEPARATOR)
+    def set_lineage_data_from_decoded_label(lineage, label_source="node"):
+        parts = to_decode.split(Lineage._LABEL_COMPONENTS_SEPARATOR)
         traits_string = parts[1]
-        if not traits_string or traits_string == ArchipelagoModel._NULL_TRAITS:
+        if not traits_string or traits_string == Lineage._NULL_TRAITS:
             traits_vector = StatesVector(nchar=0)
         else:
-            traits_string_parts = traits_string.split(ArchipelagoModel._TRAITS_SEPARATOR)
+            traits_string_parts = traits_string.split(Lineage._TRAITS_SEPARATOR)
             traits_vector = StatesVector(
                     nchar=len(traits_string_parts),
                     # The trait states need to be an integer if
                     # archipelago-summarize.py coerces the user input to
-                    # integers
+                    # integers:
                     # values=[int(i) for i in traits_string_parts],
-                    # The reason we do NOT want it parsed to an integer value
-                    # is to allow null traits 'NA', 'null', etc.
+                    # On the other hand, the reason we do NOT want it parsed to
+                    # an integer value is to allow for null traits to be
+                    # expressed via 'NA', 'null', etc.
                     values=[i for i in traits_string_parts],
                     )
-        distribution_string = parts[2]
+        lineage.traits_vector = traits_vector
         distribution_vector = DistributionVector(
                 num_areas=len(distribution_string),
                 values=[int(i) for i in distribution_string],)
@@ -773,10 +901,12 @@ class ArchipelagoModel(object):
             traits_filepath=None,
             areas_filepath=None,
             ):
+        ## Typically used when reading output tree for summary statistics or
+        ## profile calculation
         if lineage_data_source == "node":
-            _decode = lambda x: ArchipelagoModel.decode_label(x.label)
+            _decode = lambda x: ArchipelagoModel.set_lineage_data_from_decoded_label(x.label)
         elif lineage_data_source == "taxon":
-            _decode = lambda x: ArchipelagoModel.decode_label(x.taxon.label)
+            _decode = lambda x: ArchipelagoModel.set_lineage_data_from_decoded_label(x.taxon.label)
         else:
             raise ValueError("'lineage_data_source' must be 'node' or 'taxon'")
         for nd in tree:
@@ -837,6 +967,12 @@ class ArchipelagoModel(object):
         # Diversification
         ## speciation
         diversification_d = dict(model_definition.pop("diversification", {}))
+        self.is_per_area_speciation = diversification_d.pop("is_per_area_speciation", False)
+        if run_logger is not None:
+            if self.is_per_area_speciation:
+                run_logger.info("(DIVERSIFICATION) Speciation (diversification submodel birth) will be modeled on a per-area basis: speciation rates will be taken to be per-lineage per-[specific-]area (as oppposed to per-lineage)")
+            else:
+                run_logger.info("(DIVERSIFICATION) Speciation (diversification submodel birth) will be modeled on a global basis: speciation rates will be taken to be per-lineage (as opposed to per-lineage per-area)")
         if "lineage_birth_rate" in diversification_d:
             self.lineage_birth_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_birth_rate"), self.trait_types)
         else:
@@ -849,7 +985,7 @@ class ArchipelagoModel(object):
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Setting lineage-specific birth rate function: {desc}".format(
                 desc=self.lineage_birth_rate_function.description,))
-        ## extinction
+        ## (global) extinction
         if "lineage_death_rate" in diversification_d:
             self.lineage_death_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_death_rate"), self.trait_types)
         else:
@@ -889,6 +1025,12 @@ class ArchipelagoModel(object):
         #     for a1, area1 in enumerate(self.geography.areas):
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
 
+        self.is_area_specific_gain_rate = diversification_d.pop("is_area_specific_gain_rate", False)
+        if run_logger is not None:
+            if self.is_area_specific_gain_rate:
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage per area rather than per lineage")
+            else:
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage rather than per lineage per area")
         if "lineage_area_gain_rate" in anagenetic_range_evolution_d:
             self.lineage_area_gain_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_gain_rate"), self.trait_types)
         else:
@@ -904,13 +1046,19 @@ class ArchipelagoModel(object):
 
         ## extinction
         # self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
+        self.is_area_specific_loss_rate = diversification_d.pop("is_area_specific_loss_rate", False)
+        if run_logger is not None:
+            if self.is_area_specific_loss_rate:
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage per area rather than per lineage")
+            else:
+                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage rather than per lineage per area")
         if "lineage_area_loss_rate" in anagenetic_range_evolution_d:
             self.lineage_area_loss_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_loss_rate"), self.trait_types)
         else:
             self.lineage_area_loss_rate_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.0",
-                    description="fixed: 0.0",
+                    definition_content="lambda **kwargs: 0.001",
+                    description="fixed: 0.001",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
@@ -967,33 +1115,6 @@ class ArchipelagoModel(object):
         if model_definition:
             raise TypeError("Unsupported model keywords: {}".format(model_definition))
 
-    def encode_lineage(self,
-            lineage,
-            set_label=False,
-            add_annotation=False,
-            exclude_supplemental_areas=False,
-            ):
-        encoded_label = ArchipelagoModel.compose_encoded_label(
-                lineage=lineage,
-                excluded_area_indexes=self.geography.supplemental_area_indexes if exclude_supplemental_areas else None,
-                )
-        if set_label:
-            lineage.label =encoded_label
-        if add_annotation:
-            lineage.annotations.drop()
-            lineage.annotations.add_new("traits_v", traits_v)
-            lineage.annotations.add_new("distribution", areas_v)
-            for trait_idx, trait in enumerate(self.trait_types):
-                lineage.annotations.add_new(trait.label, lineage.traits_vector[trait_idx])
-            area_list = []
-            for area_idx, area in enumerate(self.geography.areas):
-                if exclude_supplemental_areas and area.is_supplemental:
-                    continue
-                if lineage.distribution_vector[area_idx] == 1:
-                    area_list.append(area.label)
-            lineage.annotations.add_new("areas", area_list)
-        return encoded_label
-
     def write_model(self, out):
         model_definition = collections.OrderedDict()
         model_definition["model_id"] = self.model_id
@@ -1007,6 +1128,7 @@ class ArchipelagoModel(object):
 
     def diversification_as_definition(self):
         d = collections.OrderedDict()
+        d["is_per_area_speciation"] = self.is_per_area_speciation
         d["lineage_birth_rate"] = self.lineage_birth_rate_function.as_definition()
         d["lineage_death_rate"] = self.lineage_death_rate_function.as_definition()
         return d
@@ -1031,110 +1153,3 @@ class ArchipelagoModel(object):
         d["gsa_termination_focal_area_lineages"] = self.gsa_termination_focal_area_lineages
         d["max_time"] = self.max_time
         return d
-
-class Geography(object):
-
-    def __init__(self):
-        self.normalize_area_connection_weights = False
-
-    def __iter__(self):
-        return iter(self.areas)
-
-    def __getitem__(self, idx):
-        return self.areas[idx]
-
-    def parse_definition(self,
-            areas,
-            run_logger):
-        self.areas = []
-        self.area_label_index_map = collections.OrderedDict()
-        self.area_indexes = []
-        self.focal_area_indexes = []
-        self.supplemental_area_indexes = []
-        for area_idx, area_d in enumerate(areas):
-            if "label" not in area_d:
-                raise ValueError("Area requires 'label' to be defined")
-            area_label = str(area_d.pop("label", None))
-            if area_label in self.area_label_index_map:
-                raise ValueError("Area with label '{}' already defined".format(area_label))
-            area = Area(
-                index=area_idx,
-                label=area_label,
-                relative_diversity=area_d.pop("relative_diversity", 1.0),
-                is_supplemental=area_d.pop("is_supplemental", False)
-            )
-            area._area_connection_weights_d = list(area_d.pop("area_connection_weights", [])) # delay processing until all areas have been defined
-            self.areas.append(area)
-            self.area_label_index_map[area.label] = area.index
-            self.area_indexes.append(area.index)
-            if area.is_supplemental:
-                self.supplemental_area_indexes.append(area.index)
-            else:
-                self.focal_area_indexes.append(area.index)
-            if run_logger is not None:
-                run_logger.info("(GEOGRAPHY) Configuring area {idx}: '{label}' ({is_supplemental}; relative diversity: {relative_diversity})".format(
-                    idx=area.index,
-                    label=area.label,
-                    is_supplemental="supplemental" if area.is_supplemental else "primary",
-                    relative_diversity=area.relative_diversity,
-                    ))
-            if area_d:
-                raise TypeError("Unsupported area model keywords: {}".format(area_d))
-        if len(self.areas) < 1:
-            raise ValueError("No areas defined")
-        if len(self.focal_area_indexes) < 1:
-            raise ValueError("No focal areas defined")
-        if run_logger is not None:
-            run_logger.info("(GEOGRAPHY) Total of {} areas defined: {}".format(
-                len(self.areas),
-                ", ".join("'{}'".format(a.label) for a in self.areas),
-                ))
-        self.area_connection_weights = []
-        for a1_idx, area1 in enumerate(self.areas):
-            if len(area1._area_connection_weights_d) == 0:
-                area1._area_connection_weights_d = [1.0] * len(self.areas)
-                area1._area_connection_weights_d[a1_idx] = 0.0
-            if len(area1._area_connection_weights_d) != len(self.areas):
-                raise ValueError("Expecting exactly {} elements in area gain weight vector for area '{}', but instead found {}: {}".format(
-                    len(self.areas), area1.label, len(area1._area_connection_weights_d), area1._area_connection_weights_d))
-            self.area_connection_weights.append([])
-            for a2_idx, area2 in enumerate(self.areas):
-                if a1_idx == a2_idx:
-                    d = float(area1._area_connection_weights_d[a2_idx])
-                    if d != 0:
-                        raise ValueError("Area gain weight from area {label} to {label} must be 0.0, but instead found: {dw}".format(
-                            label=area1.label, dw=d))
-                    self.area_connection_weights[a1_idx].append(0.0)
-                else:
-                    d = float(area1._area_connection_weights_d[a2_idx])
-                    self.area_connection_weights[a1_idx].append(d)
-            # if area1._area_connection_weights_d:
-            #     raise ValueError("Undefined dispersal targets in '{}': '{}'".format(area1.label, area1._area_connection_weights_d))
-            area1.area_connection_weights = self.area_connection_weights[a1_idx]
-            del area1._area_connection_weights_d
-        if self.normalize_area_connection_weights:
-            for a1_idx, area1 in enumerate(self.areas):
-                normalization_factor = sum(self.area_connection_weights[a1_idx])
-                if normalization_factor:
-                    for a2_idx, area2 in enumerate(self.areas):
-                        self.area_connection_weights[a1_idx][a2_idx] /= normalization_factor
-                    area1.area_connection_weights = self.area_connection_weights[a1_idx]
-        if run_logger is not None:
-            if self.normalize_area_connection_weights:
-                weight_type = "Normalized area gain"
-            else:
-                weight_type = "Area gain"
-            for a1, area1 in enumerate(self.areas):
-                run_logger.info("(GEOGRAPHY) {} weights from area '{}': {}".format(weight_type, area1.label, self.area_connection_weights[a1]))
-
-        # instead of recalculating every time
-        self.area_nstates = [2 for i in self.areas]
-
-    def as_definition(self):
-        areas = [a.as_definition() for a in self.areas]
-        return areas
-
-    def new_distribution_vector(self):
-        s = DistributionVector(num_areas=len(self.areas))
-        return s
-
