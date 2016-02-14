@@ -255,7 +255,6 @@ class ArchipelagoSimulator(object):
                     assert lineage.is_extant
                     assert lineage.areas
 
-
             ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
             ntips = len(self.phylogeny.current_lineages)
             if self.model.gsa_termination_focal_area_lineages and ntips_in_focal_areas >= self.model.gsa_termination_focal_area_lineages:
@@ -413,8 +412,8 @@ def repeat_run(
         config_d=None,
         interpolate_missing_model_values=False,
         random_seed=None,
-        stderr_logging_level="info",
-        file_logging_level="debug",
+        stderr_logging_level=None,
+        file_logging_level=None,
         maximum_num_restarts_per_replicates=100,
         debug_mode=False):
     """
@@ -463,14 +462,27 @@ def repeat_run(
     if config_d is None:
         config_d = {}
     config_d["output_prefix"] = output_prefix
-    if stderr_logging_level is None or stderr_logging_level.lower() == "none":
+    if stderr_logging_level is None:
+        if debug_mode:
+            log_to_stderr = True
+            stderr_logging_level = "debug"
+        else:
+            log_to_stderr = False
+    elif stderr_logging_level.lower() == "none":
         log_to_stderr = False
     else:
         log_to_stderr = True
-    if file_logging_level is None or file_logging_level.lower() == "none":
+    if file_logging_level is None :
+        if debug_mode:
+            log_to_file = True
+            file_logging_level = "debug"
+        else:
+            log_to_file = False
+    elif file_logging_level.lower() == "none":
         log_to_file = False
     else:
         log_to_file = True
+    config_d["debug_mode"] = debug_mode
     if "run_logger" not in config_d:
         config_d["run_logger"] = utility.RunLogger(
                 name="archipelago",
@@ -480,7 +492,6 @@ def repeat_run(
                 log_path=output_prefix + ".log",
                 file_logging_level=file_logging_level,
                 )
-    config_d["debug_mode"] = debug_mode
     run_logger = config_d["run_logger"]
     run_logger.info("-archipelago- Starting: {}".format(archipelago.description()))
     if "rng" not in config_d:

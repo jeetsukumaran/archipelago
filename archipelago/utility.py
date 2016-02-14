@@ -383,3 +383,6 @@ class RunLogger(object):
     def critical(self, msg):
         self._log.critical(msg, extra=self.supplemental_info_d())
 
+    def flush(self):
+        for handler in self.handlers:
+            handler.flush()

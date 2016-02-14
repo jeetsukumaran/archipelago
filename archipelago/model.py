@@ -385,7 +385,7 @@ class Lineage(dendropy.Node):
     _LABEL_COMPONENTS_SEPARATOR = "^"
     _NULL_TRAITS = "NA"
 
-    class NullDistributionException(object):
+    class NullDistributionException(Exception):
 
         def __init__(self, lineage):
             self.lineage = lineage
@@ -531,17 +531,6 @@ class Phylogeny(dendropy.Tree):
                 child1=c1,
                 child2=c2,
                 area=area)
-        if self.debug_mode:
-            self.run_logger.debug("Splitting {} with distribution {} to: {} (distribution: {}) and {} (distribution: {})".format(
-                lineage,
-                lineage.distribution_bitstring(),
-                c1,
-                c1.distribution_bitstring(),
-                c2,
-                c1.distribution_bitstring(),
-                ))
-            assert len(c1.areas) > 0
-            assert len(c2.areas) > 0
         lineage.extinguish()
         self.current_lineages.remove(lineage)
         lineage.add_child(c1)
@@ -660,6 +649,22 @@ class Phylogeny(dendropy.Tree):
             child2.add_area(jump_target_area)
         else:
             raise ValueError(speciation_mode)
+        if self.debug_mode:
+            self.run_logger.debug("Splitting {} with distribution {} under speciation mode {} to: {} (distribution: {}) and {} (distribution: {})".format(
+                parent,
+                parent.distribution_bitstring(),
+                speciation_mode,
+                child1,
+                child1.distribution_bitstring(),
+                child2,
+                child2.distribution_bitstring(),
+                ))
+            try:
+                assert len(child1.areas) > 0
+                assert len(child2.areas) > 0
+            except AssertionError:
+                self.run_logger.flush()
+                raise
         return child1, child2
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
