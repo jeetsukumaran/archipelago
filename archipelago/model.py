@@ -1046,7 +1046,7 @@ class ArchipelagoModel(object):
         #     for a1, area1 in enumerate(self.geography.areas):
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
 
-        self.is_area_specific_gain_rate = diversification_d.pop("is_area_specific_gain_rate", False)
+        self.is_area_specific_gain_rate = anagenetic_range_evolution_d.pop("is_area_specific_gain_rate", False)
         if run_logger is not None:
             if self.is_area_specific_gain_rate:
                 run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage per area rather than per lineage")
@@ -1067,7 +1067,7 @@ class ArchipelagoModel(object):
 
         ## extinction
         # self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
-        self.is_area_specific_loss_rate = diversification_d.pop("is_area_specific_loss_rate", False)
+        self.is_area_specific_loss_rate = anagenetic_range_evolution_d.pop("is_area_specific_loss_rate", False)
         if run_logger is not None:
             if self.is_area_specific_loss_rate:
                 run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage per area rather than per lineage")
