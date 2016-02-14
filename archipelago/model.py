@@ -530,7 +530,7 @@ class Phylogeny(dendropy.Tree):
                 parent=lineage,
                 child1=c1,
                 child2=c2,
-                area=area)
+                speciation_area=area)
         lineage.extinguish()
         self.current_lineages.remove(lineage)
         lineage.add_child(c1)
@@ -541,7 +541,7 @@ class Phylogeny(dendropy.Tree):
     def extinguish_lineage(self, lineage):
         self._make_lineage_extinct_on_phylogeny(lineage)
 
-    def _set_daughter_distributions(self, parent, child1, child2, area):
+    def _set_daughter_distributions(self, parent, child1, child2, speciation_area):
         # speciation modes
         # 0:  single-area sympatric speciation
         #     -   ancestral range copied to both daughter species
@@ -565,17 +565,17 @@ class Phylogeny(dendropy.Tree):
                 jump_dispersal_target_areas = []
                 jump_dispersal_target_rates = []
                 if self.model.is_area_specific_gain_rate:
-                    for area in self.model.geography.areas:
-                        if area in parent.areas:
+                    for jd_area in self.model.geography.areas:
+                        if jd_area in parent.areas:
                             continue
-                        jump_dispersal_target_areas.append(area)
-                        jump_dispersal_target_rates.append(self.model.lineage_area_gain_rate_function(lineage=parent, area=area))
+                        jump_dispersal_target_areas.append(jd_area)
+                        jump_dispersal_target_rates.append(self.model.lineage_area_gain_rate_function(lineage=parent, area=jd_area))
                 else:
                     parent_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=parent, area=None)
-                    for area in self.model.geography.areas:
-                        if area in parent.areas:
+                    for jd_area in self.model.geography.areas:
+                        if jd_area in parent.areas:
                             continue
-                        jump_dispersal_target_areas.append(area)
+                        jump_dispersal_target_areas.append(jd_area)
                     per_area_gain_rate = parent_area_gain_rate / len(jump_dispersal_target_areas)
                     jump_dispersal_target_rates = [per_area_gain_rate] * len(jump_dispersal_target_areas)
                 fes_weight = self.model.cladogenesis_founder_event_speciation_weight * sum(jump_dispersal_target_rates)
@@ -602,29 +602,33 @@ class Phylogeny(dendropy.Tree):
             #     -   d1: inherits complete range
             #     -   d2: inherits single area in ancestral range
             child1.copy_areas(parent)
-            if area is None:
+            if speciation_area is None:
                 child2.add_area( self.rng.choice(tuple(parent.areas)) )
             else:
-                child2.add_area(area)
+                assert speciation_area in parent.areas
+                child2.add_area(speciation_area)
         elif speciation_mode == 2:
             # (single-area) allopatric vicariance
             #     -   d1: single area
             #     -   d2: all other areas
-            if area is None:
+            if speciation_area is None:
                 selected_idx = self.rng.randrange(len(parent.areas))
+                for aidx, area in enumerate(parent.areas):
+                    if aidx == selected_idx:
+                        child2.add_area(area)
+                    else:
+                        child1.add_area(area)
             else:
-                selected_idx = area.index
-            for aidx, area in enumerate(parent.areas):
-                if aidx == selected_idx:
-                    child2.add_area(area)
-                else:
-                    child1.add_area(area)
-            # dist = self.rng.shuffle(list(parent.areas))
-            # child1.add_area(dist.pop(0))
-            # child2.add_areas(dist)
+                assert speciation_area in parent.areas
+                for area in parent.areas:
+                    if area is speciation_area:
+                        child1.add_area(area)
+                    else:
+                        child2.add_area(area)
         elif speciation_mode == 3:
             if num_presences == 2:
-                dist = self.rng.shuffle(list(parent.areas))
+                dist = list(parent.areas)
+                self.rng.shuffle(dist)
                 child1.add_area(dist[0])
                 child2.add_area(dist[1])
             else:
@@ -633,12 +637,15 @@ class Phylogeny(dendropy.Tree):
                 if n2 == n1:
                     n1 += 1
                     n2 -= 1
+                assert n1 > 0
+                assert n2 > 0
                 sample1 = set(self.rng.sample(parent.areas, n1))
-                for area in self.model.geography.areas:
-                    if area in sample1:
-                        child1.add_area(area)
+                # assert len(sample1) < len(self.model.geography.areas)
+                for s_area in self.model.geography.areas:
+                    if s_area in sample1:
+                        child1.add_area(s_area)
                     else:
-                        child2.add_area(area)
+                        child2.add_area(s_area)
         elif speciation_mode == 4:
             child1.copy_areas(parent)
             jump_target_idx = weighted_index_choice(
@@ -659,12 +666,8 @@ class Phylogeny(dendropy.Tree):
                 child2,
                 child2.distribution_bitstring(),
                 ))
-            try:
-                assert len(child1.areas) > 0
-                assert len(child2.areas) > 0
-            except AssertionError:
-                self.run_logger.flush()
-                raise
+            assert len(child1.areas) > 0
+            assert len(child2.areas) > 0
         return child1, child2
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
