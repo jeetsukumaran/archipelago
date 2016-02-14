@@ -1138,7 +1138,8 @@ class ArchipelagoModel(object):
     def write_model(self, out):
         model_definition = collections.OrderedDict()
         model_definition["model_id"] = self.model_id
-        model_definition["areas"] = self.geographical_definition
+        g = self.new_geography(run_logger=None)
+        model_definition["areas"] = g.as_definition()
         model_definition["traits"] = self.trait_types.as_definition()
         model_definition["diversification"] = self.diversification_as_definition()
         model_definition["anagenetic_range_evolution"] = self.anagenetic_range_evolution_as_definition()
