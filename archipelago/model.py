@@ -713,8 +713,6 @@ class Phylogeny(dendropy.Tree):
     def __deepcopy__(self, memo=None):
         if memo is None:
             memo = {}
-        # Model is now volatile and changes state through simulation in a
-        # number of ways: e.g., areas track lineages
         memo[id(self.model)] = self.model
         memo[id(self.rng)] = None #self.rng
         memo[id(self.run_logger)] = self.run_logger
