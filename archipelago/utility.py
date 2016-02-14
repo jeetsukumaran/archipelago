@@ -34,6 +34,7 @@
 import sys
 import os
 import logging
+# logging.basicConfig()
 import inspect
 import tempfile
 import pprint
@@ -268,7 +269,6 @@ class RunLogger(object):
 
     def __init__(self, **kwargs):
         self.name = kwargs.get("name", "RunLog")
-        logging.basicConfig()
         self._log = logging.getLogger(self.name)
         self._log.setLevel(logging.DEBUG)
         self.handlers = []

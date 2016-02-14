@@ -475,7 +475,8 @@ def repeat_run(
             log_to_stderr = True
             stderr_logging_level = "debug"
         else:
-            log_to_stderr = False
+            log_to_stderr = True
+            stderr_logging_level = "info"
     elif stderr_logging_level.lower() == "none":
         log_to_stderr = False
     else:
@@ -485,7 +486,8 @@ def repeat_run(
             log_to_file = True
             file_logging_level = "debug"
         else:
-            log_to_file = False
+            log_to_file = True
+            file_logging_level = "info"
     elif file_logging_level.lower() == "none":
         log_to_file = False
     else:
