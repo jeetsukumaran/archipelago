@@ -268,6 +268,7 @@ class RunLogger(object):
 
     def __init__(self, **kwargs):
         self.name = kwargs.get("name", "RunLog")
+        logging.basicConfig()
         self._log = logging.getLogger(self.name)
         self._log.setLevel(logging.DEBUG)
         self.handlers = []

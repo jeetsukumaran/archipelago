@@ -705,6 +705,15 @@ class Phylogeny(dendropy.Tree):
             raise error.InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
         return tcopy
 
+    def __deepcopy__(self, memo=None):
+        if memo is None:
+            memo = {}
+        memo[id(self.model)] = self.model
+        memo[id(self.rng)] = None #self.rng
+        memo[id(self.run_logger)] = self.run_logger
+        memo[id(self.taxon_namespace)] = self.taxon_namespace
+        return dendropy.Tree.__deepcopy__(self, memo)
+
 class Geography(object):
 
     def __init__(self):
@@ -973,8 +982,8 @@ class ArchipelagoModel(object):
                 run_logger=run_logger)
 
         # Diversification
-        ## speciation
         diversification_d = dict(model_definition.pop("diversification", {}))
+        ## speciation
         self.is_per_area_speciation = diversification_d.pop("is_per_area_speciation", False)
         if run_logger is not None:
             if self.is_per_area_speciation:
@@ -986,7 +995,7 @@ class ArchipelagoModel(object):
         else:
             self.lineage_birth_rate_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.01",
+                    definition_content="lambda **kwargs: 0.10",
                     description="fixed: 0.01",
                     trait_types=self.trait_types,
                     )
@@ -1044,8 +1053,8 @@ class ArchipelagoModel(object):
         else:
             self.lineage_area_gain_rate_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.01",
-                    description="fixed: 0.01",
+                    definition_content="lambda **kwargs: 0.10",
+                    description="fixed: 0.10",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
@@ -1065,8 +1074,8 @@ class ArchipelagoModel(object):
         else:
             self.lineage_area_loss_rate_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.001",
-                    description="fixed: 0.001",
+                    definition_content="lambda **kwargs: 0.000",
+                    description="fixed: 0.000",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:

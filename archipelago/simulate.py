@@ -244,7 +244,11 @@ class ArchipelagoSimulator(object):
                     rng=self.rng)
             if self.debug_mode:
                 self.run_logger.debug("Event {}: {}".format(num_events, event_calls[event_idx]))
-            event_calls[event_idx][0](**event_calls[event_idx][1])
+
+            try:
+                event_calls[event_idx][0](**event_calls[event_idx][1])
+            except model.Lineage.NullDistributionException as e:
+                self.phylogeny.extinguish_lineage(e.lineage)
 
             ### DEBUG
             if self.debug_mode:
