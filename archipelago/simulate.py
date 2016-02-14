@@ -54,6 +54,8 @@ class ArchipelagoSimulator(object):
 
         # set up model
         self.model = archipelago_model
+
+        # set up geography
         self.geography = self.model.new_geography()
 
         # initialize phylogeny

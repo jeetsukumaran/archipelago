@@ -971,6 +971,7 @@ class ArchipelagoModel(object):
             else:
                 raise ValueError("No areas defined")
         self.geographical_definition = copy.deepcopy(model_definition.pop("areas"))
+        self._example_geography = self.new_geography(run_logger=run_logger)
 
         # Ecology
         self.trait_types = TraitTypes()
@@ -1138,8 +1139,7 @@ class ArchipelagoModel(object):
     def write_model(self, out):
         model_definition = collections.OrderedDict()
         model_definition["model_id"] = self.model_id
-        g = self.new_geography(run_logger=None)
-        model_definition["areas"] = g.as_definition()
+        model_definition["areas"] = self._example_geography.as_definition()
         model_definition["traits"] = self.trait_types.as_definition()
         model_definition["diversification"] = self.diversification_as_definition()
         model_definition["anagenetic_range_evolution"] = self.anagenetic_range_evolution_as_definition()
