@@ -15,6 +15,9 @@ class Rcalculator(object):
 
     RESULT_FLAG_LEADER = "[!!!]"
 
+    class HomogenousCommunityException(Exception):
+        pass
+
     def __init__(self):
         pass
 
@@ -73,6 +76,8 @@ class Rcalculator(object):
             taxon_names,
             byrow=True,
             ):
+        if len(set(data)) == 1:
+            raise Rcalculator.HomogenousCommunityException()
         return "matrix(c({data}), nrow={nrow}, byrow={byrow}, dimnames=list(c({comm_names}),c({taxon_names})))".format(
             data=",".join("{}".format(d) for d in data),
             nrow=len(comm_names),
@@ -152,10 +157,13 @@ class Rcalculator(object):
                         else:
                             pa_data.append(0)
                 comm_pa_matrix_name = "community_{}".format(comm_desc)
-                comm_pa_matrix_str = self._compose_community_matrix(
-                        data=pa_data,
-                        comm_names=comm_names,
-                        taxon_names=["'{}'".format(t.label) for t in tree.taxon_namespace])
+                try:
+                    comm_pa_matrix_str = self._compose_community_matrix(
+                            data=pa_data,
+                            comm_names=comm_names,
+                            taxon_names=["'{}'".format(t.label) for t in tree.taxon_namespace])
+                except Rcalculator.HomogenousCommunityException:
+                    continue
                 # sys.stderr.write("{} <- {}\n".format(comm_pa_matrix_name, comm_pa_matrix_str))
                 rscript.append("{} <- {}".format(comm_pa_matrix_name, comm_pa_matrix_str))
                 nruns = 100
