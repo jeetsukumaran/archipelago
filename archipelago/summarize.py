@@ -163,7 +163,7 @@ class Rcalculator(object):
                         dists=cophenetic_dist_matrix_name.replace("_cophenetic_dist_matrix", "")).replace("_", ".")
                 out = "stdout()"
                 # out = "'z.txt'"
-                for stat_type in ("mpd", "mntd"):
+                for stat_type in ("mpd", ):#"mntd"):
                     rscript.append("result <- ses.{stat_type}({comm},{dists},null.model='taxa.labels',abundance.weighted=FALSE,runs={nruns})".format(
                         stat_type=stat_type,
                         comm=comm_pa_matrix_name,
