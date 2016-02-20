@@ -233,6 +233,7 @@ class TreeSummarizer(object):
 
     def __init__(self,
             drop_trees_not_spanning_all_areas=True,
+            drop_trees_not_spanning_multiple_traits=False,
             trait_indexes_to_exclude=None,
             trait_states_to_exclude=None,
             ):
@@ -243,6 +244,8 @@ class TreeSummarizer(object):
         ----------
         drop_trees_not_spanning_all_areas : bool
             Skip calculations for trees that do not span all areas.
+        drop_trees_not_spanning_multiple_traits : bool
+            Skip calculations for trees that do not span more than one trait.
         trait_indexes_to_exclude : iterable
             0-based indexes of traits to skip in calculations.
         trait_states_to_exclude : iterable of tuples
@@ -250,6 +253,7 @@ class TreeSummarizer(object):
             trait and 'b' is the state to skip in calculations.
         """
         self.drop_trees_not_spanning_all_areas = drop_trees_not_spanning_all_areas
+        self.drop_trees_not_spanning_multiple_traits = drop_trees_not_spanning_multiple_traits
         if trait_indexes_to_exclude:
             self.trait_indexes_to_exclude = set(trait_indexes_to_exclude)
         else:
@@ -307,6 +311,9 @@ class TreeSummarizer(object):
         num_areas = len(tree.taxon_namespace[0].distribution_vector)
         if len(area_taxa) < num_areas and self.drop_trees_not_spanning_all_areas:
             raise TreeSummarizer.IncompleteAreaRadiationException()
+        for trait_idx in trait_taxa:
+            if len(trait_taxa[trait_idx]) < 2 and self.drop_trees_not_spanning_multiple_traits:
+                raise TreeSummarizer.IncompleteTraitRaditionException()
 
         # print("---")
         # for a in area_taxa:
