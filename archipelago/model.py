@@ -886,8 +886,8 @@ class ArchipelagoModel(object):
         return archipelago_model
 
     @staticmethod
-    def set_lineage_data_from_decoded_label(lineage, label_source="node"):
-        parts = to_decode.split(Lineage._LABEL_COMPONENTS_SEPARATOR)
+    def decode_traits_and_distribution_from_label(label_to_decode):
+        parts = label_to_decode.split(Lineage._LABEL_COMPONENTS_SEPARATOR)
         traits_string = parts[1]
         if not traits_string or traits_string == Lineage._NULL_TRAITS:
             traits_vector = StatesVector(nchar=0)
@@ -904,7 +904,7 @@ class ArchipelagoModel(object):
                     # expressed via 'NA', 'null', etc.
                     values=[i for i in traits_string_parts],
                     )
-        lineage.traits_vector = traits_vector
+        distribution_string = parts[2]
         distribution_vector = DistributionVector(
                 num_areas=len(distribution_string),
                 values=[int(i) for i in distribution_string],)
@@ -921,9 +921,9 @@ class ArchipelagoModel(object):
         ## Typically used when reading output tree for summary statistics or
         ## profile calculation
         if lineage_data_source == "node":
-            _decode = lambda x: ArchipelagoModel.set_lineage_data_from_decoded_label(x.label)
+            _decode = lambda x: ArchipelagoModel.decode_traits_and_distribution_from_label(x.label)
         elif lineage_data_source == "taxon":
-            _decode = lambda x: ArchipelagoModel.set_lineage_data_from_decoded_label(x.taxon.label)
+            _decode = lambda x: ArchipelagoModel.decode_traits_and_distribution_from_label(x.taxon.label)
         else:
             raise ValueError("'lineage_data_source' must be 'node' or 'taxon'")
         for nd in tree:
