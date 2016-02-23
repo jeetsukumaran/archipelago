@@ -105,11 +105,19 @@ In particular, instead of asking questions about ancestral area patterns, you ca
     \item Python 2.7 or higher
     \item DendroPy Phylogenetic Computing Library, version 4 or above (\url{http://dendropy.org}).
     \item R (\url{http://www.r-project.org/})
-    \item The following R packages:
+    \item The following R package:
     \begin{itemize}
         \item adegenet
-        \item picante
-        \item BioGeoBears
+    \end{itemize}
+    \item To ``calibrate'' the simulation biogeographical submodel, you need to estimate the dispersal and extinction rate under the DEC or a DEC-like model:
+    \begin{itemize}
+        \item lagrange
+        \item BayArea
+        \item RevBayes
+        \item BioGeoBears (R package)
+    \end{itemize}
+    \item While to ``calibrate'' the simulation trait evolution submodel, you need to estimate the trait evolution rate:
+    \begin{itemize}
         \item GEIGER
     \end{itemize}
 \end{itemize}
