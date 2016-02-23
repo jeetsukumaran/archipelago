@@ -99,7 +99,7 @@ In particular, instead of asking questions about ancestral area patterns, you ca
 
 \chapter{Installation}
 
-\section{Pre-requisites}
+\section{Mandatory Pre-requisites}
 
 \begin{itemize}
     \item Python 2.7 or higher
@@ -109,18 +109,22 @@ In particular, instead of asking questions about ancestral area patterns, you ca
     \begin{itemize}
         \item adegenet
     \end{itemize}
-    \item To ``calibrate'' the simulation biogeographical submodel, you need to estimate the dispersal and extinction rate under the DEC or a DEC-like model:
+\end{itemize}
+
+\section{Optional Pre-requisites}
+To ``calibrate'' the simulation biogeographical submodel, you need to estimate the dispersal and extinction rate under the DEC or a DEC-like model, while to calibrate the simulation trait model, you need to estimate the trait evolution rate.
+\archipelagoPackage provides a script that will ``profile'' your empirical tree for you, estimating these rates.
+
+To take advantage of this, you need at least one of the following installed to estimate the dispersal and extinction rate under the DEC model:
     \begin{itemize}
         \item lagrange
-        \item BayArea
-        \item RevBayes
         \item BioGeoBears (R package)
     \end{itemize}
-    \item While to ``calibrate'' the simulation trait evolution submodel, you need to estimate the trait evolution rate:
-    \begin{itemize}
-        \item GEIGER
-    \end{itemize}
-\end{itemize}
+However, you can also estimate these parameters yourself using BayArea or RevBayes.
+In fact, I would \textit{highly} recommend that you do the latter if you have a large number of geographical areas (e.g. more than 8), or you wish to incorporate uncertainty in the parameter estimates.
+
+Similarly, the \archipelagoPackage uses the R package ``GEIGER'' to estimate the trait evolution rate.
+You can, of course, use any other method that you prefer.
 
 \section{Installation from Source}
 
