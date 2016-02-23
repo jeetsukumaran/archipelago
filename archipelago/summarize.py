@@ -266,7 +266,7 @@ class TreeSummarizer(object):
         self.rcalc = Rcalculator()
         self.stat_name_prefix = "predictor"
         self.stat_name_delimiter = "."
-        self.num_randomization_replicates = 10
+        self.num_randomization_replicates = 100
 
     def get_mean_patristic_distance(self, pdm, nodes):
         if len(nodes) <= 1:
@@ -373,14 +373,43 @@ class TreeSummarizer(object):
             tree,
             area_taxa_map,
             trait_taxa_map,):
-        stats = {}
         phylogenetic_distance_matrix = tree.phylogenetic_distance_matrix()
-        stats.update(self._calc_trait_based_stats(
+        tree.stats.update(self._calc_area_based_stats(
+            phylogenetic_distance_matrix=phylogenetic_distance_matrix,
+            area_taxa_map=area_taxa_map,
+            ))
+        tree.stats.update(self._calc_trait_based_stats(
             phylogenetic_distance_matrix=phylogenetic_distance_matrix,
             trait_taxa_map=trait_taxa_map,
             ))
-        tree.stats.update(stats)
-        return stats
+        return tree.stats
+
+    def _calc_area_based_stats(self,
+            phylogenetic_distance_matrix,
+            area_taxa_map,
+            ):
+        area_assemblage_memberships, area_assemblage_descriptions = self._get_area_community_regimes(area_taxa_map)
+        assert len(area_assemblage_memberships) == len(area_assemblage_descriptions)
+        results = self._calc_community_ecology_stats(
+                phylogenetic_distance_matrix=phylogenetic_distance_matrix,
+                assemblage_memberships=area_assemblage_memberships,
+                assemblage_descriptions=area_assemblage_descriptions,
+                report_character_state_specific_results=False,
+                report_character_class_wide_results=True,
+                )
+        return results
+
+    def _get_area_community_regimes(self, area_taxa_map):
+        assemblage_descriptions = []
+        assemblage_memberships = []
+        for area_idx in area_taxa_map:
+            assemblage_memberships.append( area_taxa_map[area_idx] )
+            regime = {
+                "assemblage_basis_class_id": "area",
+                "assemblage_basis_state_id": "state{}".format(area_idx),
+            }
+            assemblage_descriptions.append(regime)
+        return assemblage_memberships, assemblage_descriptions
 
     def _calc_trait_based_stats(self,
             phylogenetic_distance_matrix,
@@ -396,7 +425,6 @@ class TreeSummarizer(object):
                 report_character_class_wide_results=True,
                 )
         return results
-        # for assemblage_desc, results_desc in zip(results, trait_assemblage_descriptions):
 
     def _get_trait_community_regimes(self, trait_taxa_map):
         assemblage_descriptions = []
@@ -407,9 +435,6 @@ class TreeSummarizer(object):
                 regime = {
                     "assemblage_basis_class_id": "trait{}{}".format(self.stat_name_delimiter, trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE),
                     "assemblage_basis_state_id": "state{}".format(trait_state_idx),
-                    "assemblage_name": "Trait{}".format(
-                        trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE,
-                        )
                 }
                 assemblage_descriptions.append(regime)
         return assemblage_memberships, assemblage_descriptions
