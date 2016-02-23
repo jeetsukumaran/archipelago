@@ -181,7 +181,7 @@ class TreeSummarizer(object):
             assemblage_memberships.append( area_taxa_map[area_idx] )
             regime = {
                 "assemblage_basis_class_id": "area",
-                "assemblage_basis_state_id": "state{}".format(area_idx),
+                "assemblage_basis_state_id": "state{}{}".format(self.stat_name_delimiter, area_idx),
             }
             assemblage_descriptions.append(regime)
         return assemblage_memberships, assemblage_descriptions
@@ -209,7 +209,7 @@ class TreeSummarizer(object):
                 assemblage_memberships.append( trait_taxa_map[trait_idx][trait_state_idx] )
                 regime = {
                     "assemblage_basis_class_id": "trait{}{}".format(self.stat_name_delimiter, trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE),
-                    "assemblage_basis_state_id": "state{}".format(trait_state_idx),
+                    "assemblage_basis_state_id": "state{}{}".format(self.stat_name_delimiter, trait_state_idx),
                 }
                 assemblage_descriptions.append(regime)
         return assemblage_memberships, assemblage_descriptions
@@ -226,7 +226,7 @@ class TreeSummarizer(object):
 
         summary_statistics_suite = {}
         results_by_character_class = {}
-        stat_scores_to_be_harvested = ("z", "p",) # z = score, p = p-value (turns out this is quite informative)
+        stat_scores_to_be_harvested = ("obs", "z", "p",) # z = score, p = p-value (turns out this is quite informative)
         for sstbh in stat_scores_to_be_harvested:
             results_by_character_class[sstbh] = collections.defaultdict(list)
 
@@ -249,44 +249,47 @@ class TreeSummarizer(object):
                     )
                 assert len(results_group) == len(assemblage_memberships)
                 for result, assemblage_desc in zip(results_group, assemblage_descriptions):
-                    character_class_statistic_prefix = self.stat_name_delimiter.join([
-                        self.stat_name_prefix,
-                        "community",
-                        "by",
-                        assemblage_desc["assemblage_basis_class_id"],
-                        edge_weighted_desc,
-                        underlying_statistic_type_desc,
-                        # assemblage_desc["assemblage_basis_state_id"],
-                        ])
                     for ses_result_statistic in stat_scores_to_be_harvested:
+                        character_class_statistic_prefix = self.stat_name_delimiter.join([
+                            self.stat_name_prefix,
+                            "community",
+                            "by",
+                            assemblage_desc["assemblage_basis_class_id"],
+                            ])
+                        statistic_subtype_desc = self.stat_name_delimiter.join([
+                            edge_weighted_desc,
+                            underlying_statistic_type_desc,
+                            # assemblage_desc["assemblage_basis_state_id"],
+                            ])
+                        character_class_statistic_key = tuple([character_class_statistic_prefix, statistic_subtype_desc])
                         ses_result_statistic_value = getattr(result, ses_result_statistic)
                         if ses_result_statistic_value is None:
                             continue
                         if report_character_state_specific_results:
                             character_state_statistic_name = self.stat_name_delimiter.join([
                                 character_class_statistic_prefix,
-                                ses_result_statistic,
                                 assemblage_desc["assemblage_basis_state_id"],
+                                statistic_subtype_desc,
+                                ses_result_statistic,
                                 ])
                             assert character_state_statistic_name not in summary_statistics_suite
                             summary_statistics_suite[character_state_statistic_name] = ses_result_statistic_value
                         if report_character_class_wide_results:
-                            results_by_character_class[ses_result_statistic][character_class_statistic_prefix].append(ses_result_statistic_value)
+                            results_by_character_class[ses_result_statistic][character_class_statistic_key].append(ses_result_statistic_value)
         if report_character_class_wide_results:
             for ses_result_statistic in results_by_character_class:
                 assert len(results_by_character_class[ses_result_statistic]) > 0
-                for character_class_statistic_prefix in results_by_character_class[ses_result_statistic]:
-                    sn_title = self.stat_name_delimiter.join([
-                        character_class_statistic_prefix,
-                        ses_result_statistic,
-                        ])
-                    svalues = results_by_character_class[ses_result_statistic][character_class_statistic_prefix]
-                    # assert svalues is not None, "{}: {}".format(ses_result_statistic, character_class_statistic_prefix, )
-                    mean, var = statistics.mean_and_sample_variance(svalues)
-                    key1 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "mean")
-                    assert key1 not in summary_statistics_suite
-                    summary_statistics_suite[key1] = mean
-                    key2 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "var")
-                    assert key2 not in summary_statistics_suite
-                    summary_statistics_suite[key2] = var
+                for key in results_by_character_class[ses_result_statistic]:
+                    character_class_statistic_prefix, statistic_subtype_desc = key
+                    svalues = results_by_character_class[ses_result_statistic][key]
+                    mean_var = statistics.mean_and_sample_variance(svalues)
+                    for s, sdesc in zip( mean_var, ("mean", "var"), ):
+                        sn_title = self.stat_name_delimiter.join([
+                            character_class_statistic_prefix,
+                            sdesc,
+                            statistic_subtype_desc,
+                            ses_result_statistic,
+                            ])
+                        assert sn_title not in summary_statistics_suite
+                        summary_statistics_suite[sn_title] = s
         return summary_statistics_suite
