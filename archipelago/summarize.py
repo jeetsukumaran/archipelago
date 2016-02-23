@@ -56,7 +56,7 @@ class TreeSummarizer(object):
             self.trait_states_to_exclude = set([])
         self.stat_name_prefix = "predictor"
         self.stat_name_delimiter = "."
-        self.num_randomization_replicates = 10
+        self.num_randomization_replicates = 100
 
     def get_mean_patristic_distance(self, pdm, nodes):
         if len(nodes) <= 1:
