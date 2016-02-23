@@ -421,7 +421,7 @@ class TreeSummarizer(object):
             report_character_state_specific_results=True,
             report_character_class_wide_results=True,
             ):
-        results = []
+        summary_statistics_suite = {}
         assert len(assemblage_descriptions) == len(assemblage_memberships)
         for edge_weighted_desc in ("weighted", "unweighted"):
             if edge_weighted_desc:
@@ -461,22 +461,23 @@ class TreeSummarizer(object):
                                 ses_result_statistic,
                                 assemblage_desc["assemblage_basis_state_id"],
                                 ])
-                            assert character_state_statistic_name not in results
+                            assert character_state_statistic_name not in summary_statistics_suite
                             ses_result_statistic_value = getattr(result, ses_result_statistic)
-                            results[character_state_statistic_name] = ses_result_statistic_value
-                            results_by_character_class[character_class_statistic_prefix][ses_result_statistic].append(ses_result_statistic_value)
+                            summary_statistics_suite[character_state_statistic_name] = ses_result_statistic_value
+                            results_by_character_class[ses_result_statistic][character_class_statistic_prefix].append(ses_result_statistic_value)
         if report_character_class_wide_results:
-            for character_class_statistic_prefix in results_by_character_class:
-                for ses_result_statistic in results_by_character_class[character_class_statistic_prefix]:
+            for ses_result_statistic in results_by_character_class:
+                assert len(results_by_character_class[ses_result_statistic]) > 0
+                for character_class_statistic_prefix in results_by_character_class[ses_result_statistic]:
                     sn_title = self.stat_name_delimiter.join([
                         character_class_statistic_prefix,
                         ses_result_statistic,
                         ])
-                mean, var = statistics.mean_and_sample_variance(results_by_character_class[character_class_statistic_prefix][ses_result_statistic])
-                key1 = "{}.{}".format(sn_title, self.stat_name_delimiter, "mean")
-                assert key1 not in results
-                results[key1] = mean
-                key2 = "{}.{}".format(sn_title, self.stat_name_delimiter, "var")
-                assert key2 not in results
-                results[key2] = var
-        return results
+                mean, var = statistics.mean_and_sample_variance(results_by_character_class[ses_result_statistic][character_class_statistic_prefix])
+                key1 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "mean")
+                assert key1 not in summary_statistics_suite
+                summary_statistics_suite[key1] = mean
+                key2 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "var")
+                assert key2 not in summary_statistics_suite
+                summary_statistics_suite[key2] = var
+        return summary_statistics_suite
