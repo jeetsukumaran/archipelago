@@ -8,6 +8,7 @@ import subprocess
 from dendropy.calculate import treemeasure
 from dendropy.model import birthdeath
 from dendropy.utility import processio
+from dendropy.calculate import statistics
 from archipelago import model
 from archipelago.utility import USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE
 
@@ -86,7 +87,7 @@ class Rcalculator(object):
             taxon_names=",".join(taxon_names)
             )
 
-    def calc_ecological_stats(
+    def calc_summary_stats(
             self,
             tree,
             patristic_distance_matrix,
@@ -103,15 +104,15 @@ class Rcalculator(object):
         normalized_unweighted_dists = []
         for taxon1 in tree.taxon_namespace:
             taxon_names.append("'{}'".format(taxon1.label))
-            for taxon2 in tree.taxon_namespace:
-                weighted_dist = pdm(taxon1, taxon2)
-                unweighted_dist = pdm.path_edge_count(taxon1, taxon2)
-                normalized_weighted_dist = weighted_dist / total_tree_length
-                normalized_unweighted_dist = unweighted_dist / total_tree_edges
-                weighted_dists.append(weighted_dist)
-                unweighted_dists.append(unweighted_dist)
-                normalized_weighted_dists.append(normalized_weighted_dist)
-                normalized_unweighted_dists.append(normalized_unweighted_dist)
+            # for taxon2 in tree.taxon_namespace:
+            #     weighted_dist = pdm(taxon1, taxon2)
+            #     unweighted_dist = pdm.path_edge_count(taxon1, taxon2)
+            #     normalized_weighted_dist = weighted_dist / total_tree_length
+            #     normalized_unweighted_dist = unweighted_dist / total_tree_edges
+            #     weighted_dists.append(weighted_dist)
+            #     unweighted_dists.append(unweighted_dist)
+            #     normalized_weighted_dists.append(normalized_weighted_dist)
+            #     normalized_unweighted_dists.append(normalized_unweighted_dist)
         rscript = []
         rscript.append("suppressMessages(library(picante))")
         community_regimes = []
@@ -263,6 +264,9 @@ class TreeSummarizer(object):
         else:
             self.trait_states_to_exclude = set([])
         self.rcalc = Rcalculator()
+        self.stat_name_prefix = "predictor"
+        self.stat_name_delimiter = "."
+        self.num_randomization_replicates = 100
 
     def get_mean_patristic_distance(self, pdm, nodes):
         if len(nodes) <= 1:
@@ -295,24 +299,24 @@ class TreeSummarizer(object):
 
     def summarize_tree(self, tree):
         self.preprocess_tree_taxa(tree)
-        area_taxa = collections.defaultdict(list)
-        trait_taxa = collections.defaultdict(lambda: collections.defaultdict(list))
+        area_taxa_map = collections.defaultdict(list)
+        trait_taxa_map = collections.defaultdict(lambda: collections.defaultdict(list))
         for taxon in tree.taxon_namespace:
             for area_idx, area_presence in enumerate(taxon.distribution_vector):
                 if area_presence:
-                    area_taxa[area_idx].append(taxon)
+                    area_taxa_map[area_idx].append(taxon)
             for trait_idx, trait_state in enumerate(taxon.traits_vector):
                 # sys.stderr.write("==> {}   {}   {}\n".format(trait_idx, trait_state,taxon))
                 if self.trait_indexes_to_exclude and trait_idx in self.trait_indexes_to_exclude:
                     continue
                 if self.trait_states_to_exclude and (trait_idx, trait_state) in self.trait_states_to_exclude:
                     continue
-                trait_taxa[trait_idx][trait_state].append(taxon)
+                trait_taxa_map[trait_idx][trait_state].append(taxon)
         num_areas = len(tree.taxon_namespace[0].distribution_vector)
-        if len(area_taxa) < num_areas and self.drop_trees_not_spanning_all_areas:
+        if len(area_taxa_map) < num_areas and self.drop_trees_not_spanning_all_areas:
             raise TreeSummarizer.IncompleteAreaRadiationException()
-        for trait_idx in trait_taxa:
-            if len(trait_taxa[trait_idx]) < 2 and self.drop_trees_not_spanning_multiple_traits:
+        for trait_idx in trait_taxa_map:
+            if len(trait_taxa_map[trait_idx]) < 2 and self.drop_trees_not_spanning_multiple_traits:
                 raise TreeSummarizer.IncompleteTraitRaditionException()
 
         # print("---")
@@ -322,7 +326,6 @@ class TreeSummarizer(object):
         # for t in trait_taxa[0]:
         #     print("{}: {}".format(t, [x.label for x in trait_taxa[0][t]]))
 
-        pdm = treemeasure.PatristicDistanceMatrix(tree=tree)
         tree.stats = collections.defaultdict(lambda:"NA")
         tree.stats["model_id"] = tree.annotations.get_value("model_id", "NA")
         total_tree_length = 0.0
@@ -332,14 +335,18 @@ class TreeSummarizer(object):
             if nd.edge.length is None:
                 nd.edge.length = 0.0
             total_tree_length += nd.edge.length
-        rstats = self.rcalc.calc_ecological_stats(
+        # rstats = self.rcalc.calc_summary_stats(
+        #         tree=tree,
+        #         patristic_distance_matrix=pdm,
+        #         total_tree_length=total_tree_length,
+        #         total_tree_edges=total_tree_edges,
+        #         area_taxa=area_taxa,
+        #         trait_taxa=trait_taxa,
+        #         )
+        self.calc_summary_stats(
                 tree=tree,
-                patristic_distance_matrix=pdm,
-                total_tree_length=total_tree_length,
-                total_tree_edges=total_tree_edges,
-                area_taxa=area_taxa,
-                trait_taxa=trait_taxa,
-                )
+                area_taxa_map=area_taxa_map,
+                trait_taxa_map=trait_taxa_map)
         self.restore_tree_taxa(tree)
 
     def preprocess_tree_taxa(self, tree):
@@ -362,3 +369,114 @@ class TreeSummarizer(object):
             node.taxon = node.original_taxon
             del node.original_taxon
 
+    def calc_summary_stats(self,
+            tree,
+            area_taxa_map,
+            trait_taxa_map,):
+        stats = {}
+        phylogenetic_distance_matrix = tree.phylogenetic_distance_matrix()
+        stats.update(self._calc_trait_based_stats(
+            phylogenetic_distance_matrix=phylogenetic_distance_matrix,
+            trait_taxa_map=trait_taxa_map,
+            ))
+        tree.stats.update(stats)
+        return stats
+
+    def _calc_trait_based_stats(self,
+            phylogenetic_distance_matrix,
+            trait_taxa_map,
+            ):
+        trait_assemblage_memberships, trait_assemblage_descriptions = self._get_trait_community_regimes(trait_taxa_map)
+        assert len(trait_assemblage_memberships) == len(trait_assemblage_descriptions)
+        results = self._calc_community_ecology_stats(
+                phylogenetic_distance_matrix=phylogenetic_distance_matrix,
+                assemblage_memberships=trait_assemblage_memberships,
+                assemblage_descriptions=trait_assemblage_descriptions,
+                report_character_state_specific_results=True,
+                report_character_class_wide_results=True,
+                )
+        return results
+        # for assemblage_desc, results_desc in zip(results, trait_assemblage_descriptions):
+
+    def _get_trait_community_regimes(self, trait_taxa_map):
+        assemblage_descriptions = []
+        assemblage_memberships = []
+        for trait_idx in trait_taxa_map:
+            for trait_state_idx in trait_taxa_map[trait_idx]:
+                assemblage_memberships.append( trait_taxa_map[trait_idx][trait_state_idx] )
+                regime = {
+                    "assemblage_basis_class_id": "trait{}{}".format(self.stat_name_delimiter, trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE),
+                    "assemblage_basis_state_id": "state{}".format(trait_state_idx),
+                    "assemblage_name": "Trait{}".format(
+                        trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE,
+                        )
+                }
+                assemblage_descriptions.append(regime)
+        return assemblage_memberships, assemblage_descriptions
+
+    def _calc_community_ecology_stats(self,
+            phylogenetic_distance_matrix,
+            assemblage_memberships,
+            assemblage_descriptions,
+            report_character_state_specific_results=True,
+            report_character_class_wide_results=True,
+            ):
+        results = []
+        assert len(assemblage_descriptions) == len(assemblage_memberships)
+        for edge_weighted_desc in ("weighted", "unweighted"):
+            if edge_weighted_desc:
+                is_weighted_edge_distances = True
+            else:
+                is_weighted_edge_distances = False
+            for underlying_statistic_type_desc in ("mpd", "mntd"):
+                if underlying_statistic_type_desc == "mpd":
+                    stat_fn_name = "standardized_effect_size_mean_pairwise_distance"
+                else:
+                    stat_fn_name = "standardized_effect_size_mean_nearest_taxon_distance"
+                stat_fn = getattr(phylogenetic_distance_matrix, stat_fn_name)
+                results_group = stat_fn(
+                    assemblage_memberships=assemblage_memberships,
+                    is_weighted_edge_distances=is_weighted_edge_distances,
+                    is_normalize_by_tree_size=True,
+                    num_randomization_replicates=self.num_randomization_replicates,
+                    )
+                assert len(results_group) == len(assemblage_memberships)
+                results_by_character_class = {}
+                results_by_character_class["z"] = collections.defaultdict(list)
+                results_by_character_class["p"] = collections.defaultdict(list)
+                for result, assemblage_desc in zip(results_group, assemblage_descriptions):
+                    character_class_statistic_prefix = self.stat_name_delimiter.join([
+                        self.stat_name_prefix,
+                        "community",
+                        "by",
+                        assemblage_desc["assemblage_basis_class_id"],
+                        edge_weighted_desc,
+                        underlying_statistic_type_desc,
+                        # assemblage_desc["assemblage_basis_state_id"],
+                        ])
+                    if report_character_state_specific_results:
+                        for ses_result_statistic in ("z", "p"): # z = score, p = p-value; turns out the latter is quite informative
+                            character_state_statistic_name = self.stat_name_delimiter.join([
+                                character_class_statistic_prefix,
+                                ses_result_statistic,
+                                assemblage_desc["assemblage_basis_state_id"],
+                                ])
+                            assert character_state_statistic_name not in results
+                            ses_result_statistic_value = getattr(result, ses_result_statistic)
+                            results[character_state_statistic_name] = ses_result_statistic_value
+                            results_by_character_class[character_class_statistic_prefix][ses_result_statistic].append(ses_result_statistic_value)
+        if report_character_class_wide_results:
+            for character_class_statistic_prefix in results_by_character_class:
+                for ses_result_statistic in results_by_character_class[character_class_statistic_prefix]:
+                    sn_title = self.stat_name_delimiter.join([
+                        character_class_statistic_prefix,
+                        ses_result_statistic,
+                        ])
+                mean, var = statistics.mean_and_sample_variance(results_by_character_class[character_class_statistic_prefix][ses_result_statistic])
+                key1 = "{}.{}".format(sn_title, self.stat_name_delimiter, "mean")
+                assert key1 not in results
+                results[key1] = mean
+                key2 = "{}.{}".format(sn_title, self.stat_name_delimiter, "var")
+                assert key2 not in results
+                results[key2] = var
+        return results
