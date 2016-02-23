@@ -266,7 +266,7 @@ class TreeSummarizer(object):
         self.rcalc = Rcalculator()
         self.stat_name_prefix = "predictor"
         self.stat_name_delimiter = "."
-        self.num_randomization_replicates = 100
+        self.num_randomization_replicates = 10
 
     def get_mean_patristic_distance(self, pdm, nodes):
         if len(nodes) <= 1:
@@ -454,16 +454,17 @@ class TreeSummarizer(object):
                         underlying_statistic_type_desc,
                         # assemblage_desc["assemblage_basis_state_id"],
                         ])
-                    if report_character_state_specific_results:
-                        for ses_result_statistic in ("z", "p"): # z = score, p = p-value; turns out the latter is quite informative
+                    for ses_result_statistic in ("z", "p"): # z = score, p = p-value; turns out the latter is quite informative
+                        ses_result_statistic_value = getattr(result, ses_result_statistic)
+                        if report_character_state_specific_results:
                             character_state_statistic_name = self.stat_name_delimiter.join([
                                 character_class_statistic_prefix,
                                 ses_result_statistic,
                                 assemblage_desc["assemblage_basis_state_id"],
                                 ])
                             assert character_state_statistic_name not in summary_statistics_suite
-                            ses_result_statistic_value = getattr(result, ses_result_statistic)
                             summary_statistics_suite[character_state_statistic_name] = ses_result_statistic_value
+                        if report_character_class_wide_results:
                             results_by_character_class[ses_result_statistic][character_class_statistic_prefix].append(ses_result_statistic_value)
         if report_character_class_wide_results:
             for ses_result_statistic in results_by_character_class:
@@ -473,11 +474,11 @@ class TreeSummarizer(object):
                         character_class_statistic_prefix,
                         ses_result_statistic,
                         ])
-                mean, var = statistics.mean_and_sample_variance(results_by_character_class[ses_result_statistic][character_class_statistic_prefix])
-                key1 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "mean")
-                assert key1 not in summary_statistics_suite
-                summary_statistics_suite[key1] = mean
-                key2 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "var")
-                assert key2 not in summary_statistics_suite
-                summary_statistics_suite[key2] = var
+                    mean, var = statistics.mean_and_sample_variance(results_by_character_class[ses_result_statistic][character_class_statistic_prefix])
+                    key1 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "mean")
+                    assert key1 not in summary_statistics_suite
+                    summary_statistics_suite[key1] = mean
+                    key2 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "var")
+                    assert key2 not in summary_statistics_suite
+                    summary_statistics_suite[key2] = var
         return summary_statistics_suite
