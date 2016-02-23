@@ -421,9 +421,16 @@ class TreeSummarizer(object):
             report_character_state_specific_results=True,
             report_character_class_wide_results=True,
             ):
-        summary_statistics_suite = {}
+
         assert len(assemblage_descriptions) == len(assemblage_memberships)
-        for edge_weighted_desc in ("weighted", "unweighted"):
+
+        summary_statistics_suite = {}
+        results_by_character_class = {}
+        stat_scores_to_be_harvested = ("z", "p",) # z = score, p = p-value; turns out the latter is quite informative
+        for sstbh in stat_scores_to_be_harvested:
+            results_by_character_class[sstbh] = collections.defaultdict(list)
+
+        for edge_weighted_desc in ("unweighted", "weighted"):
             if edge_weighted_desc:
                 is_weighted_edge_distances = True
             else:
@@ -441,9 +448,6 @@ class TreeSummarizer(object):
                     num_randomization_replicates=self.num_randomization_replicates,
                     )
                 assert len(results_group) == len(assemblage_memberships)
-                results_by_character_class = {}
-                results_by_character_class["z"] = collections.defaultdict(list)
-                results_by_character_class["p"] = collections.defaultdict(list)
                 for result, assemblage_desc in zip(results_group, assemblage_descriptions):
                     character_class_statistic_prefix = self.stat_name_delimiter.join([
                         self.stat_name_prefix,
@@ -454,8 +458,10 @@ class TreeSummarizer(object):
                         underlying_statistic_type_desc,
                         # assemblage_desc["assemblage_basis_state_id"],
                         ])
-                    for ses_result_statistic in ("z", "p"): # z = score, p = p-value; turns out the latter is quite informative
+                    for ses_result_statistic in stat_scores_to_be_harvested:
                         ses_result_statistic_value = getattr(result, ses_result_statistic)
+                        if ses_result_statistic_value is None:
+                            continue
                         if report_character_state_specific_results:
                             character_state_statistic_name = self.stat_name_delimiter.join([
                                 character_class_statistic_prefix,
@@ -474,7 +480,9 @@ class TreeSummarizer(object):
                         character_class_statistic_prefix,
                         ses_result_statistic,
                         ])
-                    mean, var = statistics.mean_and_sample_variance(results_by_character_class[ses_result_statistic][character_class_statistic_prefix])
+                    svalues = results_by_character_class[ses_result_statistic][character_class_statistic_prefix]
+                    # assert svalues is not None, "{}: {}".format(ses_result_statistic, character_class_statistic_prefix, )
+                    mean, var = statistics.mean_and_sample_variance(svalues)
                     key1 = "{}{}{}".format(sn_title, self.stat_name_delimiter, "mean")
                     assert key1 not in summary_statistics_suite
                     summary_statistics_suite[key1] = mean
