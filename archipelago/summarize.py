@@ -46,6 +46,7 @@ class TreeSummarizer(object):
         """
         self.drop_trees_not_spanning_all_areas = drop_trees_not_spanning_all_areas
         self.drop_trees_not_spanning_multiple_traits = drop_trees_not_spanning_multiple_traits
+        self.skip_single_taxon_area_assemblage_calculations = False
         if trait_indexes_to_exclude:
             self.trait_indexes_to_exclude = set(trait_indexes_to_exclude)
         else:
@@ -183,12 +184,20 @@ class TreeSummarizer(object):
         assemblage_descriptions = []
         assemblage_memberships = []
         for area_idx in area_taxa_map:
-            assemblage_memberships.append( area_taxa_map[area_idx] )
+            area_taxa = area_taxa_map[area_idx]
+            if len(area_taxa) < 2:
+                if self.skip_single_taxon_area_assemblage_calculations:
+                    continue
+                else:
+                    raise TreeSummarizer.IncompleteAreaRadiationException()
+            assemblage_memberships.append( area_taxa )
             regime = {
                 "assemblage_basis_class_id": "area",
                 "assemblage_basis_state_id": "state{}{}".format(self.stat_name_delimiter, area_idx),
             }
             assemblage_descriptions.append(regime)
+        if not assemblage_memberships:
+            raise TreeSummarizer.IncompleteAreaRadiationException()
         return assemblage_memberships, assemblage_descriptions
 
     def _calc_trait_based_stats(self,
