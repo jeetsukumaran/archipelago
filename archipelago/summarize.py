@@ -4,15 +4,18 @@ import sys
 import os
 import collections
 import dendropy
-import subprocess
 from dendropy.calculate import treemeasure
 from dendropy.model import birthdeath
 from dendropy.utility import processio
 from dendropy.calculate import statistics
 from archipelago import model
+from archipelago import utility
 from archipelago.utility import USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE
 
 class TreeSummarizer(object):
+
+    class SingleTaxonAssemblageException(Exception):
+        pass
 
     class IncompleteRaditionException(Exception):
         pass
@@ -28,6 +31,7 @@ class TreeSummarizer(object):
             drop_trees_not_spanning_multiple_traits=False,
             trait_indexes_to_exclude=None,
             trait_states_to_exclude=None,
+            run_logger=None,
             ):
         """
         Creates summaries for trees.
@@ -46,6 +50,7 @@ class TreeSummarizer(object):
         """
         self.drop_trees_not_spanning_all_areas = drop_trees_not_spanning_all_areas
         self.drop_trees_not_spanning_multiple_traits = drop_trees_not_spanning_multiple_traits
+        # self.skip_single_taxon_area_assemblage_calculations = False
         self.skip_single_taxon_area_assemblage_calculations = False
         if trait_indexes_to_exclude:
             self.trait_indexes_to_exclude = set(trait_indexes_to_exclude)
@@ -55,9 +60,12 @@ class TreeSummarizer(object):
             self.trait_states_to_exclude = set(trait_states_to_exclude)
         else:
             self.trait_states_to_exclude = set([])
+        self.run_logger = run_logger
+        self.progress_message_frequency_percentage = 1
         self.stat_name_prefix = "predictor"
         self.stat_name_delimiter = "."
         self.num_randomization_replicates = 100
+        self._current_tree_idx = None
 
     def get_mean_patristic_distance(self, pdm, nodes):
         if len(nodes) <= 1:
@@ -74,23 +82,27 @@ class TreeSummarizer(object):
                 ncomps += 1
         return weighted_dist/ncomps, unweighted_dist/ncomps
 
-    def summarize_trees(self,
-            trees,
-            progress_update_fn=None,):
+    def summarize_trees(self, trees,):
         processed_trees = []
         summary_fieldnames = set()
         summary_results = []
         trees = list(trees)
+        self._current_tree_idx = None
         for tree_idx, tree in enumerate(trees):
+            self._current_tree_idx = tree_idx
             try:
-                if progress_update_fn:
-                    progress_update_fn(tree_idx, len(trees))
+                if self.run_logger and not (int(float(tree_idx)/len(trees) * 100) % self.progress_message_frequency_percentage):
+                    self.run_logger.info("Tree {} of {}".format( tree_idx+1, len(trees)))
                 self.summarize_tree(tree)
                 processed_trees.append(tree)
                 summary_fieldnames.update(tree.stats.keys())
                 summary_results.append(collections.OrderedDict(tree.stats))
             except TreeSummarizer.IncompleteAreaRadiationException:
-                pass
+                self.run_logger.warning("Skipping (1-based index) tree {}: Not all areas occupied".format(
+                self._current_tree_idx+1))
+            except TreeSummarizer.SingleTaxonAssemblageException:
+                self.run_logger.warning("Skipping (1-based index) tree {}: One or more areas have only one lineage".format(
+                self._current_tree_idx+1))
         return processed_trees, summary_fieldnames, summary_results
 
     def summarize_tree(self, tree):
@@ -187,9 +199,12 @@ class TreeSummarizer(object):
             area_taxa = area_taxa_map[area_idx]
             if len(area_taxa) < 2:
                 if self.skip_single_taxon_area_assemblage_calculations:
+                    if self.run_logger:
+                        self.run_logger.warning("Skipping community-by-area for (0-based index) area {} of (1-based index) tree {}: only one lineage in area".format(
+                            area_idx, self._current_tree_idx+1))
                     continue
                 else:
-                    raise TreeSummarizer.IncompleteAreaRadiationException()
+                    raise TreeSummarizer.SingleTaxonAssemblageException()
             assemblage_memberships.append( area_taxa )
             regime = {
                 "assemblage_basis_class_id": "area",
