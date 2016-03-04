@@ -51,7 +51,7 @@ class TreeSummarizer(object):
         self.drop_trees_not_spanning_all_areas = drop_trees_not_spanning_all_areas
         self.drop_trees_not_spanning_multiple_traits = drop_trees_not_spanning_multiple_traits
         # self.skip_single_taxon_area_assemblage_calculations = False
-        self.skip_single_taxon_area_assemblage_calculations = False
+        self.skip_single_taxon_area_assemblage_calculations = True
         if trait_indexes_to_exclude:
             self.trait_indexes_to_exclude = set(trait_indexes_to_exclude)
         else:
@@ -98,10 +98,10 @@ class TreeSummarizer(object):
                 summary_fieldnames.update(tree.stats.keys())
                 summary_results.append(collections.OrderedDict(tree.stats))
             except TreeSummarizer.IncompleteAreaRadiationException:
-                self.run_logger.warning("Skipping (1-based index) tree {}: Not all areas occupied".format(
+                self.run_logger.warning("Skipping tree {} (1-based index): Not all areas occupied".format(
                 self._current_tree_idx+1))
             except TreeSummarizer.SingleTaxonAssemblageException:
-                self.run_logger.warning("Skipping (1-based index) tree {}: One or more areas have only one lineage".format(
+                self.run_logger.warning("Skipping tree {} (1-based index): One or more areas have only one lineage".format(
                 self._current_tree_idx+1))
         return processed_trees, summary_fieldnames, summary_results
 
@@ -200,7 +200,7 @@ class TreeSummarizer(object):
             if len(area_taxa) < 2:
                 if self.skip_single_taxon_area_assemblage_calculations:
                     if self.run_logger:
-                        self.run_logger.warning("Skipping community-by-area for (0-based index) area {} of (1-based index) tree {}: only one lineage in area".format(
+                        self.run_logger.warning("Skipping community-by-area for area {} (0-based index) of tree {} (1-based index): only one lineage in area".format(
                             area_idx, self._current_tree_idx+1))
                     continue
                 else:
