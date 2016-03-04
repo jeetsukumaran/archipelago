@@ -73,12 +73,17 @@ class TreeSummarizer(object):
                 ncomps += 1
         return weighted_dist/ncomps, unweighted_dist/ncomps
 
-    def summarize_trees(self, trees):
+    def summarize_trees(self,
+            trees,
+            progress_update_fn=None,):
         processed_trees = []
         summary_fieldnames = set()
         summary_results = []
-        for tree in list(trees):
+        trees = list(trees)
+        for tree_idx, tree in enumerate(trees):
             try:
+                if progress_update_fn:
+                    progress_update_fn(tree_idx, len(trees))
                 self.summarize_tree(tree)
                 processed_trees.append(tree)
                 summary_fieldnames.update(tree.stats.keys())

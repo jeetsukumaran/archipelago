@@ -8,6 +8,7 @@ import collections
 import csv
 import dendropy
 import re
+import datetime
 
 from archipelago import summarize
 from archipelago import utility
@@ -88,6 +89,13 @@ def main():
             help="Suppress progress messages.")
     args = parser.parse_args()
     args.group_processed_trees_by_model = False
+    if args.quiet:
+        _progress_update_fn = None
+    else:
+        log_frequency_percentage = 1
+        def _progress_update_fn(current_idx, total):
+            if not (int(float(current_idx)/total * 10) % log_frequency_percentage):
+                sys.stderr.write("  [{}] Tree {} of {}\n".format(datetime.datetime.now(), current_idx+1, total))
     if args.exclude_trait:
         trait_indexes_to_exclude = [int(i) - USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE for i in args.exclude_trait]
         assert -1 not in trait_indexes_to_exclude
@@ -118,6 +126,7 @@ def main():
                     )
             processed_trees, sub_stats_fields, sub_results = tree_summarizer.summarize_trees(
                     trees,
+                    progress_update_fn=_progress_update_fn,
                     # lineage_data_source=lineage_data_source,
                     # traits_filepath=traits_filepath,
                     # areas_filepath=areas_filepath,
