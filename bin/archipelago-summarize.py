@@ -65,6 +65,14 @@ def main():
             action="store_true",
             default=False,
             help="Do NOT skip trees that do not span all areas.")
+    summarization_options.add_argument("--drop-trees-with-single-lineage-areas",
+            action="store_true",
+            default=False,
+            help="Skip trees that have areas with only one lineage.")
+    summarization_options.add_argument("--drop-trees-with-single-lineage-trait-states",
+            action="store_true",
+            default=False,
+            help="Skip trees that have trait states with only one lineage.")
     output_options = parser.add_argument_group("Source Options")
     output_options.add_argument("-l", "--labels",
             action="append",
@@ -108,6 +116,8 @@ def main():
         drop_trees_not_spanning_all_areas=not args.no_drop_trees_not_spanning_all_areas,
         trait_indexes_to_exclude=trait_indexes_to_exclude,
         trait_states_to_exclude=trait_states_to_exclude,
+        drop_trees_with_single_lineage_areas=args.drop_trees_with_single_lineage_areas,
+        drop_trees_with_single_lineage_trait_states=args.drop_trees_with_single_lineage_trait_states,
         run_logger=run_logger,
     )
     summary_results = []

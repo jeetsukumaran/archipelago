@@ -17,6 +17,17 @@ class TreeSummarizer(object):
     class SingleTaxonAssemblageException(Exception):
         pass
 
+    class SingleTaxonAreaAssemblageException(SingleTaxonAssemblageException):
+        def __init__(self, area_idx, current_tree_idx):
+            TreeSummarizer.SingleTaxonAssemblageException.__init__(self)
+            self.area_idx = area_idx
+
+    class SingleTaxonTraitStateAssemblageException(SingleTaxonAssemblageException):
+        def __init__(self, trait_idx, trait_state_idx, current_tree_idx):
+            TreeSummarizer.SingleTaxonAssemblageException.__init__(self)
+            self.trait_idx = trait_idx
+            self.trait_state_idx = trait_state_idx
+
     class IncompleteRaditionException(Exception):
         pass
 
@@ -29,6 +40,8 @@ class TreeSummarizer(object):
     def __init__(self,
             drop_trees_not_spanning_all_areas=True,
             drop_trees_not_spanning_multiple_traits=False,
+            drop_trees_with_single_lineage_areas=False,
+            drop_trees_with_single_lineage_trait_states=False,
             trait_indexes_to_exclude=None,
             trait_states_to_exclude=None,
             run_logger=None,
@@ -47,11 +60,23 @@ class TreeSummarizer(object):
         trait_states_to_exclude : iterable of tuples
             Tuples in the form of (a,b), where 'a' is the 0-based index of the
             trait and 'b' is the state to skip in calculations.
+        drop_trees_with_single_lineage_areas : bool
+            If False then communities defined by areas, in which there
+            is only one lineage in such a "community" will be skipped, but the
+            other communities defined on the tree will be processed. If True,
+            then the ENTIRE tree will be skipped if even one community by area
+            has this issue.
+        drop_trees_with_single_lineage_trait_states : bool
+            If False then communities defined by traits, in which there
+            is only one lineage in such a "community" will be skipped, but the
+            other communities defined on the tree will be processed. If True,
+            then the ENTIRE tree will be skipped if even one community by trait
+            has this issue.
         """
         self.drop_trees_not_spanning_all_areas = drop_trees_not_spanning_all_areas
         self.drop_trees_not_spanning_multiple_traits = drop_trees_not_spanning_multiple_traits
-        # self.skip_single_taxon_area_assemblage_calculations = False
-        self.skip_single_taxon_area_assemblage_calculations = True
+        self.drop_trees_with_single_lineage_areas = drop_trees_with_single_lineage_areas
+        self.drop_trees_with_single_lineage_trait_states = drop_trees_with_single_lineage_trait_states
         if trait_indexes_to_exclude:
             self.trait_indexes_to_exclude = set(trait_indexes_to_exclude)
         else:
@@ -100,9 +125,16 @@ class TreeSummarizer(object):
             except TreeSummarizer.IncompleteAreaRadiationException:
                 self.run_logger.warning("Skipping tree {} (1-based index): Not all areas occupied".format(
                 self._current_tree_idx+1))
-            except TreeSummarizer.SingleTaxonAssemblageException:
-                self.run_logger.warning("Skipping tree {} (1-based index): One or more areas have only one lineage".format(
-                self._current_tree_idx+1))
+            except TreeSummarizer.SingleTaxonAreaAssemblageException as e:
+                self.run_logger.warning("Skipping tree {}: Area {} (0-based index)has only one lineage".format(
+                self._current_tree_idx+1,
+                e.area_idx))
+            except TreeSummarizer.SingleTaxonTraitStateAssemblageException as e:
+                self.run_logger.warning("Skipping tree {}: Trait {}, state {} has only one lineage".format(
+                self._current_tree_idx+1,
+                e.trait_idx,
+                e.trait_state_idx,
+                ))
         return processed_trees, summary_fieldnames, summary_results
 
     def summarize_tree(self, tree):
@@ -198,13 +230,13 @@ class TreeSummarizer(object):
         for area_idx in area_taxa_map:
             area_taxa = area_taxa_map[area_idx]
             if len(area_taxa) < 2:
-                if self.skip_single_taxon_area_assemblage_calculations:
+                if not self.drop_trees_with_single_lineage_areas:
                     if self.run_logger:
                         self.run_logger.warning("Skipping statistics calculation for community-by-area for area {} (0-based index) of tree {} (1-based index): only one lineage in area".format(
                             area_idx, self._current_tree_idx+1))
                     continue
                 else:
-                    raise TreeSummarizer.SingleTaxonAssemblageException()
+                    raise TreeSummarizer.SingleTaxonAreaAssemblageException(area_idx, self._current_tree_idx+1)
             assemblage_memberships.append( area_taxa )
             regime = {
                 "assemblage_basis_class_id": "area",
@@ -235,12 +267,23 @@ class TreeSummarizer(object):
         assemblage_memberships = []
         for trait_idx in trait_taxa_map:
             for trait_state_idx in trait_taxa_map[trait_idx]:
-                assemblage_memberships.append( trait_taxa_map[trait_idx][trait_state_idx] )
+                tt = trait_taxa_map[trait_idx][trait_state_idx]
+                if len(tt) < 2:
+                    if not self.drop_trees_with_single_lineage_trait_states:
+                        if self.run_logger:
+                            self.run_logger.warning("Skipping statistics calculation for community-by-trait-state for trait {}, state {} of tree {}: only one lineage with trait state".format(
+                                trait_idx+USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE, trait_state_idx, self._current_tree_idx+1))
+                        continue
+                    else:
+                        raise TreeSummarizer.SingleTaxonTraitStateAssemblageException(trait_idx+USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE, trait_state_idx, self._current_tree_idx+1)
+                assemblage_memberships.append(tt)
                 regime = {
                     "assemblage_basis_class_id": "trait{}{}".format(self.stat_name_delimiter, trait_idx + USER_SPECIFIED_TRAIT_TYPE_INDEX_START_VALUE),
                     "assemblage_basis_state_id": "state{}{}".format(self.stat_name_delimiter, trait_state_idx),
                 }
                 assemblage_descriptions.append(regime)
+        if not assemblage_memberships:
+            raise TreeSummarizer.IncompleteTraitRaditionException()
         return assemblage_memberships, assemblage_descriptions
 
     def _calc_community_ecology_stats(self,
