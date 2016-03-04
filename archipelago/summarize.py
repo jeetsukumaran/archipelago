@@ -200,7 +200,7 @@ class TreeSummarizer(object):
             if len(area_taxa) < 2:
                 if self.skip_single_taxon_area_assemblage_calculations:
                     if self.run_logger:
-                        self.run_logger.warning("Skipping community-by-area for area {} (0-based index) of tree {} (1-based index): only one lineage in area".format(
+                        self.run_logger.warning("Skipping statistics calculation for community-by-area for area {} (0-based index) of tree {} (1-based index): only one lineage in area".format(
                             area_idx, self._current_tree_idx+1))
                     continue
                 else:
