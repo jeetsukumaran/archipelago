@@ -350,7 +350,8 @@ class TreeSummarizer(object):
                             results_by_character_class[ses_result_statistic][character_class_statistic_key].append(ses_result_statistic_value)
         if report_character_class_wide_results:
             for ses_result_statistic in results_by_character_class:
-                assert len(results_by_character_class[ses_result_statistic]) > 0
+                if len(results_by_character_class[ses_result_statistic]) == 0:
+                    continue
                 for key in results_by_character_class[ses_result_statistic]:
                     character_class_statistic_prefix, statistic_subtype_desc = key
                     svalues = results_by_character_class[ses_result_statistic][key]
