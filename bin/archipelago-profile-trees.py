@@ -58,6 +58,11 @@ def main():
                  " Parameters of the model will be added to the"
                  " profile profile_results to facilitate analysis."
             )
+    source_options.add_argument("-M", "--model-file-type",
+            default="json",
+            choices=("json", "python"),
+            help="Model file format (default: %(default)s)."
+            )
     output_options = parser.add_argument_group("Output Options")
     output_options.add_argument("-o", "--output-filepath",
             default=None,
@@ -89,7 +94,16 @@ def main():
         lineage_data_source="node"
 
     if args.model_file:
-        archipelago_model = model.ArchipelagoModel.from_path(args.model_file)
+        if args.model_file_type == "json":
+            model_file_type = "json-filepath"
+        elif args.model_file_type == "python":
+            model_file_type = "python-filepath"
+        else:
+            raise ValueError(args.model_file_type)
+        archipelago_model = model.ArchipelagoModel.create(
+                model_definition_source=args.model_file,
+                model_definition_type=model_file_type,
+                )
     else:
         archipelago_model = None
     profiler = profile.ArchipelagoProfiler.from_option_args(args)

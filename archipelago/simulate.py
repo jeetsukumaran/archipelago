@@ -157,7 +157,7 @@ class ArchipelagoSimulator(object):
         if config_d.pop("store_model_description", True):
             self.model_description_file = config_d.pop("model_description_file", None)
             if self.model_description_file is None:
-                self.model_description_file = open(self.output_prefix + ".model.json", "w")
+                self.model_description_file = open(self.output_prefix + ".model.log.json", "w")
             if verbose:
                 self.run_logger.info("Model description filepath: {}".format(self.model_description_file.name))
         else:
@@ -335,7 +335,31 @@ class ArchipelagoSimulator(object):
                     if trait_transition_rate:
                         event_calls.append( (self.phylogeny.evolve_trait, {"lineage": lineage, "trait_idx": trait_idx, "state_idx": proposed_state_idx}) )
                         event_rates.append(trait_transition_rate)
-            # dispersal
+
+            # Dispersal/Area Gain
+            # Submodel Design Objectives:
+            # 1.    We want to be able to specify that the rate of gaining a
+            #       particular area are functions of:
+            #       -   The area (e.g., the number of area lineages in the area; the
+            #           number of symbiont lineages in the area; or the particular
+            #           area or symbiont lineages present/absent from an area).
+            #       -   The source and destination areas (e.g., the phylogenetic
+            #           distances between the source and destination areas; the
+            #           number of resident lineages in the destination area; etc.)
+            #       -   The particular characters/trait of the dispersing lineage.
+            # 2.    We want to be able to specify a mean per-lineage rate of
+            #       transmission. Allows for estimating this from empirical data
+            #       using some reasonable if simplified and low-fidelity model:
+            #       e.g., as a per-lineage trait evolution rate, where the area set
+            #       is a multistate character.
+            # Objective (1) means that the rates must be calculated on a
+            # per-source area per-destination area per area basis.
+            # Objective (2) means that the transmission (area gain) rate
+            # weights across all area gain events needs to sum to 1 (with the
+            # actual rate obtained by multiplying with the system-wide mean
+            # (per-lineage) area gain rate.)
+
+            # Dispersal (old)
             for dest_area in self.geography.areas:
                 if dest_area in lineage.areas:
                     # already occurs here: do we model it or not?
@@ -349,6 +373,7 @@ class ArchipelagoSimulator(object):
                 if sum_of_area_connection_weights_to_dest:
                     event_calls.append( (lineage.add_area, {"area": dest_area}) )
                     event_rates.append(sum_of_area_connection_weights_to_dest)
+
         # sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates
 

@@ -276,17 +276,17 @@ class ArchipelagoProfiler(object):
         return profile_results
 
     def store_generating_model_parameters(self, generating_model, profile_results):
-        profile_results["num.areas"] = len(generating_model.geography.areas)
-        profile_results["num.focal.areas"] = len(generating_model.geography.focal_area_indexes)
-        profile_results["num.supplemental.areas"] = len(generating_model.geography.supplemental_area_indexes)
+        geography = generating_model.new_geography()
+        profile_results["num.areas"] = len(geography.areas)
+        profile_results["num.focal.areas"] = len(geography.focal_areas)
+        profile_results["num.supplemental.areas"] = len(geography.supplemental_areas)
         profile_results["lineage.birth.rate.definition"] = generating_model.lineage_birth_rate_function.definition_content
         profile_results["lineage.birth.rate.description"] = generating_model.lineage_birth_rate_function.description
         profile_results["lineage.death.rate.definition"] = generating_model.lineage_death_rate_function.definition_content
         profile_results["lineage.death.rate.description"] = generating_model.lineage_death_rate_function.description
-        profile_results["lineage.dispersal.weight.definition"] = generating_model.lineage_dispersal_weight_function.definition_content
-        profile_results["lineage.dispersal.weight.description"] = generating_model.lineage_dispersal_weight_function.description
-        profile_results["global.dispersal.rate"] = generating_model.global_dispersal_rate
-        profile_results["mean.dispersal.rate"] = generating_model.mean_dispersal_rate
+        profile_results["lineage.area.gain.rate.definition"] = generating_model.lineage_area_gain_rate_function.definition_content
+        profile_results["lineage.area.gain.rate.description"] = generating_model.lineage_area_gain_rate_function.description
+        profile_results["mean.per.lineage.area.gain.rate"] = generating_model.mean_per_lineage_area_gain_rate
         for trait_idx, trait in enumerate(generating_model.trait_types):
             profile_results["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
         return profile_results

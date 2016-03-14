@@ -300,7 +300,7 @@ class RateFunction(object):
         self.definition_type = self.definition_type.replace("-", "_")
         if self.definition_type == "fixed_value":
             self.definition_content = float(self.definition_content)
-            self._compute_rate = lambda lineage: self.definition_content
+            self._compute_rate = lambda **kwargs: self.definition_content
         elif self.definition_type == "lambda_definition":
             self._compute_rate = eval(self.definition_content)
         elif self.definition_type.startswith("trait_state_index_map"):
@@ -1040,6 +1040,9 @@ class ArchipelagoModel(object):
         #     for a1, area1 in enumerate(self.geography.areas):
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
 
+        self.mean_per_lineage_area_gain_rate = anagenetic_range_evolution_d.pop("mean_per_lineage_area_gain_rate", 1.0)
+        if run_logger is not None:
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate: {}".format(self.mean_per_lineage_area_gain_rate))
         self.is_area_specific_gain_rate = anagenetic_range_evolution_d.pop("is_area_specific_gain_rate", False)
         if run_logger is not None:
             if self.is_area_specific_gain_rate:
