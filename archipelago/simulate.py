@@ -377,13 +377,14 @@ class ArchipelagoSimulator(object):
                                 to_area=dest_area,
                                 simulation_elapsed_time=self.elapsed_time)
                         rate = lineage_area_gain_rate * self.geography.area_connection_weights[src_area.index][dest_area.index]
-                        dispersal_event_rates.append(rate)
-                        dispersal_event_calls.append((lineage.add_area, {"area": dest_area}))
+                        if rate:
+                            dispersal_event_rates.append(rate)
+                            dispersal_event_calls.append((lineage.add_area, {"area": dest_area}))
                 normalization_factor = float(sum(dispersal_event_rates))
-
-                dispersal_event_rates = [ self.model.mean_per_lineage_area_gain_rate * (drate / normalization_factor) for drate in dispersal_event_rates]
-                event_calls.extend( dispersal_event_calls )
-                event_rates.extend( dispersal_event_rates )
+                if normalization_factor:
+                    dispersal_event_rates = [ self.model.mean_per_lineage_area_gain_rate * (drate / normalization_factor) for drate in dispersal_event_rates]
+                    event_calls.extend( dispersal_event_calls )
+                    event_rates.extend( dispersal_event_rates )
 
             # Dispersal (old)
             # for dest_area in self.geography.areas:
