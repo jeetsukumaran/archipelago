@@ -286,7 +286,7 @@ class ArchipelagoProfiler(object):
         profile_results["lineage.death.rate.description"] = generating_model.lineage_death_rate_function.description
         profile_results["lineage.area.gain.rate.definition"] = generating_model.lineage_area_gain_rate_function.definition_content
         profile_results["lineage.area.gain.rate.description"] = generating_model.lineage_area_gain_rate_function.description
-        profile_results["mean.per.lineage.area.gain.rate"] = generating_model.mean_per_lineage_area_gain_rate
+        profile_results["mean.per.lineage.area.gain.rate"] = generating_model.global_area_gain_rate
         for trait_idx, trait in enumerate(generating_model.trait_types):
             profile_results["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate
         return profile_results

@@ -567,23 +567,36 @@ class Phylogeny(dendropy.Tree):
             speciation_mode = 0
         else:
             if num_presences < num_areas:
-                jump_dispersal_target_areas = []
-                jump_dispersal_target_rates = []
-                if self.model.is_area_specific_gain_rate:
-                    for jd_area in self.geography.areas:
-                        if jd_area in parent.areas:
-                            continue
-                        jump_dispersal_target_areas.append(jd_area)
-                        jump_dispersal_target_rates.append(self.model.lineage_area_gain_rate_function(lineage=parent, area=jd_area))
+                area_gain_event_parameters, area_gain_event_rates = self.geography.calculate_raw_area_gain_events(
+                        lineage=parent,
+                        lineage_area_gain_rate_fn=self.model.lineage_area_gain_rate_function,
+                        simulation_elapsed_time=None)
+                if area_gain_event_parameters and area_gain_event_rates:
+                    jump_dispersal_target_area_rates = [0.0 for a in self.geography.areas]
+                    normalization_factor = float(sum(area_gain_event_rates))
+                    if normalization_factor:
+                        for ag_event_parameters, ag_event_rate in zip(area_gain_event_parameters, area_gain_event_rates):
+                            jump_dispersal_target_area_rates[ag_event_parameters["to_area"].index] += (ag_event_rate/normalization_factor)
+                        fes_weight = self.model.global_area_gain_rate * self.model.cladogenesis_founder_event_speciation_weight * sum(jump_dispersal_target_area_rates)
+                    else:
+                        fes_weight = 0.0
                 else:
-                    parent_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=parent, area=None)
-                    for jd_area in self.geography.areas:
-                        if jd_area in parent.areas:
-                            continue
-                        jump_dispersal_target_areas.append(jd_area)
-                    per_area_gain_rate = parent_area_gain_rate / len(jump_dispersal_target_areas)
-                    jump_dispersal_target_rates = [per_area_gain_rate] * len(jump_dispersal_target_areas)
-                fes_weight = self.model.cladogenesis_founder_event_speciation_weight * sum(jump_dispersal_target_rates)
+                    fes_weight = 0.0
+                # if self.model.is_area_specific_gain_rate:
+                #     for jd_area in self.geography.areas:
+                #         if jd_area in parent.areas:
+                #             continue
+                #         jump_dispersal_target_areas.append(jd_area)
+                #         jump_dispersal_target_rates.append(self.model.lineage_area_gain_rate_function(lineage=parent, area=jd_area))
+                # else:
+                #     parent_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=parent, area=None)
+                #     for jd_area in self.geography.areas:
+                #         if jd_area in parent.areas:
+                #             continue
+                #         jump_dispersal_target_areas.append(jd_area)
+                #     per_area_gain_rate = parent_area_gain_rate / len(jump_dispersal_target_areas)
+                #     jump_dispersal_target_rates = [per_area_gain_rate] * len(jump_dispersal_target_areas)
+                # fes_weight = self.model.cladogenesis_founder_event_speciation_weight * sum(jump_dispersal_target_rates)
             else:
                 fes_weight = 0.0
             speciation_mode_weights = [
@@ -654,10 +667,10 @@ class Phylogeny(dendropy.Tree):
         elif speciation_mode == 4:
             child1.copy_areas(parent)
             jump_target_idx = weighted_index_choice(
-                    weights=jump_dispersal_target_rates,
+                    weights=jump_dispersal_target_area_rates,
                     sum_of_weights=fes_weight,
                     rng=self.rng)
-            jump_target_area = jump_dispersal_target_areas[jump_target_idx]
+            jump_target_area = self.geography.areas[jump_target_idx]
             child2.add_area(jump_target_area)
         else:
             raise ValueError(speciation_mode)
@@ -721,7 +734,9 @@ class Phylogeny(dendropy.Tree):
 
 class Geography(object):
 
-    def __init__(self, areas_definition, run_logger=None):
+    def __init__(self,
+            areas_definition,
+            run_logger=None):
         self.normalize_area_connection_weights = False
         self.parse_definition(areas_definition=areas_definition, run_logger=run_logger)
 
@@ -819,6 +834,54 @@ class Geography(object):
     def as_definition(self):
         areas = [a.as_definition() for a in self.areas]
         return areas
+
+    def calculate_raw_area_gain_events(self,
+            lineage,
+            lineage_area_gain_rate_fn,
+            simulation_elapsed_time=None):
+        # Submodel Design Objectives:
+        # 1.    We want to be able to specify that the rate of gaining a
+        #       particular area are functions of:
+        #       -   The area (e.g., the number of area lineages in the area; the
+        #           number of symbiont lineages in the area; or the particular
+        #           area or symbiont lineages present/absent from an area).
+        #       -   The source and destination areas (e.g., the phylogenetic
+        #           distances between the source and destination areas; the
+        #           number of resident lineages in the destination area; etc.)
+        #       -   The particular characters/trait of the dispersing lineage.
+        # 2.    We want to be able to specify a mean per-lineage rate of
+        #       transmission. Allows for estimating this from empirical data
+        #       using some reasonable if simplified and low-fidelity model:
+        #       e.g., as a per-lineage trait evolution rate, where the area set
+        #       is a multistate character.
+        # Objective (1) means that the rates must be calculated on a
+        # per-source area per-destination area per area basis.
+        # Objective (2) means that the transmission (area gain) rate
+        # weights across all area gain events needs to sum to 1 (with the
+        # actual rate obtained by multiplying with the system-wide mean
+        # (per-lineage) area gain rate.)
+        src_areas = []
+        dest_areas = []
+        for area in self.areas:
+            if area in lineage.areas:
+                src_areas.append(area)
+            else:
+                dest_areas.append(area)
+        area_gain_event_parameters = []
+        area_gain_event_rates = []
+        if src_areas and dest_areas:
+            for src_area in src_areas:
+                for dest_area in dest_areas:
+                    lineage_area_gain_rate = lineage_area_gain_rate_fn(
+                            lineage=lineage,
+                            from_area=src_area,
+                            to_area=dest_area,
+                            simulation_elapsed_time=simulation_elapsed_time)
+                    rate = lineage_area_gain_rate * self.area_connection_weights[src_area.index][dest_area.index]
+                    if rate:
+                        area_gain_event_parameters.append({"from_area": src_area, "to_area": dest_area})
+                        area_gain_event_rates.append(rate)
+        return area_gain_event_parameters, area_gain_event_rates
 
 class ArchipelagoModel(object):
 
@@ -1040,15 +1103,15 @@ class ArchipelagoModel(object):
         #     for a1, area1 in enumerate(self.geography.areas):
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
 
-        self.mean_per_lineage_area_gain_rate = anagenetic_range_evolution_d.pop("mean_per_lineage_area_gain_rate", 1.0)
+        self.global_area_gain_rate = anagenetic_range_evolution_d.pop("global_area_gain_rate", 1.0)
         if run_logger is not None:
-            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate: {}".format(self.mean_per_lineage_area_gain_rate))
-        self.is_area_specific_gain_rate = anagenetic_range_evolution_d.pop("is_area_specific_gain_rate", False)
-        if run_logger is not None:
-            if self.is_area_specific_gain_rate:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage per area rather than per lineage")
-            else:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage rather than per lineage per area")
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate: {}".format(self.global_area_gain_rate))
+        # self.is_area_specific_gain_rate = anagenetic_range_evolution_d.pop("is_area_specific_gain_rate", False)
+        # if run_logger is not None:
+        #     if self.is_area_specific_gain_rate:
+        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage per area rather than per lineage")
+        #     else:
+        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage rather than per lineage per area")
         if "lineage_area_gain_rate" in anagenetic_range_evolution_d:
             self.lineage_area_gain_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_gain_rate"), self.trait_types)
         else:
@@ -1064,12 +1127,15 @@ class ArchipelagoModel(object):
 
         ## extinction
         # self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
-        self.is_area_specific_loss_rate = anagenetic_range_evolution_d.pop("is_area_specific_loss_rate", False)
+        # self.is_area_specific_loss_rate = anagenetic_range_evolution_d.pop("is_area_specific_loss_rate", False)
+        # if run_logger is not None:
+        #     if self.is_area_specific_loss_rate:
+        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage per area rather than per lineage")
+        #     else:
+        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage rather than per lineage per area")
+        self.global_area_loss_rate = anagenetic_range_evolution_d.pop("global_area_loss_rate", 0.0)
         if run_logger is not None:
-            if self.is_area_specific_loss_rate:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage per area rather than per lineage")
-            else:
-                run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage rather than per lineage per area")
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area loss rate: {}".format(self.global_area_loss_rate))
         if "lineage_area_loss_rate" in anagenetic_range_evolution_d:
             self.lineage_area_loss_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_loss_rate"), self.trait_types)
         else:
@@ -1159,9 +1225,9 @@ class ArchipelagoModel(object):
 
     def anagenetic_range_evolution_as_definition(self):
         d = collections.OrderedDict()
-        d["is_area_specific_gain_rate"] = self.is_area_specific_gain_rate
+        # d["is_area_specific_gain_rate"] = self.is_area_specific_gain_rate
         d["lineage_area_gain_rate"] = self.lineage_area_gain_rate_function.as_definition()
-        d["is_area_specific_loss_rate"] = self.is_area_specific_loss_rate
+        # d["is_area_specific_loss_rate"] = self.is_area_specific_loss_rate
         d["lineage_area_loss_rate"] = self.lineage_area_loss_rate_function.as_definition()
         return d
 

@@ -312,19 +312,11 @@ class ArchipelagoSimulator(object):
                 event_calls.append( (self.phylogeny.extinguish_lineage, {"lineage": lineage}) )
                 event_rates.append(extinction_rate)
             # local extinction
-            if self.model.is_area_specific_loss_rate:
-                for area in lineage.areas:
-                    per_area_loss_rate = self.model.lineage_area_loss_rate_function(lineage=lineage, area=area)
-                    if per_area_loss_rate:
-                        event_calls.append( (lineage.remove_area, {"area": area}) )
-                        event_rates.append(per_area_loss_rate)
-            else:
-                area_loss_rate = self.model.lineage_area_loss_rate_function(lineage=lineage, area=None)
-                if area_loss_rate:
-                    per_area_loss_rate = area_loss_rate / len(lineage.areas)
-                    for area in lineage.areas:
-                        event_calls.append( (lineage.remove_area, {"area": area}) )
-                        event_rates.append(per_area_loss_rate)
+            for area in lineage.areas:
+                per_area_loss_rate = self.model.global_area_loss_rate * self.model.lineage_area_loss_rate_function(lineage=lineage, area=area)
+                if per_area_loss_rate:
+                    event_calls.append( (lineage.remove_area, {"area": area}) )
+                    event_rates.append(per_area_loss_rate)
             # trait evolution
             for trait_idx, current_state_idx in enumerate(lineage.traits_vector):
                 ## normalized
@@ -337,54 +329,17 @@ class ArchipelagoSimulator(object):
                         event_rates.append(trait_transition_rate)
 
             # Dispersal/Area Gain
-            # Submodel Design Objectives:
-            # 1.    We want to be able to specify that the rate of gaining a
-            #       particular area are functions of:
-            #       -   The area (e.g., the number of area lineages in the area; the
-            #           number of symbiont lineages in the area; or the particular
-            #           area or symbiont lineages present/absent from an area).
-            #       -   The source and destination areas (e.g., the phylogenetic
-            #           distances between the source and destination areas; the
-            #           number of resident lineages in the destination area; etc.)
-            #       -   The particular characters/trait of the dispersing lineage.
-            # 2.    We want to be able to specify a mean per-lineage rate of
-            #       transmission. Allows for estimating this from empirical data
-            #       using some reasonable if simplified and low-fidelity model:
-            #       e.g., as a per-lineage trait evolution rate, where the area set
-            #       is a multistate character.
-            # Objective (1) means that the rates must be calculated on a
-            # per-source area per-destination area per area basis.
-            # Objective (2) means that the transmission (area gain) rate
-            # weights across all area gain events needs to sum to 1 (with the
-            # actual rate obtained by multiplying with the system-wide mean
-            # (per-lineage) area gain rate.)
-
-            src_areas = []
-            dest_areas = []
-            for area in self.geography.areas:
-                if area in lineage.areas:
-                    src_areas.append(area)
-                else:
-                    dest_areas.append(area)
-            if src_areas and dest_areas:
-                dispersal_event_calls = []
-                dispersal_event_rates = []
-                for src_area in src_areas:
-                    for dest_area in dest_areas:
-                        lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(
-                                lineage=lineage,
-                                from_area=src_area,
-                                to_area=dest_area,
-                                simulation_elapsed_time=self.elapsed_time)
-                        rate = lineage_area_gain_rate * self.geography.area_connection_weights[src_area.index][dest_area.index]
-                        if rate:
-                            dispersal_event_rates.append(rate)
-                            dispersal_event_calls.append((lineage.add_area, {"area": dest_area}))
-                normalization_factor = float(sum(dispersal_event_rates))
+            area_gain_event_parameters, area_gain_event_rates = self.geography.calculate_raw_area_gain_events(
+                    lineage=lineage,
+                    lineage_area_gain_rate_fn=self.model.lineage_area_gain_rate_function,
+                    simulation_elapsed_time=self.elapsed_time)
+            if area_gain_event_parameters and area_gain_event_rates:
+                normalization_factor = float(sum(area_gain_event_rates))
                 if normalization_factor:
-                    dispersal_event_rates = [ self.model.mean_per_lineage_area_gain_rate * (drate / normalization_factor) for drate in dispersal_event_rates]
-                    event_calls.extend( dispersal_event_calls )
-                    event_rates.extend( dispersal_event_rates )
+                    # area_gain_event_rates = [ self.model.global_area_gain_rate * (drate / normalization_factor) for drate in area_gain_event_rates]
+                    for ag_event_parameters, ag_event_rate in zip(area_gain_event_parameters, area_gain_event_rates):
+                        event_calls.append((lineage.add_area, {"area": ag_event_parameters["to_area"]}))
+                        event_rates.append(self.model.global_area_gain_rate * ag_event_rate)
 
             # Dispersal (old)
             # for dest_area in self.geography.areas:
