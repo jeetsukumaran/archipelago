@@ -359,20 +359,46 @@ class ArchipelagoSimulator(object):
             # actual rate obtained by multiplying with the system-wide mean
             # (per-lineage) area gain rate.)
 
+            src_areas = []
+            dest_areas = []
+            for area in self.geography.areas:
+                if area in lineage.areas:
+                    src_areas.append(area)
+                else:
+                    dest_areas.append(area)
+            if src_areas and dest_areas:
+                dispersal_event_calls = []
+                dispersal_event_rates = []
+                for src_area in src_areas:
+                    for dest_area in dest_areas:
+                        lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(
+                                lineage=lineage,
+                                from_area=src_area,
+                                to_area=dest_area,
+                                simulation_elapsed_time=self.elapsed_time)
+                        rate = lineage_area_gain_rate * self.geography.area_connection_weights[src_area.index][dest_area.index]
+                        dispersal_event_rates.append(rate)
+                        dispersal_event_calls.append((lineage.add_area, {"area": dest_area}))
+                normalization_factor = float(sum(dispersal_event_rates))
+
+                dispersal_event_rates = [ self.model.mean_per_lineage_area_gain_rate * (drate / normalization_factor) for drate in dispersal_event_rates]
+                event_calls.extend( dispersal_event_calls )
+                event_rates.extend( dispersal_event_rates )
+
             # Dispersal (old)
-            for dest_area in self.geography.areas:
-                if dest_area in lineage.areas:
-                    # already occurs here: do we model it or not?
-                    continue
-                sum_of_area_connection_weights_to_dest = 0.0
-                for src_area in lineage.areas:
-                    if src_area is dest_area:
-                        continue
-                    lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=lineage, area=dest_area)
-                    sum_of_area_connection_weights_to_dest += lineage_area_gain_rate * self.geography.area_connection_weights[src_area.index][dest_area.index]
-                if sum_of_area_connection_weights_to_dest:
-                    event_calls.append( (lineage.add_area, {"area": dest_area}) )
-                    event_rates.append(sum_of_area_connection_weights_to_dest)
+            # for dest_area in self.geography.areas:
+            #     if dest_area in lineage.areas:
+            #         # already occurs here: do we model it or not?
+            #         continue
+            #     sum_of_area_connection_weights_to_dest = 0.0
+            #     for src_area in lineage.areas:
+            #         if src_area is dest_area:
+            #             continue
+            #         lineage_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=lineage, area=dest_area)
+            #         sum_of_area_connection_weights_to_dest += lineage_area_gain_rate * self.geography.area_connection_weights[src_area.index][dest_area.index]
+            #     if sum_of_area_connection_weights_to_dest:
+            #         event_calls.append( (lineage.add_area, {"area": dest_area}) )
+            #         event_rates.append(sum_of_area_connection_weights_to_dest)
 
         # sum_of_event_rates = sum(event_rates)
         return event_calls, event_rates
