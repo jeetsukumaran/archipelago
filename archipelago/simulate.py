@@ -329,17 +329,22 @@ class ArchipelagoSimulator(object):
                         event_rates.append(trait_transition_rate)
 
             # Dispersal/Area Gain
-            area_gain_event_parameters, area_gain_event_rates = self.geography.calculate_raw_area_gain_events(
+            area_gain_event_parameters, area_gain_event_rates, area_gain_rates_marginalized_by_destination_area = self.geography.calculate_raw_area_gain_events(
                     lineage=lineage,
                     lineage_area_gain_rate_fn=self.model.lineage_area_gain_rate_function,
                     simulation_elapsed_time=self.elapsed_time)
-            if area_gain_event_parameters and area_gain_event_rates:
-                normalization_factor = float(sum(area_gain_event_rates))
+            if area_gain_rates_marginalized_by_destination_area:
+                normalization_factor = float(sum(area_gain_rates_marginalized_by_destination_area))
                 if normalization_factor:
-                    # area_gain_event_rates = [ self.model.global_area_gain_rate * (drate / normalization_factor) for drate in area_gain_event_rates]
-                    for ag_event_parameters, ag_event_rate in zip(area_gain_event_parameters, area_gain_event_rates):
-                        event_calls.append((lineage.add_area, {"area": ag_event_parameters["to_area"]}))
-                        event_rates.append(self.model.global_area_gain_rate * ag_event_rate/normalization_factor)
+                    for area_idx, area_gain_rate in enumerate(area_gain_rates_marginalized_by_destination_area):
+                        event_calls.append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
+                        event_rates.append(self.model.global_area_gain_rate * area_gain_rate/normalization_factor)
+            # if area_gain_event_parameters and area_gain_event_rates:
+            #     normalization_factor = float(sum(area_gain_event_rates))
+            #     if normalization_factor:
+            #         for ag_event_parameters, ag_event_rate in zip(area_gain_event_parameters, area_gain_event_rates):
+            #             event_calls.append((lineage.add_area, {"area": ag_event_parameters["to_area"]}))
+            #             event_rates.append(self.model.global_area_gain_rate * ag_event_rate/normalization_factor)
 
             # Dispersal (old)
             # for dest_area in self.geography.areas:

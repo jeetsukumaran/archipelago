@@ -567,7 +567,7 @@ class Phylogeny(dendropy.Tree):
             speciation_mode = 0
         else:
             if num_presences < num_areas:
-                area_gain_event_parameters, area_gain_event_rates = self.geography.calculate_raw_area_gain_events(
+                area_gain_event_parameters, area_gain_event_rates, area_gain_rates_marginalized_by_destination_area = self.geography.calculate_raw_area_gain_events(
                         lineage=parent,
                         lineage_area_gain_rate_fn=self.model.lineage_area_gain_rate_function,
                         simulation_elapsed_time=None)
@@ -869,6 +869,7 @@ class Geography(object):
                 dest_areas.append(area)
         area_gain_event_parameters = []
         area_gain_event_rates = []
+        area_gain_rates_marginalized_by_destination_area = [0.0 for area in self.areas]
         if src_areas and dest_areas:
             for src_area in src_areas:
                 for dest_area in dest_areas:
@@ -881,7 +882,8 @@ class Geography(object):
                     if rate:
                         area_gain_event_parameters.append({"from_area": src_area, "to_area": dest_area})
                         area_gain_event_rates.append(rate)
-        return area_gain_event_parameters, area_gain_event_rates
+                        area_gain_rates_marginalized_by_destination_area[dest_area.index] += rate
+        return area_gain_event_parameters, area_gain_event_rates, area_gain_rates_marginalized_by_destination_area
 
 class ArchipelagoModel(object):
 
