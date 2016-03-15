@@ -337,8 +337,9 @@ class ArchipelagoSimulator(object):
                 normalization_factor = float(sum(area_gain_rates_marginalized_by_destination_area))
                 if normalization_factor:
                     for area_idx, area_gain_rate in enumerate(area_gain_rates_marginalized_by_destination_area):
-                        event_calls.append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
-                        event_rates.append(self.model.global_area_gain_rate * area_gain_rate/normalization_factor)
+                        if area_gain_rate:
+                            event_calls.append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
+                            event_rates.append(self.model.global_area_gain_rate * area_gain_rate/normalization_factor)
             # if area_gain_event_parameters and area_gain_event_rates:
             #     normalization_factor = float(sum(area_gain_event_rates))
             #     if normalization_factor:
