@@ -80,6 +80,7 @@ class BiogeobearsEstimator(object):
                 "BioGeoBEARS_stratified_v1.R",
                 "BioGeoBEARS_univ_model_v1.R",
                 "calc_loglike_sp_v01.R",
+                "cladoRcpp.R",
                 ]
         self.patch_filepaths = [archipelago.libexec_filepath(f) for f in self.patch_filenames]
         self.patch_code = "\n".join(["source('{}')".format(f) for f in self.patch_filepaths])
