@@ -339,7 +339,7 @@ class ArchipelagoSimulator(object):
                     # area_gain_event_rates = [ self.model.global_area_gain_rate * (drate / normalization_factor) for drate in area_gain_event_rates]
                     for ag_event_parameters, ag_event_rate in zip(area_gain_event_parameters, area_gain_event_rates):
                         event_calls.append((lineage.add_area, {"area": ag_event_parameters["to_area"]}))
-                        event_rates.append(self.model.global_area_gain_rate * ag_event_rate)
+                        event_rates.append(self.model.global_area_gain_rate * ag_event_rate/normalization_factor)
 
             # Dispersal (old)
             # for dest_area in self.geography.areas:
