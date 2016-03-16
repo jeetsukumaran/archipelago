@@ -862,14 +862,15 @@ class Geography(object):
         # (per-lineage) area gain rate.)
         src_areas = []
         dest_areas = []
+        area_gain_rates_marginalized_by_destination_area = []
         for area in self.areas:
+            area_gain_rates_marginalized_by_destination_area.append(0.0)
             if area in lineage.areas:
                 src_areas.append(area)
             else:
                 dest_areas.append(area)
         area_gain_event_parameters = []
         area_gain_event_rates = []
-        area_gain_rates_marginalized_by_destination_area = [0.0 for area in self.areas]
         if src_areas and dest_areas:
             for src_area in src_areas:
                 for dest_area in dest_areas:
