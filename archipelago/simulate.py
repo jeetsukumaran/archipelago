@@ -283,6 +283,9 @@ class ArchipelagoSimulator(object):
     def schedule_events(self):
         event_calls = []
         event_rates = []
+        lineage_area_gain_event_calls = []
+        lineage_area_gain_event_rates = []
+        total_area_gain_flux = 0.0
 
         # if self.debug_mode:
         #     num_current_lineages = len(self.phylogeny.current_lineages)
@@ -340,13 +343,15 @@ class ArchipelagoSimulator(object):
                     lineage=lineage,
                     lineage_area_gain_rate_fn=self.model.lineage_area_gain_rate_function,
                     simulation_elapsed_time=self.elapsed_time)
+            num_source_areas = len(lineage.areas)
+            num_dest_areas = len(self.geography.areas) - num_source_areas
+            total_area_gain_flux += (self.model.global_area_gain_rate * (num_source_areas * num_dest_areas))
+            # total_area_gain_flux += (self.model.global_area_gain_rate * len(self.geography.areas))
             if area_gain_event_rates:
-                normalization_factor = float(sum(area_gain_rates_marginalized_by_destination_area))
-                if normalization_factor:
-                    for area_idx, area_gain_rate in enumerate(area_gain_rates_marginalized_by_destination_area):
-                        if area_gain_rate:
-                            event_calls.append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
-                            event_rates.append(self.model.global_area_gain_rate * area_gain_rate/normalization_factor)
+                for area_idx, area_gain_rate in enumerate(area_gain_rates_marginalized_by_destination_area):
+                    if area_gain_rate:
+                        lineage_area_gain_event_calls.append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
+                        lineage_area_gain_event_rates.append(area_gain_rate)
 
             # Dispersal (old)
             # for dest_area in self.geography.areas:
@@ -364,6 +369,11 @@ class ArchipelagoSimulator(object):
             #         event_rates.append(sum_of_area_connection_weights_to_dest)
 
         # sum_of_event_rates = sum(event_rates)
+        if lineage_area_gain_event_calls and lineage_area_gain_event_rates:
+            normalization_factor = float(sum(lineage_area_gain_event_rates))
+            lineage_area_gain_event_rates = [ total_area_gain_flux * (r/normalization_factor) for r in lineage_area_gain_event_rates]
+            event_rates.extend( lineage_area_gain_event_rates )
+            event_calls.extend( lineage_area_gain_event_calls )
         return event_calls, event_rates
 
     def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
