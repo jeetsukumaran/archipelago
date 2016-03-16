@@ -280,12 +280,12 @@ class ArchipelagoProfiler(object):
         profile_results["num.areas"] = len(geography.areas)
         profile_results["num.focal.areas"] = len(geography.focal_areas)
         profile_results["num.supplemental.areas"] = len(geography.supplemental_areas)
-        profile_results["lineage.birth.rate.definition"] = generating_model.lineage_birth_rate_function.definition_content
-        profile_results["lineage.birth.rate.description"] = generating_model.lineage_birth_rate_function.description
-        profile_results["lineage.death.rate.definition"] = generating_model.lineage_death_rate_function.definition_content
-        profile_results["lineage.death.rate.description"] = generating_model.lineage_death_rate_function.description
-        profile_results["lineage.area.gain.rate.definition"] = generating_model.lineage_area_gain_rate_function.definition_content
-        profile_results["lineage.area.gain.rate.description"] = generating_model.lineage_area_gain_rate_function.description
+        profile_results["lineage.birth.rate.definition"] = generating_model.lineage_diversification_birth_weight_function.definition_content
+        profile_results["lineage.birth.rate.description"] = generating_model.lineage_diversification_birth_weight_function.description
+        profile_results["lineage.death.rate.definition"] = generating_model.lineage_diversification_death_weight_function.definition_content
+        profile_results["lineage.death.rate.description"] = generating_model.lineage_diversification_death_weight_function.description
+        profile_results["lineage.area.gain.rate.definition"] = generating_model.lineage_area_gain_weight_function.definition_content
+        profile_results["lineage.area.gain.rate.description"] = generating_model.lineage_area_gain_weight_function.description
         profile_results["mean.per.lineage.area.gain.rate"] = generating_model.global_area_gain_rate
         for trait_idx, trait in enumerate(generating_model.trait_types):
             profile_results["trait.{}.true.transition.rate".format(trait.label)] = trait.transition_rate

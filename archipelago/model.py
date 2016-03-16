@@ -569,7 +569,7 @@ class Phylogeny(dendropy.Tree):
             if num_presences < num_areas:
                 area_gain_event_parameters, area_gain_event_rates, area_gain_rates_marginalized_by_destination_area = self.geography.calculate_raw_area_gain_events(
                         lineage=parent,
-                        lineage_area_gain_rate_fn=self.model.lineage_area_gain_rate_function,
+                        lineage_area_gain_weight_fn=self.model.lineage_area_gain_weight_function,
                         simulation_elapsed_time=None)
                 if area_gain_event_parameters and area_gain_event_rates:
                     jump_dispersal_target_area_rates = [0.0 for a in self.geography.areas]
@@ -587,9 +587,9 @@ class Phylogeny(dendropy.Tree):
                 #         if jd_area in parent.areas:
                 #             continue
                 #         jump_dispersal_target_areas.append(jd_area)
-                #         jump_dispersal_target_rates.append(self.model.lineage_area_gain_rate_function(lineage=parent, area=jd_area))
+                #         jump_dispersal_target_rates.append(self.model.lineage_area_gain_weight_function(lineage=parent, area=jd_area))
                 # else:
-                #     parent_area_gain_rate = self.model.lineage_area_gain_rate_function(lineage=parent, area=None)
+                #     parent_area_gain_rate = self.model.lineage_area_gain_weight_function(lineage=parent, area=None)
                 #     for jd_area in self.geography.areas:
                 #         if jd_area in parent.areas:
                 #             continue
@@ -837,7 +837,7 @@ class Geography(object):
 
     def calculate_raw_area_gain_events(self,
             lineage,
-            lineage_area_gain_rate_fn,
+            lineage_area_gain_weight_fn,
             simulation_elapsed_time=None):
         # Submodel Design Objectives:
         # 1.    We want to be able to specify that the rate of gaining a
@@ -874,12 +874,12 @@ class Geography(object):
         if src_areas and dest_areas:
             for src_area in src_areas:
                 for dest_area in dest_areas:
-                    lineage_area_gain_rate = lineage_area_gain_rate_fn(
+                    lineage_area_gain_weight = lineage_area_gain_weight_fn(
                             lineage=lineage,
                             from_area=src_area,
                             to_area=dest_area,
                             simulation_elapsed_time=simulation_elapsed_time)
-                    rate = lineage_area_gain_rate * self.area_connection_weights[src_area.index][dest_area.index]
+                    rate = lineage_area_gain_weight * self.area_connection_weights[src_area.index][dest_area.index]
                     if rate:
                         area_gain_event_parameters.append({"from_area": src_area, "to_area": dest_area})
                         area_gain_event_rates.append(rate)
@@ -1048,37 +1048,37 @@ class ArchipelagoModel(object):
         # Diversification
         diversification_d = dict(model_definition.pop("diversification", {}))
         ## speciation
-        self.is_per_area_speciation = diversification_d.pop("is_per_area_speciation", False)
+        self.mean_diversification_birth_rate = diversification_d.pop("mean_diversification_birth_rate", 1.0)
         if run_logger is not None:
-            if self.is_per_area_speciation:
-                run_logger.info("(DIVERSIFICATION) Speciation (diversification submodel birth) will be modeled on a per-area basis: speciation rates will be taken to be per-lineage per-[specific-]area (as oppposed to per-lineage)")
-            else:
-                run_logger.info("(DIVERSIFICATION) Speciation (diversification submodel birth) will be modeled on a global basis: speciation rates will be taken to be per-lineage (as opposed to per-lineage per-area)")
-        if "lineage_birth_rate" in diversification_d:
-            self.lineage_birth_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_birth_rate"), self.trait_types)
+            run_logger.info("(DIVERSIFICATION) Mean diversification birth rate: {}".format(self.mean_diversification_birth_rate))
+        if "lineage_diversification_birth_weight" in diversification_d:
+            self.lineage_diversification_birth_weight_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_diversification_birth_weight"), self.trait_types)
         else:
-            self.lineage_birth_rate_function = RateFunction(
+            self.lineage_diversification_birth_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda **kwargs: 0.10",
                     description="fixed: 0.01",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            run_logger.info("(DIVERSIFICATION) Setting lineage-specific birth rate function: {desc}".format(
-                desc=self.lineage_birth_rate_function.description,))
+            run_logger.info("(DIVERSIFICATION) Setting lineage-specific birth weight function: {desc}".format(
+                desc=self.lineage_diversification_birth_weight_function.description,))
         ## (global) extinction
-        if "lineage_death_rate" in diversification_d:
-            self.lineage_death_rate_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_death_rate"), self.trait_types)
+        self.mean_diversification_death_rate = diversification_d.pop("mean_diversification_death_rate", 1.0)
+        if run_logger is not None:
+            run_logger.info("(DIVERSIFICATION) Mean diversification death rate: {}".format(self.mean_diversification_death_rate))
+        if "lineage_diversification_death_weight" in diversification_d:
+            self.lineage_diversification_death_weight_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_diversification_death_weight"), self.trait_types)
         else:
-            self.lineage_death_rate_function = RateFunction(
+            self.lineage_diversification_death_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda **kwargs: 0.0",
                     description="fixed: 0.0",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
-            run_logger.info("(DIVERSIFICATION) Setting lineage-specific death rate function: {desc}".format(
-                desc=self.lineage_death_rate_function.description,))
+            run_logger.info("(DIVERSIFICATION) Setting lineage-specific death weight function: {desc}".format(
+                desc=self.lineage_diversification_death_weight_function.description,))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
@@ -1109,16 +1109,10 @@ class ArchipelagoModel(object):
         self.global_area_gain_rate = anagenetic_range_evolution_d.pop("global_area_gain_rate", 1.0)
         if run_logger is not None:
             run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate: {}".format(self.global_area_gain_rate))
-        # self.is_area_specific_gain_rate = anagenetic_range_evolution_d.pop("is_area_specific_gain_rate", False)
-        # if run_logger is not None:
-        #     if self.is_area_specific_gain_rate:
-        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage per area rather than per lineage")
-        #     else:
-        #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area gain will be modeled on a per-area basis: area gain rates will be taken to be per lineage rather than per lineage per area")
-        if "lineage_area_gain_rate" in anagenetic_range_evolution_d:
-            self.lineage_area_gain_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_gain_rate"), self.trait_types)
+        if "lineage_area_gain_weight" in anagenetic_range_evolution_d:
+            self.lineage_area_gain_weight_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_gain_weight"), self.trait_types)
         else:
-            self.lineage_area_gain_rate_function = RateFunction(
+            self.lineage_area_gain_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda **kwargs: 0.10",
                     description="fixed: 0.10",
@@ -1126,23 +1120,23 @@ class ArchipelagoModel(object):
                     )
         if run_logger is not None:
             run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage-specific area gain weight function: {desc}".format(
-                desc=self.lineage_area_gain_rate_function.description,))
+                desc=self.lineage_area_gain_weight_function.description,))
 
         ## extinction
-        # self.treat_area_loss_rate_as_lineage_death_rate = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_rate", 0)))
+        # self.treat_area_loss_rate_as_lineage_diversification_death_weight = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_diversification_death_weight", 0)))
         # self.is_area_specific_loss_rate = anagenetic_range_evolution_d.pop("is_area_specific_loss_rate", False)
         # if run_logger is not None:
         #     if self.is_area_specific_loss_rate:
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage per area rather than per lineage")
         #     else:
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage rather than per lineage per area")
-        self.global_area_loss_rate = anagenetic_range_evolution_d.pop("global_area_loss_rate", 0.0)
+        self.mean_area_loss_rate = anagenetic_range_evolution_d.pop("mean_area_loss_rate", 0.0)
         if run_logger is not None:
-            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area loss rate: {}".format(self.global_area_loss_rate))
-        if "lineage_area_loss_rate" in anagenetic_range_evolution_d:
-            self.lineage_area_loss_rate_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_loss_rate"), self.trait_types)
+            run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area loss rate: {}".format(self.mean_area_loss_rate))
+        if "lineage_area_loss_weight" in anagenetic_range_evolution_d:
+            self.lineage_area_loss_weight_function = RateFunction.from_definition_dict(anagenetic_range_evolution_d.pop("lineage_area_loss_weight"), self.trait_types)
         else:
-            self.lineage_area_loss_rate_function = RateFunction(
+            self.lineage_area_loss_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda **kwargs: 0.01",
                     description="fixed: 0.000",
@@ -1150,7 +1144,7 @@ class ArchipelagoModel(object):
                     )
         if run_logger is not None:
             run_logger.info("(ANAGENETIC RANGE EVOLUTION) Setting lineage-specific area loss weight function: {desc}".format(
-                desc=self.lineage_area_loss_rate_function.description,
+                desc=self.lineage_area_loss_weight_function.description,
                 ))
 
         if anagenetic_range_evolution_d:
@@ -1221,17 +1215,18 @@ class ArchipelagoModel(object):
 
     def diversification_as_definition(self):
         d = collections.OrderedDict()
-        d["is_per_area_speciation"] = self.is_per_area_speciation
-        d["lineage_birth_rate"] = self.lineage_birth_rate_function.as_definition()
-        d["lineage_death_rate"] = self.lineage_death_rate_function.as_definition()
+        d["mean_diversification_birth_rate"] = self.mean_diversification_birth_rate
+        d["lineage_diversification_birth_weight"] = self.lineage_diversification_birth_weight_function.as_definition()
+        d["mean_diversification_death_rate"] = self.mean_diversification_death_rate
+        d["lineage_diversification_death_weight"] = self.lineage_diversification_death_weight_function.as_definition()
         return d
 
     def anagenetic_range_evolution_as_definition(self):
         d = collections.OrderedDict()
-        # d["is_area_specific_gain_rate"] = self.is_area_specific_gain_rate
-        d["lineage_area_gain_rate"] = self.lineage_area_gain_rate_function.as_definition()
-        # d["is_area_specific_loss_rate"] = self.is_area_specific_loss_rate
-        d["lineage_area_loss_rate"] = self.lineage_area_loss_rate_function.as_definition()
+        d["global_area_gain_rate"] = self.global_area_gain_rate
+        d["lineage_area_gain_weight"] = self.lineage_area_gain_weight_function.as_definition()
+        d["mean_area_loss_rate"] = self.mean_area_loss_rate
+        d["lineage_area_loss_weight"] = self.lineage_area_loss_weight_function.as_definition()
         return d
 
     def cladogenetic_range_evolution_as_definition(self):
