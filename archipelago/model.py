@@ -1048,7 +1048,7 @@ class ArchipelagoModel(object):
         # Diversification
         diversification_d = dict(model_definition.pop("diversification", {}))
         ## speciation
-        self.mean_diversification_birth_rate = diversification_d.pop("mean_diversification_birth_rate", 1.0)
+        self.mean_diversification_birth_rate = diversification_d.pop("mean_diversification_birth_rate", 0.10)
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Mean diversification birth rate: {}".format(self.mean_diversification_birth_rate))
         if "lineage_diversification_birth_weight" in diversification_d:
@@ -1056,15 +1056,15 @@ class ArchipelagoModel(object):
         else:
             self.lineage_diversification_birth_weight_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.10",
-                    description="fixed: 0.01",
+                    definition_content="lambda **kwargs: 1.00",
+                    description="fixed: 1.00",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Setting lineage-specific birth weight function: {desc}".format(
                 desc=self.lineage_diversification_birth_weight_function.description,))
         ## (global) extinction
-        self.mean_diversification_death_rate = diversification_d.pop("mean_diversification_death_rate", 1.0)
+        self.mean_diversification_death_rate = diversification_d.pop("mean_diversification_death_rate", 0.00)
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Mean diversification death rate: {}".format(self.mean_diversification_death_rate))
         if "lineage_diversification_death_weight" in diversification_d:
@@ -1072,8 +1072,8 @@ class ArchipelagoModel(object):
         else:
             self.lineage_diversification_death_weight_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.0",
-                    description="fixed: 0.0",
+                    definition_content="lambda **kwargs: 1.0",
+                    description="fixed: 1.0",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
@@ -1106,7 +1106,7 @@ class ArchipelagoModel(object):
         #     for a1, area1 in enumerate(self.geography.areas):
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Effective rate of area gain from area '{}': {}".format(area1.label, self.geography.effective_area_gain_rates[a1]))
 
-        self.global_area_gain_rate = anagenetic_range_evolution_d.pop("global_area_gain_rate", 1.0)
+        self.global_area_gain_rate = anagenetic_range_evolution_d.pop("global_area_gain_rate", 0.20)
         if run_logger is not None:
             run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area gain rate: {}".format(self.global_area_gain_rate))
         if "lineage_area_gain_weight" in anagenetic_range_evolution_d:
@@ -1114,8 +1114,8 @@ class ArchipelagoModel(object):
         else:
             self.lineage_area_gain_weight_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.10",
-                    description="fixed: 0.10",
+                    definition_content="lambda **kwargs: 1.00",
+                    description="fixed: 1.00",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
@@ -1130,7 +1130,7 @@ class ArchipelagoModel(object):
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage per area rather than per lineage")
         #     else:
         #         run_logger.info("(ANAGENETIC RANGE EVOLUTION) Area loss will be modeled on a per-area basis: area loss rates will be taken to be per lineage rather than per lineage per area")
-        self.mean_area_loss_rate = anagenetic_range_evolution_d.pop("mean_area_loss_rate", 0.0)
+        self.mean_area_loss_rate = anagenetic_range_evolution_d.pop("mean_area_loss_rate", 0.10)
         if run_logger is not None:
             run_logger.info("(ANAGENETIC RANGE EVOLUTION) Global area loss rate: {}".format(self.mean_area_loss_rate))
         if "lineage_area_loss_weight" in anagenetic_range_evolution_d:
@@ -1138,8 +1138,8 @@ class ArchipelagoModel(object):
         else:
             self.lineage_area_loss_weight_function = RateFunction(
                     definition_type="lambda_definition",
-                    definition_content="lambda **kwargs: 0.01",
-                    description="fixed: 0.000",
+                    definition_content="lambda **kwargs: 1.00",
+                    description="fixed: 1.00",
                     trait_types=self.trait_types,
                     )
         if run_logger is not None:
