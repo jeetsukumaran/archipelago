@@ -5,7 +5,7 @@ import random
 import archipelago
 
 ## functions to return rates
-def birth_rate1(**kwargs):
+def birth_weight1(**kwargs):
     """
     Speciation rate is proportional to the number of areas occupied.
     """
@@ -14,7 +14,7 @@ def birth_rate1(**kwargs):
     r = float(num_areas) / (num_areas + 1)
     return r
 
-def dispersal_rate1(**kwargs):
+def area_gain_weight1(**kwargs):
     """
     Something makes dispersal out of area s1 very high relative to the others
     if the lineage's trait state is 0.
@@ -26,6 +26,20 @@ def dispersal_rate1(**kwargs):
         return 100.0
     else:
         return 1.0
+
+def area_loss_weight1(**kwargs):
+    """
+    Another very convoluted condition: if the current lineage has trait state
+    1, and there are lineages with trait state 0 in the area, then loss weight
+    is really high.
+    """
+    lineage = kwargs["lineage"]
+    area = kwargs["area"]
+    if lineage.traits_vector[0] == 1:
+        for other_lineage in area.lineages:
+            if other_lineage.traits_vector[0] == 0:
+                return 100.0
+    return 1.0
 
 ## model definition
 model_definition_source = {
@@ -43,19 +57,24 @@ model_definition_source = {
         "mean_birth_rate" : 1.0,
         "lineage_birth_weight": {
             "definition_type": "function_object",
-            "definition": birth_rate1,
+            "definition": birth_weight1,
         },
         "mean_death_rate" : 0.0,
         "lineage_death_weight": {
             "definition_type": "fixed_value",
-            "definition": 0,
+            "definition": 1.0
         },
     },
     "anagenetic_range_evolution": {
         "global_area_gain_rate": 0.01,
         "lineage_area_gain_weight": {
             "definition_type": "function_object",
-            "definition": dispersal_rate1,
+            "definition": area_gain_weight1,
+        },
+        "mean_area_loss_rate": 1.0,
+        "lineage_area_loss_weight": {
+            "definition_type": "function_object",
+            "definition": area_loss_weight1,
         },
     },
     "cladogenetic_range_evolution": {
