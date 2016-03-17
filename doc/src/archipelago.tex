@@ -252,16 +252,16 @@ The model dictionary consists of the following elements:
         This key defines the diversification processes (speciation and extinction).
         It consists of a dictionary with the following two keys:
         \begin{description}
-            \item[``mean\_diversification\_birth\_rate'':] \hfill \\
+            \item[``mean\_birth\_rate'':] \hfill \\
                 The birth rate of the branching processes under a birth-death model: i.e., the mean per-lineage rate of speciation. This will be modified for each lineage by the lineage birth weight function specified below, but the simulation will maintain this mean across all lineages.
             \item[``lineage\_birth\_weight'':] \hfill \\
                 A \textit{lineage-specific weight function definition} (see below) specifying the weight of the probability of speciation of this lineage relative to the others.
-                This will be normalized across the phylogeny to maintain the birth rate given by \textit{mean\_diversification\_birth\_rate}.
-            \item[``mean\_diversification\_death\_rate'':] \hfill \\
+                This will be normalized across the phylogeny to maintain the birth rate given by \textit{mean\_birth\_rate}.
+            \item[``mean\_death\_rate'':] \hfill \\
                 The death rate of the branching processes under a death-death model: i.e., the mean per-lineage rate of extinction. This will be modified for each lineage by the lineage death weight function specified below, but the simulation will maintain this mean across all lineages.
             \item[``lineage\_death\_weight'':] \hfill \\
                 A \textit{lineage-specific weight function definition} (see below) specifying the weight of the probability of extinction of this lineage (i.e., the death weight in a birth-death branching process submodel, \textit{not} the ``extinction'' or area loss weight of the DEC biogeographical submodel) relative to the others.
-                This will be normalized across the phylogeny to maintain the death rate given by \textit{mean\_diversification\_death\_rate}.
+                This will be normalized across the phylogeny to maintain the death rate given by \textit{mean\_death\_rate}.
         \end{description}
 
     \item[``anagenetic\_range\_evolution'']  \hfill \\
@@ -651,8 +651,8 @@ We also set the death rate to a fixed, constant rate of $0.0$ for both models.
 Here, following the DEC model, we do not explicitly model extinction of lineages, but instead model extinction implicitly through modeling of the rate of area loss.)
 \begin{lstlisting}
 "diversification": {
-    "mean_diversification_birth_rate": 0.05486829846551938,
-    "mean_diversification_death_rate": 0.0
+    "mean_birth_rate": 0.05486829846551938,
+    "mean_death_rate": 0.0
 },\end{lstlisting}
 We do not specify lineage-specific weight functions, and these default to equal and fixed weights across all lineages, equivalent to:
 \begin{lstlisting}

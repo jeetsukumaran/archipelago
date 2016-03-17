@@ -40,13 +40,13 @@
     }
  ],
   "diversification": {
-    "mean_diversification_birth_rate": 0.1,
+    "mean_birth_rate": 0.1,
     "lineage_birth_weight": {
       "definition_type": "lambda_definition",
       "definition": "lambda lineage: 1.0",
       "description": "fixed: 1.0"
     },
-    "mean_diversification_death_rate": 0.1,
+    "mean_death_rate": 0.1,
     "lineage_death_weight": {
       "definition_type": "lambda_definition",
       "definition": "lambda lineage: 1.0",
