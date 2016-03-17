@@ -281,20 +281,15 @@ class ArchipelagoSimulator(object):
                 break
 
     def schedule_events(self):
-        event_calls = []
-        event_rates = []
-        total_birth_flux = 0.0
-        lineage_birth_event_calls = []
-        lineage_birth_event_weights = []
-        total_death_flux = 0.0
-        lineage_death_event_calls = []
-        lineage_death_event_weights = []
-        total_area_gain_flux = 0.0
-        lineage_area_gain_event_calls = []
-        lineage_area_gain_event_rates = []
-        total_area_loss_flux = 0.0
-        lineage_area_loss_event_calls = []
-        lineage_area_loss_event_weights = []
+        master_event_calls = []
+        master_event_rates = []
+        event_fluxes = {}
+        event_calls = {}
+        event_weights = {}
+        for event_type in ("birth", "death", "area_gain", "area_loss"):
+            event_fluxes[event_type] = 0.0
+            event_calls[event_type] = []
+            event_weights[event_type] = []
 
         # if self.debug_mode:
         #     num_current_lineages = len(self.phylogeny.current_lineages)
@@ -308,32 +303,31 @@ class ArchipelagoSimulator(object):
                 lineage.debug_check()
 
             # speciation
-            total_birth_flux += self.model.mean_diversification_birth_rate
+            event_fluxes["birth"] += self.model.mean_diversification_birth_rate
             for area in lineage.areas:
                 birth_weight = self.model.lineage_diversification_birth_weight_function(lineage=lineage, area=area)
                 if birth_weight:
-                    lineage_birth_event_calls.append( (self.phylogeny.split_lineage, {"lineage": lineage, "area": area}) )
-                    lineage_birth_event_weights.append(birth_weight)
+                    event_calls["birth"].append( (self.phylogeny.split_lineage, {"lineage": lineage, "area": area}) )
+                    event_weights["birth"].append(birth_weight)
 
             # global extinction
-            total_death_flux += self.model.mean_diversification_death_rate
+            event_fluxes["death"] += self.model.mean_diversification_death_rate
             if self.model.mean_diversification_death_rate:
                 for area in lineage.areas:
                     death_weight = self.model.lineage_diversification_death_weight_function(lineage=lineage, area=area)
                     if death_weight:
-                        lineage_death_event_calls.append( (self.phylogeny.extinguish_lineage, {"lineage": lineage}) )
-                        lineage_death_event_weights.append(death_weight)
+                        event_calls["death"].append( (self.phylogeny.extinguish_lineage, {"lineage": lineage}) )
+                        event_weights["death"].append(death_weight)
 
             # trait evolution
             for trait_idx, current_state_idx in enumerate(lineage.traits_vector):
-                ## normalized
                 for proposed_state_idx in range(self.model.trait_types[trait_idx].nstates):
                     if proposed_state_idx == current_state_idx:
                         continue
                     trait_transition_rate = self.model.trait_types[trait_idx].transition_rate_matrix[current_state_idx][proposed_state_idx]
                     if trait_transition_rate:
-                        event_calls.append( (self.phylogeny.evolve_trait, {"lineage": lineage, "trait_idx": trait_idx, "state_idx": proposed_state_idx}) )
-                        event_rates.append(trait_transition_rate)
+                        master_event_calls.append( (self.phylogeny.evolve_trait, {"lineage": lineage, "trait_idx": trait_idx, "state_idx": proposed_state_idx}) )
+                        master_event_rates.append(trait_transition_rate)
 
             # Dispersal/Area Gain
 
@@ -349,62 +343,30 @@ class ArchipelagoSimulator(object):
                     simulation_elapsed_time=self.elapsed_time)
             num_source_areas = len(lineage.areas)
             num_dest_areas = len(self.geography.areas) - num_source_areas
-            total_area_gain_flux += (self.model.global_area_gain_rate * (num_source_areas * num_dest_areas))
-            # total_area_gain_flux += (self.model.global_area_gain_rate * len(self.geography.areas))
+            event_fluxes["area_gain"] += (self.model.global_area_gain_rate * (num_source_areas * num_dest_areas))
             if area_gain_event_rates:
                 for area_idx, area_gain_rate in enumerate(area_gain_rates_marginalized_by_destination_area):
                     if area_gain_rate:
-                        lineage_area_gain_event_calls.append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
-                        lineage_area_gain_event_rates.append(area_gain_rate)
-
-            # Dispersal (old)
-            # for dest_area in self.geography.areas:
-            #     if dest_area in lineage.areas:
-            #         # already occurs here: do we model it or not?
-            #         continue
-            #     sum_of_area_connection_weights_to_dest = 0.0
-            #     for src_area in lineage.areas:
-            #         if src_area is dest_area:
-            #             continue
-            #         lineage_area_gain_weight = self.model.lineage_area_gain_weight_function(lineage=lineage, area=dest_area)
-            #         sum_of_area_connection_weights_to_dest += lineage_area_gain_weight * self.geography.area_connection_weights[src_area.index][dest_area.index]
-            #     if sum_of_area_connection_weights_to_dest:
-            #         event_calls.append( (lineage.add_area, {"area": dest_area}) )
-            #         event_rates.append(sum_of_area_connection_weights_to_dest)
+                        event_calls["area_gain"].append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
+                        event_rates["area_gain"].append(area_gain_rate)
 
             # DEC/local extinction
-            total_area_loss_flux += (self.model.mean_area_loss_rate * len(lineage.areas))
+            event_fluxes["area_loss"] += (self.model.mean_area_loss_rate * len(lineage.areas))
             for area in lineage.areas:
                 area_loss_weight = self.model.lineage_area_loss_weight_function(lineage=lineage, area=area)
                 if area_loss_weight:
-                    lineage_area_loss_event_calls.append( (lineage.remove_area, {"area": area}) )
-                    lineage_area_loss_event_weights.append(area_loss_weight)
+                    event_calls["area_loss"].append( (lineage.remove_area, {"area": area}) )
+                    event_weights["area_loss"].append(area_loss_weight)
 
-        if lineage_birth_event_calls:
-            normalization_factor = float(sum(lineage_birth_event_weights))
-            lineage_birth_event_weights = [ total_birth_flux * (r/normalization_factor) for r in lineage_birth_event_weights ]
-            event_calls.extend( lineage_birth_event_calls )
-            event_rates.extend( lineage_birth_event_weights )
+        for event_type in event_fluxes:
+            subevent_flux = event_fluxes[event_type]
+            subevent_weights = event_weights[event_type]
+            normalization_factor = float(sum(subevent_weights))
+            subevent_rates = [ subevent_flux * (w/normalization_factor) for w in subevent_weights ]
+            master_event_calls.extend( event_calls[event_type] )
+            master_event_rates.extend( subevent_rates )
 
-        if lineage_death_event_calls:
-            normalization_factor = float(sum(lineage_death_event_weights))
-            lineage_death_event_weights = [ total_death_flux * (r/normalization_factor) for r in lineage_death_event_weights ]
-            event_calls.extend( lineage_death_event_calls )
-            event_rates.extend( lineage_death_event_weights )
-
-        if lineage_area_gain_event_calls:
-            normalization_factor = float(sum(lineage_area_gain_event_rates))
-            lineage_area_gain_event_rates = [ total_area_gain_flux * (r/normalization_factor) for r in lineage_area_gain_event_rates]
-            event_rates.extend( lineage_area_gain_event_rates )
-            event_calls.extend( lineage_area_gain_event_calls )
-
-        if lineage_area_loss_event_calls:
-            normalization_factor = float(sum(lineage_area_loss_event_weights))
-            lineage_area_loss_event_weights = [ total_area_loss_flux * (r/normalization_factor) for r in lineage_area_loss_event_weights ]
-            event_calls.extend( lineage_area_loss_event_calls )
-            event_rates.extend( lineage_area_loss_event_weights )
-
-        return event_calls, event_rates
+        return master_event_calls, master_event_rates
 
     def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
         if focal_areas_tree_out is not None:
