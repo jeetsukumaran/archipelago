@@ -252,22 +252,32 @@ The model dictionary consists of the following elements:
         This key defines the diversification processes (speciation and extinction).
         It consists of a dictionary with the following two keys:
         \begin{description}
-            \item[``lineage\_birth\_rate'':] \hfill \\
-                A \textit{lineage-specific rate function definition} (see below) specifying the speciation rate.
-            \item[``lineage\_death\_rate'':] \hfill \\
-                A \textit{lineage-specific rate function definition} (see below) specifying the global extinction rate (i.e., the death rate in a birth-death branching process submodel, \textit{not} the ``extinction'' or area loss rate of the DEC biogeographical submodel).
+            \item[``mean\_diversification\_birth\_rate'':] \hfill \\
+                The birth rate of the branching processes under a birth-death model: i.e., the mean per-lineage rate of speciation. This will be modified for each lineage by the lineage birth weight function specified below, but the simulation will maintain this mean across all lineages.
+            \item[``lineage\_birth\_weight'':] \hfill \\
+                A \textit{lineage-specific weight function definition} (see below) specifying the weight of the probability of speciation of this lineage relative to the others.
+                This will be normalized across the phylogeny to maintain the birth rate given by \textit{mean\_diversification\_birth\_rate}.
+            \item[``mean\_diversification\_death\_rate'':] \hfill \\
+                The death rate of the branching processes under a death-death model: i.e., the mean per-lineage rate of extinction. This will be modified for each lineage by the lineage death weight function specified below, but the simulation will maintain this mean across all lineages.
+            \item[``lineage\_death\_weight'':] \hfill \\
+                A \textit{lineage-specific weight function definition} (see below) specifying the weight of the probability of extinction of this lineage (i.e., the death weight in a birth-death branching process submodel, \textit{not} the ``extinction'' or area loss weight of the DEC biogeographical submodel) relative to the others.
+                This will be normalized across the phylogeny to maintain the death rate given by \textit{mean\_diversification\_death\_rate}.
         \end{description}
 
     \item[``anagenetic\_range\_evolution'']  \hfill \\
         This key defines the anagenetic range evolution processes (area gain and area loss).
         It consists of a dictionary with the following two keys:
         \begin{description}
+            \item[``global\_area\_gain\_rate'':] \hfill \\
+                This corresponds to the area gain rate parameter in the BayArea model the $d$ or ``global dispersal'' parameter in the DEC model.
             \item[``lineage\_area\_gain\_weight'':] \hfill \\
-                A \textit{lineage-specific rate function definition} (see below) specifying the rate at which a lineage loses an area in its range.
-                When set to a fixed value, this corresponds to the area gain rate in the BayArea model or the $d$ or ``dispersal'' parameter in the DEC model.
-            \item[``lineage\_area\_loss\_rate'':] \hfill \\
-                A \textit{lineage-specific rate function definition} (see below) specifying the rate at which a lineage loses an area in its range.
-                When set to a fixed value, this corresponds to the area loss rate in the BayArea model or the $e$ or ``extinction'' (really, ``extirpation'') parameter in the DEC model.
+                A \textit{lineage-specific weight function definition} (see below) specifying the relative weight at which a lineage gains an area in its range relative to the other lineages.
+                This will be normalized across the phylogeny to maintain the global area gain rate given by ``\textit{global\_area\_gain\_rate}''.
+            \item[``mean\_area\_loss\_rate'':] \hfill \\
+                This corresponds to the area loss rate in the BayArea model the $e$ or ``extinction'' (really, extirpation) parameter in the DEC model.
+            \item[``lineage\_area\_loss\_weight'':] \hfill \\
+                A \textit{lineage-specific weight function definition} (see below) specifying the relative weight at which a lineage loses an area in its range relative to the other lineages.
+                This will be normalized across the phylogeny to maintain the mean area loss rate given by ``\textit{mean\_area\_loss\_rate}''.
         \end{description}
 
     \item[``cladogenetic\_range\_evolution'']  \hfill \\
@@ -299,46 +309,49 @@ The model dictionary consists of the following elements:
 
 \end{description}
 
-\subsection{Lineage-Specific Rate Function}
+\subsection{Lineage-Specific Weight Function}
 
-A number of process rates (speciation, extinction, area gain, area loss) are specified in terms of a ``lineage-specific rate function''.
+A number of process rates (speciation, extinction, area gain, area loss) are modified by a ``lineage-specific weight function''.
 This allows the rate of the process to vary depending on the trait state or other attributes of the lineage.
-For each process, the rate function can be specified in one of four ways: a fixed value, a (Python) lambda expression, a trait state mapping, or as a Python function object.
+For each process, the weight function can be specified in one of four ways: a fixed value, a (Python) lambda expression, a trait state mapping, or as a Python function object.
 
-\subsubsection{Fixed-Value Lineage-Specific Rate Function}
+\subsubsection{Fixed-Value Lineage-Specific Weight Function}
 With a fixed-value lineage-specific rate function, the rate of the process is the same, fixed, constant value regardless of lineage.
-That is, all lineages unconditionally have the same rate for the process throughout their lifetimes in the simulation.
+That is, all lineages unconditionally have the same relative rate for the process throughout their lifetimes in the simulation.
 A fixed-value lineage-specific rate function is specified by providing a dictionary like the following as the value for the process key:
 \begin{lstlisting}
 {
     "definition_type": "fixed_value",
-    "definition": 0.01,
+    "definition": 1.00,
 }
 \end{lstlisting}
-The actual value of the ``definition'' entry would, of course, vary depending on the model.
-Typically, if not of analytical interest, this would be estimated based on the target data.
-Fixing the rate of a process to a value estimated from the target data is known as ``calibrating'' the model.
-More sophisticated approaches can be used to take into account uncertainty in the rate estimates.
-For example, sets of simulations can be run under different values of the process rate sampled from a prior.
+The value assigned to ``definition'' does not really matter, as it will be normalized across all lineages and multipled by the mean or global rate for the process: the key point here is that all lineages get the same weight.
+% The actual value of the ``definition'' entry would, of course, vary depending on the model.
+% Typically, if not of analytical interest, this would be estimated based on the target data.
+% Fixing the rate of a process to a value estimated from the target data is known as ``calibrating'' the model.
+% More sophisticated approaches can be used to take into account uncertainty in the rate estimates.
+% For example, sets of simulations can be run under different values of the process rate sampled from a prior.
 
-\subsubsection{Trait State Mapping Lineage-Specific Rate Function}
+\subsubsection{Trait State Mapping Lineage-Specific Weight Function}
 \label{sec:trait-state-mapping}
-Here, you provide a list of rate values for that processes parameter, with a one-to-one correspondence to the states of an trait defined previously.
+Here, you provide a list of weight values for that processes parameter, with a one-to-one correspondence to the states of an trait defined previously.
 For example, if you have defined a trait with the label ``color'' and three states:
 \begin{lstlisting}
 {"label": "color", "nstates": 3, "transition_rate": 0.01}
 \end{lstlisting}
-you could define a process that takes on the rate of $0.0$ if the ``color'' trait of a lineage was in state $0$, $0.5$ if the trait was in state $1$, and $1.0$, if the trait was in state $2$ by specifying:
+you could define a process that takes on the is weighted by $0.0$ if the ``color'' trait of a lineage was in state $0$, $0.5$ if the trait was in state $1$, and $1.0$, if the trait was in state $2$ by specifying:
 \begin{lstlisting}
 {
     "definition_type": "trait_state_index_map:color",
     "definition": [0.0, 0.5, 1.0],
 }
 \end{lstlisting}
+These weight represent the rate of the process for a lineage \textit{relative} to others based on the trait state.
+The overall rate of the process across the phylogeny remains the same; it is just ``distributed'' across lineages differentially based on the state of the ``color'' trait associated with the lineage.
 
-\subsubsection{Lambda-Expression Rate Function}
-The rate function is given as a Python lambda function definition.
-The lambda function should take a single argument, an object of the ``Lineage'' class, and return a real value representing the rate of the process for this particular lineage at this particular point in time.
+\subsubsection{Lambda-Expression Weight Function}
+The weight function is given as a Python lambda function definition.
+The lambda function should take a single argument, an object of the ``Lineage'' class, and return a real value representing the weight with which to modify the process for this lineage, relative to other lineages, at this particular point in time.
 For example, the following replicates the above trait state mapping:
 \begin{lstlisting}
 {
@@ -347,8 +360,9 @@ For example, the following replicates the above trait state mapping:
 }
 \end{lstlisting}
 Note that trait \textit{types} are 0-based numeric indexes, while trait states are character values, ``0'', ``1'', ``2``, etc. \archipelagoPackage internally uses character values to specify trait states as this allows for special states such as ``NA'' or ``null''.
+Again, these weights represent the rate of the process for a lineage \textit{relative} to others based on the trait state, and the overall rate of the process across the phylogeny remains the same.
 
-As another example, the following inspects the distribution vector of a lineage and returns a rate of $1.0$ if the first area is occupied and $0.5$ if not:
+As another example, the following inspects the distribution vector of a lineage and returns a weight of $1.0$ if the first area is occupied and $0.5$ if not:
 \begin{lstlisting}
 {
     "definition_type": "lambda_definition",
@@ -512,7 +526,7 @@ We will need to specify the following rates:
     % \item[The (global) rate of area loss]
     \item The speciation or birth rate \hfill \\
         \\
-        In the DEC model as implemented by largrange and BioGeoBEARS, speciation is not an explicit process: the model is conditioned on the speciation event timings and structure given by the input phylogeny, which is (typically) taken as truth.
+        In the DEC model as implemented by lagrange and BioGeoBEARS, speciation is not an explicit process: the model is conditioned on the speciation event timings and structure given by the input phylogeny, which is (typically) taken as truth.
         However, in \archipelagoModel, we explicitly model the diversification process and sample phylogenies as part of the training data.
         While \archipelagoModel supports a full birth-death model, we will not be modeling lineage extinction directly under this model.
         Instead, following the DEC model, we will model lineage extinction as part of the biogeographical submodel, with a lineage going extinct when its range is reduced to the null set, i.e. when it has lost all areas from its range.
@@ -526,9 +540,15 @@ We will need to specify the following rates:
         \\
         This corresponds to the ``dispersal'' or ``$d$'' parameter in the DEC model.
         We will estimate this rate based on the empirical target data under the basic DEC model, using lagrange, BioGeoBEARS, BayArea, or RevBayes.
-        In the ``unconstrained'' class of model, this rate will be used unmodified.
-        In the ``constrained'' class of model, we will use a trait-state mapping function which will return a rate of $0$ if the lineage habitat trait is in ``interior'' state and \textit{twice} the global dispersal rate estimated if the lineage trait is ``disturbed'' state.
-        We use twice the rate so that the total dispersal flux across the system is maintained, given that, under an equal-rates traits model, we expect half the lineages to be in ``interior'' habitat state and consequently only half the lineages (the ones in the ``disturbed'' habitat state) to be actively dispersing.
+        In the ``unconstrained'' class of model, this rate will be used by all lineage equally.
+        In the ``constrained'' class of model, we will use a trait-state mapping function which will return a modifier weight of $0$ if the lineage habitat trait is in ``interior'' state and a modifier weight of $1.0$ the lineage trait is ``disturbed'' state.
+        This means that lineages associated with the ``interior'' habitat will not disperse and colonize any new areas, while lineages associated with the ``disturbed'' state will.
+        The actual rate of the area gain process for each lineage associated with the ``disturbed'' habitat state will vary, but will fulfill the following constraints:
+        \begin{enumerate}
+            \item All lineages with the ``disturbed'' habitat state will have the same rate of area gain at any point in time
+            \item The phylogeny-wide area gain rate will be the ``global rate of area gain`` specified.
+        \end{enumerate}
+        This means, that, at typically stationary distribution under an equal-rates transition model, where on the average half the lineage are in the ``disturbed'' state, the actual rate of area gain per ``disturbed''-area lineage will be approximately twice the global area gai rate to compensate for the fact that half the lineages in the phylogeny are not dispersing.
     \item The global rate of area loss \hfill \\
         \\
         This corresponds to the ``extinction'' (extirpation) or ``$e$'' parameter in the DEC model.
@@ -631,97 +651,124 @@ We also set the death rate to a fixed, constant rate of $0.0$ for both models.
 Here, following the DEC model, we do not explicitly model extinction of lineages, but instead model extinction implicitly through modeling of the rate of area loss.)
 \begin{lstlisting}
 "diversification": {
+    "mean\_diversification\_birth\_rate": 0.05486829846551938,
+    "mean\_diversification\_death\_rate": 0.0
+},\end{lstlisting}
+We do not specify lineage-specific weight functions, and these default to equal and fixed weights across all lineages, equivalent to:
+\begin{lstlisting}
     "lineage_birth_rate": {
         "definition_type": "fixed_value",
-        "definition": 0.05486829846551938
+        "definition": 1.0
     },
     "lineage_death_rate": {
         "definition_type": "fixed_value",
-        "definition": 0.0
-    }
-},\end{lstlisting}
+        "definition": 1.0
+    },\end{lstlisting}
 
 The anagenetic rate of area gain is where the models differ.
-In the ``unconstrained'' model, the rate of area gain is a fixed, constant value, as estimated on the original data:
+Both models actually share the same global area gain rate as estimated on the original data:
 \begin{lstlisting}
 "anagenetic_range_evolution": {
+    "global\_area\_gain\_rate": 0.018156246,
+    .
+    .
+    ,
+\end{lstlisting}
+But the overall rate is distributed across lineages differently in the two models based on the state of the habitat trait of the lineages.
+
+In the ``unconstrained'' model, all lineages share the same rate:
+\begin{lstlisting}
+"anagenetic_range_evolution": {
+    "global\_area\_gain\_rate": 0.018156246,
     "lineage_area_gain_rate": {
         "definition_type": "fixed_value",
-        "definition": 0.018156246
+        "definition": 1.0
     },
     .
     .
     .
 \end{lstlisting}
-However, in the ``constrained'' model, we only allow lineages that are associated with a state index of ``0'' (which we are arbitrarily assigning to mean the ``open'' or ``disturbed'' state) are allowed to disperse.
-Lineages that are associated with a state index of ``1'' are restricted from dispersing.
-We use a \hyperref[sec:trait-state-mapping]{trait state mapping} function to specify this regime.
+
+However, in the ``constrained'' model, we only allow lineages that are associated with a state index of ``0'' (which we are arbitrarily assigning to mean the ``open'' or ``disturbed'' state) are allowed to disperse:
+\begin{lstlisting}
+"anagenetic_range_evolution": {
+    "global\_area\_gain\_rate": 0.018156246,
+    "lineage_area_gain_rate": {
+        "definition_type": "trait_state_index_map:habitat",
+        "definition": [ 1.0, 0.0 ]
+    },
+    .
+    .
+    .
+\end{lstlisting}
+We use a \hyperref[sec:trait-state-mapping]{trait state mapping} function to specify this regime, where lineages that are associated with a state index of ``1'' are prohibited from dispersing by assigning them a rate modifier weight of $0.0$.
 Here, we identify the trait by the label that we assigned to it in the trait definition (``habitat'') in the ``definition\_type'' field, and for the ``definition'' field we provide a list of values, with each element in the list specifying the rate rate for the state with the corresponding index, so that the first rate is associated with the first trait state, the second rate is associated with the second trait state, and so on.
-Note that we \textit{double} the estimated rate of area gain ($0.036312492 = 2 \times 0.018156246$).
-This is because we want to maintain the same overall dispersal flux in the system as in the empirical data.
-We used a factor of $2$ based on the fact that, for the equal-rates trait model we are assuming here, the equilibrium frequency of each state is $0.5$.
-Thus, at equilibrium, only half the lineages will be in the dispersal state, $0$, which means that only half the lineages will be dispersing.
-If we were to naively assign the estimated dispersal rate to the area gain rate, we would end up with half as much dispersal in the system as in the original data.
-This can easily be verified by simulating data under this and then re-estimating the dispersal rates.
-By assigning twice the estimated dispersal rate as the area gain rate, to account for the fact that only half the lineages are dispersing, we correctly achieve parity with the dispersal rate in the original data.
-\begin{lstlisting}
-"anagenetic_range_evolution": {
-    "lineage_area_gain_rate": {
-        "definition_type": "trait_state_index_map:habitat",
-        "definition": [ 0.036312492, 0.0 ]
-    },
-    .
-    .
-    .
-\end{lstlisting}
 
-If an asymmetric rates trait transition model is used, we would have to calculate the dispersal flux at equilibrium and correct the area gain rate using the appropriate factor to compensate.
-For example, if the asymetrical-rate trait transition matrix has the following value:
-\begin{align*}
-\begin{bmatrix}
-    0         &  7.55786 \\
-    30.403915 & 0        \\
-\end{bmatrix}
-\end{align*}
-then the stationary frequency of the first and second states are $0.8009086$ and $0.1990914$, respectively.
-This means that if we were the restrict dispersal only to the first state, we would only have approximately $0.80$ of the lineages dispersing, and thus the total dispersal flux would fall short of that estimated from the empirical data.
-To compensate, we would have to increase the area gain rate by a factor of $\frac{1}{0.8009086}=1.248582$, for a total rate of $0.02266844$ instead of $0.018156246$.
-This system would be specified by the following
-\begin{lstlisting}
-"traits": [
-    { "label": habitat, "nstates": 2, "transition_rate": 1.0,
-    "transition_weights":[[0,7.557866],[30.403915,0]]}
-],
-"anagenetic_range_evolution": {
-    "lineage_area_gain_rate": {
-        "definition_type": "trait_state_index_map:habitat",
-        "definition": [ 0.036312492, 0.0 ]
-    },
-    .
-    .
-    .
-\end{lstlisting}
+% Note that we \textit{double} the estimated rate of area gain ($0.036312492 = 2 \times 0.018156246$).
+% This is because we want to maintain the same overall dispersal flux in the system as in the empirical data.
+% We used a factor of $2$ based on the fact that, for the equal-rates trait model we are assuming here, the equilibrium frequency of each state is $0.5$.
+% Thus, at equilibrium, only half the lineages will be in the dispersal state, $0$, which means that only half the lineages will be dispersing.
+% If we were to naively assign the estimated dispersal rate to the area gain rate, we would end up with half as much dispersal in the system as in the original data.
+% This can easily be verified by simulating data under this and then re-estimating the dispersal rates.
+% By assigning twice the estimated dispersal rate as the area gain rate, to account for the fact that only half the lineages are dispersing, we correctly achieve parity with the dispersal rate in the original data.
+% \begin{lstlisting}
+% "anagenetic_range_evolution": {
+%     "lineage_area_gain_rate": {
+%         "definition_type": "trait_state_index_map:habitat",
+%         "definition": [ 0.036312492, 0.0 ]
+%     },
+%     .
+%     .
+%     .
+% \end{lstlisting}
 
-For the area loss rate, again, both models are identical, and we use a fixed, constant value as estimated from the original data:
-\begin{lstlisting}
-"anagenetic_range_evolution": {
-    .
-    .
-    .
-    "lineage_area_loss_rate": {
-        "definition_type": "fixed_value",
-        "definition": 0.00257819
-    }
-}
-\end{lstlisting}
+% If an asymmetric rates trait transition model is used, we would have to calculate the dispersal flux at equilibrium and correct the area gain rate using the appropriate factor to compensate.
+% For example, if the asymetrical-rate trait transition matrix has the following value:
+% \begin{align*}
+% \begin{bmatrix}
+%     0         &  7.55786 \\
+%     30.403915 & 0        \\
+% \end{bmatrix}
+% \end{align*}
+% then the stationary frequency of the first and second states are $0.8009086$ and $0.1990914$, respectively.
+% This means that if we were the restrict dispersal only to the first state, we would only have approximately $0.80$ of the lineages dispersing, and thus the total dispersal flux would fall short of that estimated from the empirical data.
+% To compensate, we would have to increase the area gain rate by a factor of $\frac{1}{0.8009086}=1.248582$, for a total rate of $0.02266844$ instead of $0.018156246$.
+% This system would be specified by the following
+% \begin{lstlisting}
+% "traits": [
+%     { "label": habitat, "nstates": 2, "transition_rate": 1.0,
+%     "transition_weights":[[0,7.557866],[30.403915,0]]}
+% ],
+% "anagenetic_range_evolution": {
+%     "lineage_area_gain_rate": {
+%         "definition_type": "trait_state_index_map:habitat",
+%         "definition": [ 0.036312492, 0.0 ]
+%     },
+%     .
+%     .
+%     .
+% \end{lstlisting}
 
-Finally, we specify the duration for which to run each of the simulations.
-We condition on the the number of tips in the original data, $365$, for both models:
-\begin{lstlisting}
-    "termination_conditions": {
-        "target_focal_area_lineages": 365
-    }
-\end{lstlisting}
+% For the area loss rate, again, both models are identical, and we use a fixed, constant value as estimated from the original data:
+% \begin{lstlisting}
+% "anagenetic_range_evolution": {
+%     .
+%     .
+%     .
+%     "lineage_area_loss_rate": {
+%         "definition_type": "fixed_value",
+%         "definition": 0.00257819
+%     }
+% }
+% \end{lstlisting}
+
+% Finally, we specify the duration for which to run each of the simulations.
+% We condition on the the number of tips in the original data, $365$, for both models:
+% \begin{lstlisting}
+%     "termination_conditions": {
+%         "target_focal_area_lineages": 365
+%     }
+% \end{lstlisting}
 
 \subsection{Running the Simulations}
 We use the program ``\texttt{archipelago-simulate.py}'' to simulate the training data.

@@ -40,27 +40,31 @@
     }
  ],
   "diversification": {
-    "lineage_birth_rate": {
+    "mean_diversification_birth_rate": 0.1,
+    "lineage_birth_weight": {
       "definition_type": "lambda_definition",
-      "definition": "lambda lineage: 0.01",
-      "description": "fixed: 0.01"
+      "definition": "lambda lineage: 1.0",
+      "description": "fixed: 1.0"
     },
-    "lineage_death_rate": {
+    "mean_diversification_death_rate": 0.1,
+    "lineage_death_weight": {
       "definition_type": "lambda_definition",
-      "definition": "lambda lineage: 0.0",
-      "description": "fixed: 0.0"
+      "definition": "lambda lineage: 1.0",
+      "description": "fixed: 1.0"
     }
   },
   "anagenetic_range_evolution": {
-    "lineage_area_gain_rate": {
+    "global_area_gain_rate": 0.2,
+    "lineage_area_gain_weight": {
       "definition_type": "lambda_definition",
-      "definition": "lambda lineage: 0.01",
-      "description": "fixed: 0.01"
+      "definition": "lambda lineage: 1.0",
+      "description": "fixed: 1.0"
     },
-    "lineage_area_loss_rate": {
+    "mean_area_loss_rate": 0.1,
+    "lineage_area_loss_weight": {
       "definition_type": "lambda_definition",
-      "definition": "lambda lineage: 0.0",
-      "description": "fixed: 0.0"
+      "definition": "lambda lineage: 1.0",
+      "description": "fixed: 1.0"
     }
   },
   "cladogenetic_range_evolution": {
