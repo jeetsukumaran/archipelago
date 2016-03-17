@@ -651,8 +651,8 @@ We also set the death rate to a fixed, constant rate of $0.0$ for both models.
 Here, following the DEC model, we do not explicitly model extinction of lineages, but instead model extinction implicitly through modeling of the rate of area loss.)
 \begin{lstlisting}
 "diversification": {
-    "mean\_diversification\_birth\_rate": 0.05486829846551938,
-    "mean\_diversification\_death\_rate": 0.0
+    "mean_diversification_birth_rate": 0.05486829846551938,
+    "mean_diversification_death_rate": 0.0
 },\end{lstlisting}
 We do not specify lineage-specific weight functions, and these default to equal and fixed weights across all lineages, equivalent to:
 \begin{lstlisting}
@@ -669,7 +669,7 @@ The anagenetic rate of area gain is where the models differ.
 Both models actually share the same global area gain rate as estimated on the original data:
 \begin{lstlisting}
 "anagenetic_range_evolution": {
-    "global\_area\_gain\_rate": 0.018156246,
+    "global_area_gain_rate": 0.018156246,
     .
     .
     ,
@@ -679,7 +679,7 @@ But the overall rate is distributed across lineages differently in the two model
 In the ``unconstrained'' model, all lineages share the same rate:
 \begin{lstlisting}
 "anagenetic_range_evolution": {
-    "global\_area\_gain\_rate": 0.018156246,
+    "global_area_gain_rate": 0.018156246,
     "lineage_area_gain_rate": {
         "definition_type": "fixed_value",
         "definition": 1.0
@@ -692,7 +692,7 @@ In the ``unconstrained'' model, all lineages share the same rate:
 However, in the ``constrained'' model, we only allow lineages that are associated with a state index of ``0'' (which we are arbitrarily assigning to mean the ``open'' or ``disturbed'' state) are allowed to disperse:
 \begin{lstlisting}
 "anagenetic_range_evolution": {
-    "global\_area\_gain\_rate": 0.018156246,
+    "global_area_gain_rate": 0.018156246,
     "lineage_area_gain_rate": {
         "definition_type": "trait_state_index_map:habitat",
         "definition": [ 1.0, 0.0 ]
