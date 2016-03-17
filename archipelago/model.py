@@ -1048,13 +1048,13 @@ class ArchipelagoModel(object):
         # Diversification
         diversification_d = dict(model_definition.pop("diversification", {}))
         ## speciation
-        self.mean_diversification_birth_rate = diversification_d.pop("mean_diversification_birth_rate", 0.10)
+        self.mean_birth_rate = diversification_d.pop("mean_birth_rate", 0.10)
         if run_logger is not None:
-            run_logger.info("(DIVERSIFICATION) Mean diversification birth rate: {}".format(self.mean_diversification_birth_rate))
-        if "lineage_diversification_birth_weight" in diversification_d:
-            self.lineage_diversification_birth_weight_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_diversification_birth_weight"), self.trait_types)
+            run_logger.info("(DIVERSIFICATION) Mean diversification birth rate: {}".format(self.mean_birth_rate))
+        if "lineage_birth_weight" in diversification_d:
+            self.lineage_birth_weight_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_birth_weight"), self.trait_types)
         else:
-            self.lineage_diversification_birth_weight_function = RateFunction(
+            self.lineage_birth_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda **kwargs: 1.00",
                     description="fixed: 1.00",
@@ -1062,15 +1062,15 @@ class ArchipelagoModel(object):
                     )
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Setting lineage-specific birth weight function: {desc}".format(
-                desc=self.lineage_diversification_birth_weight_function.description,))
+                desc=self.lineage_birth_weight_function.description,))
         ## (global) extinction
-        self.mean_diversification_death_rate = diversification_d.pop("mean_diversification_death_rate", 0.00)
+        self.mean_death_rate = diversification_d.pop("mean_death_rate", 0.00)
         if run_logger is not None:
-            run_logger.info("(DIVERSIFICATION) Mean diversification death rate: {}".format(self.mean_diversification_death_rate))
-        if "lineage_diversification_death_weight" in diversification_d:
-            self.lineage_diversification_death_weight_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_diversification_death_weight"), self.trait_types)
+            run_logger.info("(DIVERSIFICATION) Mean diversification death rate: {}".format(self.mean_death_rate))
+        if "lineage_death_weight" in diversification_d:
+            self.lineage_death_weight_function = RateFunction.from_definition_dict(diversification_d.pop("lineage_death_weight"), self.trait_types)
         else:
-            self.lineage_diversification_death_weight_function = RateFunction(
+            self.lineage_death_weight_function = RateFunction(
                     definition_type="lambda_definition",
                     definition_content="lambda **kwargs: 1.0",
                     description="fixed: 1.0",
@@ -1078,7 +1078,7 @@ class ArchipelagoModel(object):
                     )
         if run_logger is not None:
             run_logger.info("(DIVERSIFICATION) Setting lineage-specific death weight function: {desc}".format(
-                desc=self.lineage_diversification_death_weight_function.description,))
+                desc=self.lineage_death_weight_function.description,))
         if diversification_d:
             raise TypeError("Unsupported diversification model keywords: {}".format(diversification_d))
 
@@ -1123,7 +1123,7 @@ class ArchipelagoModel(object):
                 desc=self.lineage_area_gain_weight_function.description,))
 
         ## extinction
-        # self.treat_area_loss_rate_as_lineage_diversification_death_weight = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_diversification_death_weight", 0)))
+        # self.treat_area_loss_rate_as_lineage_death_weight = strtobool(str(anagenetic_range_evolution_d.pop("treat_area_loss_rate_as_lineage_death_weight", 0)))
         # self.is_area_specific_loss_rate = anagenetic_range_evolution_d.pop("is_area_specific_loss_rate", False)
         # if run_logger is not None:
         #     if self.is_area_specific_loss_rate:
@@ -1215,10 +1215,10 @@ class ArchipelagoModel(object):
 
     def diversification_as_definition(self):
         d = collections.OrderedDict()
-        d["mean_diversification_birth_rate"] = self.mean_diversification_birth_rate
-        d["lineage_diversification_birth_weight"] = self.lineage_diversification_birth_weight_function.as_definition()
-        d["mean_diversification_death_rate"] = self.mean_diversification_death_rate
-        d["lineage_diversification_death_weight"] = self.lineage_diversification_death_weight_function.as_definition()
+        d["mean_birth_rate"] = self.mean_birth_rate
+        d["lineage_birth_weight"] = self.lineage_birth_weight_function.as_definition()
+        d["mean_death_rate"] = self.mean_death_rate
+        d["lineage_death_weight"] = self.lineage_death_weight_function.as_definition()
         return d
 
     def anagenetic_range_evolution_as_definition(self):

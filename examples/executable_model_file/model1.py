@@ -5,19 +5,24 @@ import random
 import archipelago
 
 ## functions to return rates
-def birth_rate1(lineage):
+def birth_rate1(**kwargs):
     """
     Speciation rate is proportional to the number of areas occupied.
     """
-    num_areas = sum(lineage.distribution_vector)
-    r = float(num_areas) / (len(lineage.distribution_vector) + 1)
+    lineage = kwargs["lineage"]
+    num_areas = len(lineage.areas)
+    r = float(num_areas) / (num_areas + 1)
     return r
 
-def dispersal_rate1(lineage):
+def dispersal_rate1(**kwargs):
     """
-    Something makes dispersal out of area s1 very high relative to the others.
+    Something makes dispersal out of area s1 very high relative to the others
+    if the lineage's trait state is 0.
     """
-    if lineage.distribution_vector[0] == 1:
+    lineage = kwargs["lineage"]
+    from_area = kwargs["from_area"]
+    to_area = kwargs["to_area"]
+    if from_area.index == 0 and lineage.traits_vector[0] == 0:
         return 100.0
     else:
         return 1.0
@@ -35,23 +40,25 @@ model_definition_source = {
         {"label": "q1", "nstates": 3, "transition_rate": 0.01, },
     ],
     "diversification": {
-        "lineage_birth_rate": {
+        "mean_birth_rate" : 1.0,
+        "lineage_birth_weight": {
             "definition_type": "function_object",
             "definition": birth_rate1,
         },
-        "lineage_death_rate": {
+        "mean_death_rate" : 0.0,
+        "lineage_death_weight": {
             "definition_type": "fixed_value",
             "definition": 0,
         },
     },
-    "dispersal": {
-        "global_dispersal_rate": 0.01,
-        "lineage_dispersal_weight": {
+    "anagenetic_range_evolution": {
+        "global_area_gain_rate": 0.01,
+        "lineage_area_gain_weight": {
             "definition_type": "function_object",
             "definition": dispersal_rate1,
         },
     },
-    "cladogenesis": {
+    "cladogenetic_range_evolution": {
         "sympatric_subset_speciation_weight": 1.0,
         "single_area_vicariance_speciation_weight": 1.0,
         "widespread_vicariance_speciation_weight": 1.0,

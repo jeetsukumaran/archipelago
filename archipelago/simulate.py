@@ -303,18 +303,18 @@ class ArchipelagoSimulator(object):
                 lineage.debug_check()
 
             # speciation
-            event_fluxes["birth"] += self.model.mean_diversification_birth_rate
+            event_fluxes["birth"] += self.model.mean_birth_rate
             for area in lineage.areas:
-                birth_weight = self.model.lineage_diversification_birth_weight_function(lineage=lineage, area=area)
+                birth_weight = self.model.lineage_birth_weight_function(lineage=lineage, area=area)
                 if birth_weight:
                     event_calls["birth"].append( (self.phylogeny.split_lineage, {"lineage": lineage, "area": area}) )
                     event_weights["birth"].append(birth_weight)
 
             # global extinction
-            event_fluxes["death"] += self.model.mean_diversification_death_rate
-            if self.model.mean_diversification_death_rate:
+            event_fluxes["death"] += self.model.mean_death_rate
+            if self.model.mean_death_rate:
                 for area in lineage.areas:
-                    death_weight = self.model.lineage_diversification_death_weight_function(lineage=lineage, area=area)
+                    death_weight = self.model.lineage_death_weight_function(lineage=lineage, area=area)
                     if death_weight:
                         event_calls["death"].append( (self.phylogeny.extinguish_lineage, {"lineage": lineage}) )
                         event_weights["death"].append(death_weight)
