@@ -12,24 +12,16 @@
         { "nstates": 2, "transition_rate": 0.062247, "label": "habitat" }
     ],
     "diversification": {
-        "lineage_birth_rate": {
-            "definition_type": "fixed_value",
-            "definition": 0.05486829846551938
-        },
-        "lineage_death_rate": {
-            "definition_type": "fixed_value",
-            "definition": 0.0
-        }
+        "mean_birth_rate" : 0.05486829846551938,
+        "mean_death_rate" : 0.0
     },
     "anagenetic_range_evolution": {
-        "lineage_area_gain_rate": {
+        "global_area_gain_rate": 0.018156246,
+        "lineage_area_gain_weight": {
             "definition_type": "trait_state_index_map:habitat",
-            "definition": [ 0.036312492, 0.0 ]
+            "definition": [ 1.0, 0.0 ]
         },
-        "lineage_area_loss_rate": {
-            "definition_type": "fixed_value",
-            "definition": 0.00257819
-        }
+        "mean_area_loss_rate": 0.00257819
     },
     "termination_conditions": {
         "target_focal_area_lineages": 365
