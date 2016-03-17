@@ -348,7 +348,7 @@ class ArchipelagoSimulator(object):
                 for area_idx, area_gain_rate in enumerate(area_gain_rates_marginalized_by_destination_area):
                     if area_gain_rate:
                         event_calls["area_gain"].append((lineage.add_area, {"area": self.geography.areas[area_idx]}))
-                        event_rates["area_gain"].append(area_gain_rate)
+                        event_weights["area_gain"].append(area_gain_rate)
 
             # DEC/local extinction
             event_fluxes["area_loss"] += (self.model.mean_area_loss_rate * len(lineage.areas))
