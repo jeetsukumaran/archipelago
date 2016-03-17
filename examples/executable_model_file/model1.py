@@ -22,7 +22,7 @@ def area_gain_weight1(**kwargs):
     lineage = kwargs["lineage"]
     from_area = kwargs["from_area"]
     to_area = kwargs["to_area"]
-    if from_area.index == 0 and lineage.traits_vector[0] == 0:
+    if from_area.index == 0 and lineage.trait_state("q1") == 0:
         return 100.0
     else:
         return 1.0
@@ -35,9 +35,9 @@ def area_loss_weight1(**kwargs):
     """
     lineage = kwargs["lineage"]
     area = kwargs["area"]
-    if lineage.traits_vector[0] == 1:
+    if lineage.trait_state("q1") == 1:
         for other_lineage in area.lineages:
-            if other_lineage.traits_vector[0] == 0:
+            if other_lineage.trait_state("q1") == 0:
                 return 100.0
     return 1.0
 

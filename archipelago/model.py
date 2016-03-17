@@ -190,6 +190,10 @@ class TraitTypes(object):
         idx = self.trait_label_index_map[label]
         return self.trait_types[idx]
 
+    def trait_index(self, label):
+        idx = self.trait_label_index_map[label]
+        return idx
+
     def parse_definition(self,
             trait_types,
             run_logger):
@@ -491,6 +495,9 @@ class Lineage(dendropy.Node):
                 assert self in area.lineages
             else:
                 assert self not in area.lineages
+
+    def trait_state(self, trait_label):
+        return self.traits_vector[self.model.trait_types.trait_index(trait_label)]
 
 class Phylogeny(dendropy.Tree):
 
