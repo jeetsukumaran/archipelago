@@ -476,6 +476,23 @@ We would then encode this information in the phylogeny as follows:
     [&R] ((A^0.0.1^110001:1,B^0.1.1^010011:1):3,(C^2.0.1^101101:3,(D^1.0.0^001100:2,E^2.1.1^011111:2):1):1);
 \end{lstlisting}
 
+\section{Encoding the Target Data Using the ``\texttt{archipelago-encode-trees.py}'' Utility}
+\label{sec:workflow-encoding-the-target-data-using-the-archipelago-utility}
+
+Given the proper input, the program ``\texttt{archipelago-encode-trees.py}`` will produce appropriately encoded trees for you, removing the tedium of the encoding task.
+This program requires the following inputs:
+\begin{itemize}
+    \item A phylogeny tree file, in Newick or Nexus format, specified using the ``\texttt{-p}'' or ``\texttt{--phylogeny}'' option.
+    \item A traits data file, in Phylip or Nexus format, specified using the ``\texttt{-t}'' or ``\texttt{--traits}'' option.
+    \item A geography data file, in Phylip or Nexus format, specified using the ``\texttt{-g}'' or ``\texttt{--geography}'' option.
+\end{itemize}
+It writes the encoded trees to the standard output, which you can store in a file using the ``$gt$'' redirection operator.
+For example:
+\begin{lstlisting}
+    archipelago-encode-trees.py -p phylogeny.tre -g geography.dat -t traits.dat > encoded-phylogeny.trees
+\end{lstlisting}
+The file ``\texttt{encoded-phylogeny.trees}`` will now contain the tree with tip labels encoded with the geography and traits data.
+
 \chapter{Walk-Through of a Basic Analysis}
 
 \begin{wrapfigure}{r}{0.6\textwidth}
