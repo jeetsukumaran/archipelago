@@ -24,6 +24,7 @@ setup(
             "bin/archipelago-simulate.py",
             "bin/archipelago-summarize.py",
             "bin/archipelago-generate-data-files-from-tip-labels.py",
+            "bin/archipelago-encode-trees.py",
             ],
     url="http://pypi.python.org/pypi/archipelago/",
     license="LICENSE.txt",
