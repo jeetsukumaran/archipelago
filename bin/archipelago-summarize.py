@@ -48,6 +48,16 @@ def main():
             "source_paths",
             nargs="+",
             help="Path(s) to simulated tree files.")
+    source_options.add_argument("-f", "--format",
+            dest="schema",
+            type=str,
+            default="newick",
+            choices=["nexus", "newick"],
+            help="Input data format (default: '%(default)s').")
+    source_options.add_argument("--no-preserve-underscores",
+            action="store_true",
+            default=False,
+            help="Convert unquoted underscores to spaces, as dictated by the Newick/NEXUS standards.")
     summarization_options = parser.add_argument_group("Summarization Options")
     summarization_options.add_argument("-x", "--exclude-trait",
             action="append",
@@ -133,7 +143,8 @@ def main():
                 sys.stderr.write("Processing job {} of {}: {}\n".format(source_idx+1, len(args.source_paths), tree_filepath))
             trees = dendropy.TreeList.get_from_path(
                     tree_filepath,
-                    schema="newick",
+                    schema=args.schema,
+                    preserve_underscores=not args.no_preserve_underscores,
                     suppress_internal_node_taxa=True,
                     suppress_external_node_taxa=True,
                     )

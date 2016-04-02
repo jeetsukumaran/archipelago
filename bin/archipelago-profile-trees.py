@@ -38,6 +38,10 @@ def main():
             default="newick",
             choices=["nexus", "newick"],
             help="Input data format (default: '%(default)s').")
+    source_options.add_argument("--no-preserve-underscores",
+            action="store_true",
+            default=False,
+            help="Convert unquoted underscores to spaces, as dictated by the Newick/NEXUS standards.")
     source_options.add_argument("-r", "--range-data-file",
             default=None,
             help="Lineage range data file (in Phylip/BayArea/BioGeoBEARS format)."
@@ -118,6 +122,7 @@ def main():
         results = profiler.profile_trees_from_path(
                 trees_filepath=source_filepath,
                 schema=args.schema,
+                preserve_underscores=not args.no_preserve_underscores,
                 generating_model=archipelago_model,
                 lineage_data_source=lineage_data_source,
                 traits_filepath=args.traits_data_file,

@@ -154,6 +154,7 @@ class ArchipelagoProfiler(object):
     def profile_trees_from_path(self,
             trees_filepath,
             schema="newick",
+            preserve_underscores=True,
             generating_model=None,
             is_lineages_decoded=False,
             lineage_data_source="node",
@@ -165,6 +166,7 @@ class ArchipelagoProfiler(object):
                 schema=schema,
                 suppress_internal_node_taxa=True,
                 suppress_external_node_taxa=True,
+                preserve_underscores=preserve_underscores,
                 )
         trees.tree_filepath = trees_filepath
         profiles = self.profile_trees(
@@ -174,6 +176,7 @@ class ArchipelagoProfiler(object):
                 lineage_data_source=lineage_data_source,
                 traits_filepath=traits_filepath,
                 areas_filepath=areas_filepath,
+                preserved_underscores=preserve_underscores,
                 )
         return profiles
 
@@ -184,6 +187,7 @@ class ArchipelagoProfiler(object):
             lineage_data_source="node",
             traits_filepath=None,
             areas_filepath=None,
+            preserved_underscores=True,
             ):
         profiles = []
         for tree_idx, tree in enumerate(trees):
@@ -197,6 +201,7 @@ class ArchipelagoProfiler(object):
                     lineage_data_source=lineage_data_source,
                     traits_filepath=traits_filepath,
                     areas_filepath=areas_filepath,
+                    preserved_underscores=preserved_underscores,
                     )
             profiles.append(r)
         return profiles
@@ -208,6 +213,7 @@ class ArchipelagoProfiler(object):
             lineage_data_source="node",
             traits_filepath=None,
             areas_filepath=None,
+            preserved_underscores=True,
             ):
         if not is_lineages_decoded:
             model.ArchipelagoModel.set_lineage_data(
@@ -262,7 +268,8 @@ class ArchipelagoProfiler(object):
             if self.is_estimate_dec_biogeobears:
                 self.estimate_dec_rates_biogeobears(
                         tree=tree,
-                        profile_results=profile_results,)
+                        profile_results=profile_results,
+                        preserved_underscores=preserved_underscores)
             if self.is_estimate_dec_lagrange:
                 self.estimate_dec_rates_lagrange(
                         tree=tree,
@@ -461,7 +468,11 @@ class ArchipelagoProfiler(object):
             tree,
             profile_results,
             **kwargs):
-        tree.write_to_path(self.newick_tree_file_name, "newick")
+        tree.write_to_path(
+                self.newick_tree_file_name,
+                schema="newick",
+                unquoted_underscores=kwargs.get("preserved_underscores", True)
+                )
         self.create_biogeobears_geography_file(tree=tree, output_path=self.geography_data_file_name)
         dec_results = self.biogeobears_estimator.estimate_dec(
                 newick_tree_filepath=self.newick_tree_file_name,
