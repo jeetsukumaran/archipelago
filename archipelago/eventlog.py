@@ -3,25 +3,25 @@
 class EventLog(object):
 
     def __init__(self):
-        self.edge_events = {}
+        self.lineage_events = {}
 
-    def log_event(self,
-            event_edge,
+    def register_event(self,
+            lineage,
             event_type,
             event_subtype,
             area_idx,
-            child0_edge,
-            child1_edge,
+            child0_lineage,
+            child1_lineage,
             ):
         ev = {
-            "event_edge": event_edge,
+            "lineage": lineage,
             "event_type": event_type,
             "event_subtype": event_subtype,
             "area_idx": area_idx,
-            "child0_edge": child0_edge,
-            "child1_edge": child1_edge,
+            "child0_lineage": child0_lineage,
+            "child1_lineage": child1_lineage,
             }
-        self.edge_events[event_edge] = ev
+        self.lineage_events[lineage] = ev
 
-    def log_lineage_extinction(self, event_edge):
-        del self.edge_events[event_edge]
+    def log_lineage_extinction(self, lineage):
+        del self.lineage_events[lineage]

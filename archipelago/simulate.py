@@ -62,11 +62,18 @@ class ArchipelagoSimulator(object):
         # set up geography
         self.geography = self.model.new_geography()
 
+        ### Initialize event log
+        if self.is_store_focal_area_histories:
+            self.event_log = eventlog.EventLog()
+        else:
+            self.event_log = None
+
         # initialize phylogeny
         self.phylogeny = model.Phylogeny(
                 model=self.model,
                 geography=self.geography,
                 rng=self.rng,
+                event_log=self.event_log,
                 debug_mode=self.debug_mode,
                 run_logger=self.run_logger,
                 )
@@ -118,12 +125,14 @@ class ArchipelagoSimulator(object):
                 self.run_logger.info("All areas trees will not be stored")
 
         if config_d.pop("store_focal_area_histories", False):
+            self.is_store_focal_area_histories = True
             self.focal_areas_histories_file = config_d.pop("focal_areas_histories_file", None)
             if self.focal_areas_histories_file is None:
                 self.focal_areas_histories_file = open(ArchipelagoSimulator.compose_focal_areas_histories_filepath(self.output_prefix), "w")
             if verbose:
                 self.run_logger.info("Event histories will be written out to: {}".format(self.focal_areas_histories_file.name))
         else:
+            self.is_store_focal_area_histories = False
             self.focal_areas_histories_file = None
             if verbose:
                 self.run_logger.info("Event histories will not be written out")
@@ -204,9 +213,6 @@ class ArchipelagoSimulator(object):
                 last_logged_num_tips = 0
             else:
                 last_logged_time = 0.0
-
-        ### Initialize History
-        self.event_log = eventlog.EventLog()
 
         ### Initialize debugging
         if self.debug_mode:
@@ -556,7 +562,7 @@ def repeat_run(
     if config_d.get("store_focal_area_histories", False) and "focal_areas_histories_file" not in config_d:
         config_d["focal_areas_histories_file"] = open(ArchipelagoSimulator.compose_focal_areas_histories_filepath(output_prefix), "w")
     if "focal_areas_histories_file" in config_d:
-        config_d["focal_areas_histories_file"].write("[")
+        config_d["focal_areas_histories_file"].write("[\n")
     try:
         current_rep = 0
         while current_rep < nreps:
@@ -606,4 +612,6 @@ def repeat_run(
     except KeyboardInterrupt:
         pass
     if "focal_areas_histories_file" in config_d:
-        config_d["focal_areas_histories_file"].write("]\n")
+        config_d["focal_areas_histories_file"].write("\n]\n")
+        config_d["focal_areas_histories_file"].flush()
+        config_d["focal_areas_histories_file"].close()

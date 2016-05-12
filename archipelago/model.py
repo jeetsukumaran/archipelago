@@ -394,11 +394,12 @@ class Lineage(dendropy.Node):
         def __init__(self, lineage):
             self.lineage = lineage
 
-    def __init__(self, index, model, geography):
+    def __init__(self, index, model, geography, event_log):
         dendropy.Node.__init__(self)
         self.index = index
         self.model = model
         self.geography = geography
+        self.event_log = event_log
         self.areas = set()
         self.distribution_vector = None # not used in simulation; assigned and used in profile/summary statistic calculation
         self.traits_vector = self.model.trait_types.new_traits_vector()
@@ -416,6 +417,14 @@ class Lineage(dendropy.Node):
         assert area not in self.areas
         self.areas.add(area)
         area.lineages.add(self)
+        if self.event_log is not None:
+            self.event_log.register_event(
+                    lineage=self,
+                    event_type="anagenesis",
+                    event_subtype="area_gain",
+                    area_idx=area.index,
+                    child0_lineage=None,
+                    child1_lineage=None)
 
     def add_areas(self, areas):
         for area in areas:
@@ -425,6 +434,14 @@ class Lineage(dendropy.Node):
         assert area in self.areas
         self.areas.remove(area)
         area.lineages.remove(self)
+        if self.event_log is not None:
+            self.event_log.register_event(
+                    lineage=self,
+                    event_type="anagenesis",
+                    event_subtype="area_loss",
+                    area_idx=area.index,
+                    child0_lineage=None,
+                    child1_lineage=None)
         if len(self.areas) == 0:
             raise Lineage.NullDistributionException(self)
 
@@ -511,6 +528,7 @@ class Phylogeny(dendropy.Tree):
         self.model_id = self.model.model_id
         self.annotations.add_bound_attribute("model_id")
         self.rng = kwargs.pop("rng")
+        self.event_log = kwargs.pop("event_log", None)
         self.debug_mode = kwargs.pop("debug_mode")
         self.run_logger = kwargs.pop("run_logger")
         self.lineage_indexer = utility.IndexGenerator(0)
@@ -519,6 +537,7 @@ class Phylogeny(dendropy.Tree):
                 index=next(self.lineage_indexer),
                 model=self.model,
                 geography=self.geography,
+                event_log=self.event_log,
                 )
         for trait_idx in range(len(self.model.trait_types)):
             trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
@@ -534,8 +553,8 @@ class Phylogeny(dendropy.Tree):
             yield lineage
 
     def split_lineage(self, lineage, area=None):
-        c1 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography)
-        c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography)
+        c1 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography, event_log=self.event_log)
+        c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography, event_log=self.event_log)
         c1.copy_traits(lineage)
         c2.copy_traits(lineage)
         self._set_daughter_distributions(
