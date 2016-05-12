@@ -405,6 +405,15 @@ class Lineage(dendropy.Node):
         self.traits_vector = self.model.trait_types.new_traits_vector()
         self.is_extant = True
         self.edge.length = 0
+        if self.log_event is not None:
+            self.starting_distribution_bitstring = None # used for history logging
+            self.ending_distribution_bitstring = None # used for history logging
+
+    def register_current_distribution_as_starting_distribution(self, exclude_supplemental_areas=True):
+        self.starting_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=exclude_supplemental_areas)
+
+    def register_current_distribution_as_ending_distribution(self, exclude_supplemental_areas=True):
+        self.ending_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=exclude_supplemental_areas)
 
     def copy_areas(self, other):
         for area in self.geography.areas:
@@ -555,6 +564,8 @@ class Phylogeny(dendropy.Tree):
         kwargs["seed_node"] = seed_node
         dendropy.Tree.__init__(self, *args, **kwargs)
         self.current_lineages = set([self.seed_node])
+        if self.log_event:
+            self.seed_node.register_current_distribution_as_starting_distribution()
 
     def iterate_current_lineages(self):
         for lineage in self.current_lineages:
@@ -570,6 +581,10 @@ class Phylogeny(dendropy.Tree):
                 child1=c1,
                 child2=c2,
                 speciation_area=area)
+        if self.log_event:
+            c1.register_current_distribution_as_starting_distribution()
+            c2.register_current_distribution_as_starting_distribution()
+            lineage.register_current_distribution_as_ending_distribution()
         lineage.extinguish()
         self.current_lineages.remove(lineage)
         lineage.add_child(c1)
