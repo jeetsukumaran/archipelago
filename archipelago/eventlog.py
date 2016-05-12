@@ -72,6 +72,7 @@ class EventLog(object):
             lineage_defs.append(lineage_definition)
         for nd in tree:
             nd.taxon = None
+        tree.taxon_namespace = old_taxon_namespace
         return lineage_defs
 
 
