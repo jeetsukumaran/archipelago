@@ -13,7 +13,7 @@ class EventLog(object):
             event_time,
             event_type,
             event_subtype,
-            area_idx,
+            state_idx,
             child0_lineage,
             child1_lineage,
             ):
@@ -25,7 +25,7 @@ class EventLog(object):
                 "event_time": event_time,
                 "event_type": event_type,
                 "event_subtype": event_subtype,
-                "area_idx": area_idx,
+                "state_idx": state_idx,
                 "child0_lineage": child0_lineage,
                 "child1_lineage": child1_lineage,
                 }

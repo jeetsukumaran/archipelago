@@ -422,7 +422,7 @@ class Lineage(dendropy.Node):
                     lineage=self,
                     event_type="anagenesis",
                     event_subtype="area_gain",
-                    area_idx=area.index,
+                    state_idx=area.index,
                     child0_lineage=None,
                     child1_lineage=None)
 
@@ -439,7 +439,7 @@ class Lineage(dendropy.Node):
                     lineage=self,
                     event_type="anagenesis",
                     event_subtype="area_loss",
-                    area_idx=area.index,
+                    state_idx=area.index,
                     child0_lineage=None,
                     child1_lineage=None)
         if len(self.areas) == 0:
@@ -453,7 +453,7 @@ class Lineage(dendropy.Node):
                     lineage=self,
                     event_type="extinction",
                     event_subtype=None,
-                    area_idx=None,
+                    state_idx=None,
                     child0_lineage=None,
                     child1_lineage=None)
 
@@ -735,6 +735,14 @@ class Phylogeny(dendropy.Tree):
 
     def evolve_trait(self, lineage, trait_idx, state_idx):
         lineage.traits_vector[trait_idx] = state_idx
+        if self.log_event is not None:
+            self.log_event(
+                    lineage=self,
+                    event_type="trait_evolution",
+                    event_subtype="{}".format(trait_idx),
+                    state_idx=trait_idx,
+                    child0_lineage=None,
+                    child1_lineage=None)
 
     def focal_area_lineages(self):
         focal_area_lineages = set()
