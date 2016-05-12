@@ -17,10 +17,10 @@ import dendropy
 from dendropy.utility import textprocessing
 
 import archipelago
+from archipelago import eventlog
 from archipelago import model
 from archipelago import utility
 from archipelago import error
-
 
 class ArchipelagoSimulator(object):
 
@@ -37,6 +37,10 @@ class ArchipelagoSimulator(object):
     @staticmethod
     def compose_all_areas_trees_filepath(output_prefix):
         return output_prefix + ".all-areas.trees"
+
+    @staticmethod
+    def compose_focal_areas_histories_filepath(output_prefix):
+        return output_prefix + ".focal-areas.histories.json"
 
     @staticmethod
     def simple_node_label_function(node):
@@ -113,7 +117,18 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("All areas trees will not be stored")
 
-        if not self.focal_areas_trees_file and not self.all_areas_trees_file:
+        if config_d.pop("store_focal_area_histories", False):
+            self.focal_areas_histories_file = config_d.pop("focal_areas_histories_file", None)
+            if self.focal_areas_histories_file is None:
+                self.focal_areas_histories_file = open(ArchipelagoSimulator.compose_focal_areas_histories_filepath(self.output_prefix), "w")
+            if verbose:
+                self.run_logger.info("Event histories will be written out to: {}".format(self.focal_areas_histories_file.name))
+        else:
+            self.focal_areas_histories_file = None
+            if verbose:
+                self.run_logger.info("Event histories will not be written out")
+
+        if not self.focal_areas_trees_file and not self.all_areas_trees_file and not self.focal_areas_histories_file:
             self.run_logger.warning("No trees will be stored!")
 
         self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False)
@@ -189,6 +204,9 @@ class ArchipelagoSimulator(object):
                 last_logged_num_tips = 0
             else:
                 last_logged_time = 0.0
+
+        ### Initialize History
+        self.event_log = eventlog.EventLog()
 
         ### Initialize debugging
         if self.debug_mode:
@@ -535,44 +553,57 @@ def repeat_run(
         config_d["focal_areas_trees_file"] = open(ArchipelagoSimulator.compose_focal_areas_trees_filepath(output_prefix), "w")
     if config_d.get("store_all_areas_trees", True) and "all_areas_trees_file" not in config_d:
         config_d["all_areas_trees_file"] = open(ArchipelagoSimulator.compose_all_areas_trees_filepath(output_prefix), "w")
-    current_rep = 0
-    while current_rep < nreps:
-        simulation_name="Run{}".format((current_rep+1))
-        run_output_prefix = "{}.R{:04d}".format(output_prefix, current_rep+1)
-        run_logger.info("-archipelago- Replicate {} of {}: Starting".format(current_rep+1, nreps))
-        num_restarts = 0
-        while True:
-            if num_restarts == 0 and current_rep == 0:
-                is_verbose_setup = True
-                model_setup_logger = run_logger
-            else:
-                is_verbose_setup = False
-                model_setup_logger = None
-            archipelago_model = model.ArchipelagoModel.create(
-                    model_definition_source=model_definition_source,
-                    model_definition_type=model_definition_type,
-                    interpolate_missing_model_values=interpolate_missing_model_values,
-                    run_logger=model_setup_logger,
-                    )
-            archipelago_simulator = ArchipelagoSimulator(
-                archipelago_model=archipelago_model,
-                config_d=config_d,
-                is_verbose_setup=is_verbose_setup)
-            try:
-                archipelago_simulator.run()
-                run_logger.system = None
-            except error.ArchipelagoException as e:
-                run_logger.system = None
-                run_logger.info("-archipelago- Replicate {} of {}: Simulation failure before termination condition at t = {}: {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time, e))
-                num_restarts += 1
-                if num_restarts > maximum_num_restarts_per_replicates:
-                    run_logger.info("-archipelago- Replicate {} of {}: Maximum number of restarts exceeded: aborting".format(current_rep+1, nreps))
-                    break
+    if config_d.get("store_focal_area_histories", False) and "focal_areas_histories_file" not in config_d:
+        config_d["focal_areas_histories_file"] = open(ArchipelagoSimulator.compose_focal_areas_histories_filepath(output_prefix), "w")
+    if "focal_areas_histories_file" in config_d:
+        config_d["focal_areas_histories_file"].write("[")
+    try:
+        current_rep = 0
+        while current_rep < nreps:
+            if current_rep > 0 and "focal_areas_histories_file" in config_d:
+                config_d["focal_areas_histories_file"].write(",\n")
+            simulation_name="Run{}".format((current_rep+1))
+            run_output_prefix = "{}.R{:04d}".format(output_prefix, current_rep+1)
+            run_logger.info("-archipelago- Replicate {} of {}: Starting".format(current_rep+1, nreps))
+            num_restarts = 0
+            while True:
+                if num_restarts == 0 and current_rep == 0:
+                    is_verbose_setup = True
+                    model_setup_logger = run_logger
                 else:
-                    run_logger.info("-archipelago- Replicate {} of {}: Restarting replicate (number of restarts: {})".format(current_rep+1, nreps, num_restarts))
-            else:
-                run_logger.system = None
-                run_logger.info("-archipelago- Replicate {} of {}: Completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
-                num_restarts = 0
-                break
-        current_rep += 1
+                    is_verbose_setup = False
+                    model_setup_logger = None
+                archipelago_model = model.ArchipelagoModel.create(
+                        model_definition_source=model_definition_source,
+                        model_definition_type=model_definition_type,
+                        interpolate_missing_model_values=interpolate_missing_model_values,
+                        run_logger=model_setup_logger,
+                        )
+                archipelago_simulator = ArchipelagoSimulator(
+                    archipelago_model=archipelago_model,
+                    config_d=config_d,
+                    is_verbose_setup=is_verbose_setup)
+                try:
+                    archipelago_simulator.run()
+                    run_logger.system = None
+                except error.ArchipelagoException as e:
+                    run_logger.system = None
+                    run_logger.info("-archipelago- Replicate {} of {}: Simulation failure before termination condition at t = {}: {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time, e))
+                    num_restarts += 1
+                    if num_restarts > maximum_num_restarts_per_replicates:
+                        run_logger.info("-archipelago- Replicate {} of {}: Maximum number of restarts exceeded: aborting".format(current_rep+1, nreps))
+                        break
+                    else:
+                        run_logger.info("-archipelago- Replicate {} of {}: Restarting replicate (number of restarts: {})".format(current_rep+1, nreps, num_restarts))
+                else:
+                    run_logger.system = None
+                    run_logger.info("-archipelago- Replicate {} of {}: Completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
+                    num_restarts = 0
+                    break
+            if "focal_areas_histories_file" in config_d:
+                config_d["focal_areas_histories_file"].flush()
+            current_rep += 1
+    except KeyboardInterrupt:
+        pass
+    if "focal_areas_histories_file" in config_d:
+        config_d["focal_areas_histories_file"].write("]\n")
