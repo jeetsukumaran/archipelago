@@ -73,7 +73,7 @@ class ArchipelagoSimulator(object):
                 model=self.model,
                 geography=self.geography,
                 rng=self.rng,
-                event_log=self.event_log,
+                log_event=self.log_event,
                 debug_mode=self.debug_mode,
                 run_logger=self.run_logger,
                 )
@@ -260,6 +260,7 @@ class ArchipelagoSimulator(object):
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
+                    focal_areas_histories_file=self.focal_areas_histories_file,
                     )
                 break
             for lineage in self.phylogeny.iterate_current_lineages():
@@ -301,8 +302,14 @@ class ArchipelagoSimulator(object):
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
+                    focal_areas_histories_file=self.focal_areas_histories_file,
                     )
                 break
+
+    def log_event(self, **kwargs):
+        self.event_log.register_event(
+                event_time=self.elapsed_time,
+                **kwargs)
 
     def schedule_events(self):
         master_event_calls = []
@@ -392,7 +399,11 @@ class ArchipelagoSimulator(object):
 
         return master_event_calls, master_event_rates
 
-    def store_sample(self, focal_areas_tree_out, all_areas_tree_out):
+    def store_sample(self,
+            focal_areas_tree_out,
+            all_areas_tree_out,
+            focal_areas_histories_file,
+            ):
         if focal_areas_tree_out is not None:
             focal_areas_tree = self.phylogeny.extract_focal_areas_tree()
             n = len(focal_areas_tree.seed_node._child_nodes)
@@ -407,6 +418,18 @@ class ArchipelagoSimulator(object):
                     out=all_areas_tree_out,
                     tree=self.phylogeny,
                     )
+        if focal_areas_histories_file is not None:
+            if self.is_encode_nodes:
+                labelf = lambda x: x.encode_lineage(
+                        set_label=False,
+                        add_annotation=self.is_annotate_nodes,
+                        exclude_supplemental_areas=True)
+            else:
+                labelf = ArchipelagoSimulator.simple_node_label_function
+            self.event_log.write_focal_areas_histories(
+                    out=focal_areas_histories_file,
+                    tree=self.phylogeny,
+                    node_label_fn=labelf)
 
     def write_focal_areas_tree(self, out, tree):
         if self.is_encode_nodes:

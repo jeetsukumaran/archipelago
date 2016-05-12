@@ -394,12 +394,12 @@ class Lineage(dendropy.Node):
         def __init__(self, lineage):
             self.lineage = lineage
 
-    def __init__(self, index, model, geography, event_log):
+    def __init__(self, index, model, geography, log_event):
         dendropy.Node.__init__(self)
         self.index = index
         self.model = model
         self.geography = geography
-        self.event_log = event_log
+        self.log_event = log_event
         self.areas = set()
         self.distribution_vector = None # not used in simulation; assigned and used in profile/summary statistic calculation
         self.traits_vector = self.model.trait_types.new_traits_vector()
@@ -417,8 +417,8 @@ class Lineage(dendropy.Node):
         assert area not in self.areas
         self.areas.add(area)
         area.lineages.add(self)
-        if self.event_log is not None:
-            self.event_log.register_event(
+        if self.log_event is not None:
+            self.log_event(
                     lineage=self,
                     event_type="anagenesis",
                     event_subtype="area_gain",
@@ -434,8 +434,8 @@ class Lineage(dendropy.Node):
         assert area in self.areas
         self.areas.remove(area)
         area.lineages.remove(self)
-        if self.event_log is not None:
-            self.event_log.register_event(
+        if self.log_event is not None:
+            self.log_event(
                     lineage=self,
                     event_type="anagenesis",
                     event_subtype="area_loss",
@@ -448,6 +448,14 @@ class Lineage(dendropy.Node):
     def extinguish(self):
         self.clear_areas()
         self.is_extant = False
+        if self.log_event is not None:
+            self.log_event(
+                    lineage=self,
+                    event_type="extinction",
+                    event_subtype=None,
+                    area_idx=None,
+                    child0_lineage=None,
+                    child1_lineage=None)
 
     def clear_areas(self):
         for area in self.areas:
@@ -528,7 +536,7 @@ class Phylogeny(dendropy.Tree):
         self.model_id = self.model.model_id
         self.annotations.add_bound_attribute("model_id")
         self.rng = kwargs.pop("rng")
-        self.event_log = kwargs.pop("event_log", None)
+        self.log_event = kwargs.pop("log_event", None)
         self.debug_mode = kwargs.pop("debug_mode")
         self.run_logger = kwargs.pop("run_logger")
         self.lineage_indexer = utility.IndexGenerator(0)
@@ -537,7 +545,7 @@ class Phylogeny(dendropy.Tree):
                 index=next(self.lineage_indexer),
                 model=self.model,
                 geography=self.geography,
-                event_log=self.event_log,
+                log_event=self.log_event,
                 )
         for trait_idx in range(len(self.model.trait_types)):
             trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
@@ -553,8 +561,8 @@ class Phylogeny(dendropy.Tree):
             yield lineage
 
     def split_lineage(self, lineage, area=None):
-        c1 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography, event_log=self.event_log)
-        c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography, event_log=self.event_log)
+        c1 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography, log_event=self.log_event)
+        c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography, log_event=self.log_event)
         c1.copy_traits(lineage)
         c2.copy_traits(lineage)
         self._set_daughter_distributions(
