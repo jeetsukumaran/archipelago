@@ -42,12 +42,17 @@ class EventLog(object):
             out,
             tree,
             node_label_fn):
+        old_taxon_namespace = self._prepare_tree_for_event_serialization(
+                tree=tree,
+                node_label_fn=node_label_fn)
         history_data = collections.OrderedDict()
-        history_data["lineages"] = self._compose_lineage_definitions(tree=tree, node_label_fn=node_label_fn)
+        history_data["tree"] = self._compose_tree_data(tree=tree)
+        history_data["lineages"] = self._compose_lineage_definitions(tree=tree)
         history_data["events"] = self._compose_event_entries()
         json.dump(history_data, out, indent=4, separators=(',', ': '))
+        self._restore_tree_from_event_serialization(tree=tree, old_taxon_namespace=old_taxon_namespace)
 
-    def _compose_lineage_definitions(self, tree, node_label_fn):
+    def _prepare_tree_for_event_serialization(self, tree, node_label_fn):
         old_taxon_namespace = tree.taxon_namespace
         tree.taxon_namespace = dendropy.TaxonNamespace()
         for nd in tree:
@@ -59,6 +64,18 @@ class EventLog(object):
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
         tree.encode_bipartitions()
+        return old_taxon_namespace
+
+    def _restore_tree_from_event_serialization(self, tree, old_taxon_namespace):
+        for nd in tree:
+            nd.taxon = None
+        tree.taxon_namespace = old_taxon_namespace
+
+    def _compose_tree_data(self, tree):
+        tree_data = collections.OrderedDict()
+        return tree_data
+
+    def _compose_lineage_definitions(self, tree):
         lineage_defs = []
         for nd in tree.preorder_node_iter():
             lineage_definition = collections.OrderedDict([
@@ -74,9 +91,6 @@ class EventLog(object):
                     ("is_leaf", len(nd._child_nodes) == 0),
             ])
             lineage_defs.append(lineage_definition)
-        for nd in tree:
-            nd.taxon = None
-        tree.taxon_namespace = old_taxon_namespace
         return lineage_defs
 
     def _compose_event_entries(self):
