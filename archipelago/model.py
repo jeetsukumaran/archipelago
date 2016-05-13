@@ -422,11 +422,11 @@ class Lineage(dendropy.Node):
             elif area not in other.areas and area in self.areas:
                 self.remove_area(area)
 
-    def add_area(self, area):
+    def add_area(self, area, is_log_event=False):
         assert area not in self.areas
         self.areas.add(area)
         area.lineages.add(self)
-        if self.log_event is not None:
+        if is_log_event and self.log_event is not None:
             self.log_event(
                     lineage=self,
                     event_type="anagenesis",
@@ -435,15 +435,15 @@ class Lineage(dendropy.Node):
                     child0_lineage=None,
                     child1_lineage=None)
 
-    def add_areas(self, areas):
+    def add_areas(self, areas, is_log_event=False):
         for area in areas:
-            self.add_area(area)
+            self.add_area(area, is_log_event=is_log_event)
 
-    def remove_area(self, area):
+    def remove_area(self, area, is_log_event=False):
         assert area in self.areas
         self.areas.remove(area)
         area.lineages.remove(self)
-        if self.log_event is not None:
+        if is_log_event and self.log_event is not None:
             self.log_event(
                     lineage=self,
                     event_type="anagenesis",
@@ -560,7 +560,7 @@ class Phylogeny(dendropy.Tree):
             trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
             seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
         initial_area = self.rng.choice(self.geography.areas)
-        seed_node.add_area(initial_area)
+        seed_node.add_area(initial_area, is_log_event=True)
         kwargs["seed_node"] = seed_node
         dendropy.Tree.__init__(self, *args, **kwargs)
         self.current_lineages = set([self.seed_node])
@@ -576,12 +576,29 @@ class Phylogeny(dendropy.Tree):
         c2 = self.node_factory(index=next(self.lineage_indexer), model=self.model, geography=self.geography, log_event=self.log_event)
         c1.copy_traits(lineage)
         c2.copy_traits(lineage)
-        self._set_daughter_distributions(
+        speciation_mode_idx = self._set_daughter_distributions(
                 parent=lineage,
                 child1=c1,
                 child2=c2,
                 speciation_area=area)
         if self.log_event:
+            if speciation_mode_idx == 0:
+                speciation_mode_desc = "single-area sympatric speciation"
+            elif speciation_mode_idx == 1:
+                speciation_mode_desc = "subset sympatry"
+            elif speciation_mode_idx == 2:
+                speciation_mode_desc = "single area vicariance"
+            elif speciation_mode_idx == 3:
+                speciation_mode_desc = "multi-area vicariance"
+            elif speciation_mode_idx == 4:
+                speciation_mode_desc = "founder-event jump dispersal"
+            self.log_event(
+                    lineage=lineage,
+                    event_type="cladogenesis",
+                    event_subtype=speciation_mode_desc,
+                    state_idx=None,
+                    child0_lineage=c1,
+                    child1_lineage=c2)
             c1.register_current_distribution_as_starting_distribution()
             c2.register_current_distribution_as_starting_distribution()
             lineage.register_current_distribution_as_ending_distribution()
@@ -735,7 +752,7 @@ class Phylogeny(dendropy.Tree):
                 ))
             assert len(child1.areas) > 0
             assert len(child2.areas) > 0
-        return child1, child2
+        return speciation_mode
 
     def _make_lineage_extinct_on_phylogeny(self, lineage):
         if len(self.current_lineages) == 1:
