@@ -30,7 +30,10 @@ class EventLog(object):
                 "child0_lineage": child0_lineage,
                 "child1_lineage": child1_lineage,
                 }
-            self.lineage_events[lineage] = ev
+            try:
+                self.lineage_events[lineage].append(ev)
+            except KeyError:
+                self.lineage_events[lineage] = [ev]
 
     def log_lineage_extinction(self, lineage):
         del self.lineage_events[lineage]
@@ -41,6 +44,7 @@ class EventLog(object):
             node_label_fn):
         history_data = collections.OrderedDict()
         history_data["lineages"] = self._compose_lineage_definitions(tree=tree, node_label_fn=node_label_fn)
+        history_data["events"] = self._compose_event_entries()
         json.dump(history_data, out, indent=4, separators=(',', ': '))
 
     def _compose_lineage_definitions(self, tree, node_label_fn):
@@ -75,4 +79,19 @@ class EventLog(object):
         tree.taxon_namespace = old_taxon_namespace
         return lineage_defs
 
-
+    def _compose_event_entries(self):
+        events = []
+        for lineage in self.lineage_events:
+            for event in self.lineage_events[lineage]:
+                d = collections.OrderedDict([
+                    ("event_time", event["event_time"]),
+                    ("lineage_id", int(event["lineage"].bipartition)),
+                    ("event_type", event["event_type"]),
+                    ("event_subtype", event["event_subtype"]),
+                    ("state_idx", event["state_idx"]),
+                    ("child0_lineage_id", int(event["child0_lineage"].bipartition) if event["child0_lineage"] is not None else None),
+                    ("child1_lineage_id", int(event["child1_lineage"].bipartition) if event["child1_lineage"] is not None else None),
+                    ])
+                events.append(d)
+        events.sort(key=lambda x:x["event_time"])
+        return events

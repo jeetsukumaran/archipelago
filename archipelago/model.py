@@ -752,7 +752,7 @@ class Phylogeny(dendropy.Tree):
         lineage.traits_vector[trait_idx] = state_idx
         if self.log_event is not None:
             self.log_event(
-                    lineage=self,
+                    lineage=lineage,
                     event_type="trait_evolution",
                     event_subtype="{}".format(trait_idx),
                     state_idx=trait_idx,
