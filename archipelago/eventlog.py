@@ -8,6 +8,7 @@ class EventLog(object):
 
     def __init__(self):
         self.lineage_events = {}
+        self.max_event_time = None
 
     def register_event(self,
             lineage,
@@ -34,6 +35,7 @@ class EventLog(object):
                 self.lineage_events[lineage].append(ev)
             except KeyError:
                 self.lineage_events[lineage] = [ev]
+            self.max_event_time = event_time if self.max_event_time is None else max(self.max_event_time, event_time)
 
     def log_lineage_extinction(self, lineage):
         del self.lineage_events[lineage]
@@ -48,6 +50,7 @@ class EventLog(object):
         tree.calc_node_ages()
         history_data = collections.OrderedDict()
         history_data["tree"] = self._compose_tree_data(tree=tree)
+        history_data["leaf_labels"] = self._compose_taxon_namespace(tree=tree)
         history_data["lineages"] = self._compose_lineage_definitions(tree=tree)
         history_data["events"] = self._compose_event_entries()
         json.dump(history_data, out, indent=4, separators=(',', ': '))
@@ -66,6 +69,8 @@ class EventLog(object):
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
         tree.is_rooted = True
         tree.encode_bipartitions()
+        # for nd in tree:
+        #     nd.annotations["lineage_id"] = str(int(nd.bipartition))
         return old_taxon_namespace
 
     def _restore_tree_from_event_serialization(self, tree, old_taxon_namespace):
@@ -75,9 +80,15 @@ class EventLog(object):
 
     def _compose_tree_data(self, tree):
         tree_data = collections.OrderedDict()
+        # tree_data["newick"] = tree.as_string("newick", suppress_annotations=False)
         tree_data["newick"] = tree.as_string("newick")
-        tree_data["end_time"] = tree.seed_node.age
+        tree_data["seed_node_age"] = tree.seed_node.age
+        tree_data["max_event_time"] = self.max_event_time
+        tree_data["end_time"] = max(self.max_event_time, tree.seed_node.age)
         return tree_data
+
+    def _compose_taxon_namespace(self, tree):
+        return [t.label for t in tree.taxon_namespace]
 
     def _compose_lineage_definitions(self, tree):
         lineage_defs = []
@@ -101,6 +112,9 @@ class EventLog(object):
         events = []
         for lineage in self.lineage_events:
             for event in self.lineage_events[lineage]:
+                if lineage.parent_node:
+                    assert event["event_time"] >= lineage.parent_node.time
+                assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event_type)
                 d = collections.OrderedDict([
                     ("event_time", event["event_time"]),
                     ("lineage_id", int(event["lineage"].bipartition)),

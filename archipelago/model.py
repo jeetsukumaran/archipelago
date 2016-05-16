@@ -340,12 +340,14 @@ class Area(object):
 
     def __init__(self,
             index=None,
+            focal_area_index=None,
             label=None,
             is_supplemental=False,
             relative_diversity=None,
             area_connection_weights=None,
             ):
         self.index = index
+        self.focal_area_index = focal_area_index # index only considering focal areas
         self.label = label
         self.is_supplemental = is_supplemental
         self.relative_diversity = relative_diversity
@@ -431,7 +433,7 @@ class Lineage(dendropy.Node):
                     lineage=self,
                     event_type="anagenesis",
                     event_subtype="area_gain",
-                    state_idx=area.index,
+                    state_idx=area.focal_area_index,
                     child0_lineage=None,
                     child1_lineage=None)
 
@@ -448,7 +450,7 @@ class Lineage(dendropy.Node):
                     lineage=self,
                     event_type="anagenesis",
                     event_subtype="area_loss",
-                    state_idx=area.index,
+                    state_idx=area.focal_area_index,
                     child0_lineage=None,
                     child1_lineage=None)
         if len(self.areas) == 0:
@@ -835,10 +837,15 @@ class Geography(object):
                 raise ValueError("Area with label '{}' already defined".format(area_label))
             area = Area(
                 index=area_idx,
+                focal_area_index=area_d.pop("focal_area_index", -1),
                 label=area_label,
                 relative_diversity=area_d.pop("relative_diversity", 1.0),
                 is_supplemental=area_d.pop("is_supplemental", False)
             )
+            if area.is_supplemental:
+                assert area.focal_area_index == -1
+            else:
+                assert area.focal_area_index == len(self.focal_areas)
             area._area_connection_weights_d = list(area_d.pop("area_connection_weights", [])) # delay processing until all areas have been defined
             self.areas.append(area)
             self.area_label_index_map[area.label] = area.index
@@ -1112,6 +1119,13 @@ class ArchipelagoModel(object):
             else:
                 raise ValueError("No areas defined")
         self.geographical_definition = copy.deepcopy(model_definition.pop("areas"))
+        focal_area_index = 0
+        for area in self.geographical_definition:
+            if area["is_supplemental"]:
+                area["focal_area_index"] = -1
+            else:
+                area["focal_area_index"] = focal_area_index
+                focal_area_index += 1
         self._example_geography = self.new_geography(run_logger=run_logger)
 
         # Ecology
