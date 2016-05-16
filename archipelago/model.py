@@ -563,6 +563,7 @@ class Phylogeny(dendropy.Tree):
         seed_node.add_area(initial_area, is_log_event=True)
         kwargs["seed_node"] = seed_node
         dendropy.Tree.__init__(self, *args, **kwargs)
+        self.is_rooted = True
         self.current_lineages = set([self.seed_node])
         if self.log_event:
             self.seed_node.register_current_distribution_as_starting_distribution()

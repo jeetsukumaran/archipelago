@@ -45,6 +45,7 @@ class EventLog(object):
         old_taxon_namespace = self._prepare_tree_for_event_serialization(
                 tree=tree,
                 node_label_fn=node_label_fn)
+        tree.calc_node_ages()
         history_data = collections.OrderedDict()
         history_data["tree"] = self._compose_tree_data(tree=tree)
         history_data["lineages"] = self._compose_lineage_definitions(tree=tree)
@@ -73,6 +74,7 @@ class EventLog(object):
 
     def _compose_tree_data(self, tree):
         tree_data = collections.OrderedDict()
+        tree_data["end_time"] = tree.seed_node.age
         return tree_data
 
     def _compose_lineage_definitions(self, tree):
