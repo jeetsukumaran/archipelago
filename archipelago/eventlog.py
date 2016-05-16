@@ -64,6 +64,7 @@ class EventLog(object):
             if nd.is_leaf():
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
+        tree.is_rooted = True
         tree.encode_bipartitions()
         return old_taxon_namespace
 
