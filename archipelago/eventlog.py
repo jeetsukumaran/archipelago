@@ -114,7 +114,7 @@ class EventLog(object):
             for event in self.lineage_events[lineage]:
                 if lineage.parent_node:
                     assert event["event_time"] >= lineage.parent_node.time
-                assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event_type)
+                assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
                 d = collections.OrderedDict([
                     ("event_time", event["event_time"]),
                     ("lineage_id", int(event["lineage"].bipartition)),
