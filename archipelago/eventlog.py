@@ -75,6 +75,7 @@ class EventLog(object):
 
     def _compose_tree_data(self, tree):
         tree_data = collections.OrderedDict()
+        tree_data["newick"] = tree.as_string("newick")
         tree_data["end_time"] = tree.seed_node.age
         return tree_data
 
