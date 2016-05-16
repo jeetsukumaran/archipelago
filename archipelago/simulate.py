@@ -255,7 +255,10 @@ class ArchipelagoSimulator(object):
             time_till_event = self.rng.expovariate(sum_of_event_rates)
             self.elapsed_time += time_till_event
             if self.model.max_time and self.elapsed_time > self.model.max_time:
+                time_to_add = self.model.max_time - self.elapsed_time
                 self.elapsed_time = self.model.max_time
+                for lineage in self.phylogeny.iterate_current_lineages():
+                    lineage.edge.length += time_to_add
                 self.run_logger.info("Termination condition of t = {} reached: storing results and terminating".format(self.elapsed_time))
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
@@ -263,8 +266,9 @@ class ArchipelagoSimulator(object):
                     focal_areas_histories_file=self.focal_areas_histories_file,
                     )
                 break
-            for lineage in self.phylogeny.iterate_current_lineages():
-                lineage.edge.length += time_till_event
+            else:
+                for lineage in self.phylogeny.iterate_current_lineages():
+                    lineage.edge.length += time_till_event
 
             ### EVENT SELECTION AND EXECUTION
             event_idx = model.weighted_index_choice(
