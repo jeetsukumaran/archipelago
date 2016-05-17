@@ -57,7 +57,7 @@ def main():
         default='archipelago',
         metavar='OUTPUT-FILE-PREFIX',
         help="Prefix for output files (default: '%(default)s').")
-    output_options.add_argument("--store-focal-area-histories",
+    output_options.add_argument("--store-histories",
             action="store_true",
             default=False,
             help="Save event histories.")
@@ -136,7 +136,7 @@ def main():
                 sys.exit("Model definition format cannot be diagnosed from extension. Need to specify '--model-format'.")
         interpolate_missing_model_values = False
 
-    config_d["store_focal_area_histories"] = args.store_focal_area_histories
+    config_d["store_histories"] = args.store_histories
     simulate.repeat_run(
             output_prefix=args.output_prefix,
             nreps=args.nreps,

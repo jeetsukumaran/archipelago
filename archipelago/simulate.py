@@ -39,8 +39,8 @@ class ArchipelagoSimulator(object):
         return output_prefix + ".all-areas.trees"
 
     @staticmethod
-    def compose_focal_areas_histories_filepath(output_prefix):
-        return output_prefix + ".focal-areas.histories.json"
+    def compose_histories_filepath(output_prefix):
+        return output_prefix + ".histories.json"
 
     @staticmethod
     def simple_node_label_function(node):
@@ -63,7 +63,7 @@ class ArchipelagoSimulator(object):
         self.geography = self.model.new_geography()
 
         ### Initialize event log
-        if self.is_store_focal_area_histories:
+        if self.is_store_histories:
             self.event_log = eventlog.EventLog()
         else:
             self.event_log = None
@@ -124,20 +124,20 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("All areas trees will not be stored")
 
-        if config_d.pop("store_focal_area_histories", False):
-            self.is_store_focal_area_histories = True
-            self.focal_areas_histories_file = config_d.pop("focal_areas_histories_file", None)
-            if self.focal_areas_histories_file is None:
-                self.focal_areas_histories_file = open(ArchipelagoSimulator.compose_focal_areas_histories_filepath(self.output_prefix), "w")
+        if config_d.pop("store_histories", False):
+            self.is_store_histories = True
+            self.histories_file = config_d.pop("histories_file", None)
+            if self.histories_file is None:
+                self.histories_file = open(ArchipelagoSimulator.compose_histories_filepath(self.output_prefix), "w")
             if verbose:
-                self.run_logger.info("Event histories will be written out to: {}".format(self.focal_areas_histories_file.name))
+                self.run_logger.info("Event histories will be written out to: {}".format(self.histories_file.name))
         else:
-            self.is_store_focal_area_histories = False
-            self.focal_areas_histories_file = None
+            self.is_store_histories = False
+            self.histories_file = None
             if verbose:
                 self.run_logger.info("Event histories will not be written out")
 
-        if not self.focal_areas_trees_file and not self.all_areas_trees_file and not self.focal_areas_histories_file:
+        if not self.focal_areas_trees_file and not self.all_areas_trees_file and not self.histories_file:
             self.run_logger.warning("No trees will be stored!")
 
         self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False)
@@ -263,7 +263,7 @@ class ArchipelagoSimulator(object):
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
-                    focal_areas_histories_file=self.focal_areas_histories_file,
+                    histories_file=self.histories_file,
                     )
                 break
             else:
@@ -306,7 +306,7 @@ class ArchipelagoSimulator(object):
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
-                    focal_areas_histories_file=self.focal_areas_histories_file,
+                    histories_file=self.histories_file,
                     )
                 break
 
@@ -406,7 +406,7 @@ class ArchipelagoSimulator(object):
     def store_sample(self,
             focal_areas_tree_out,
             all_areas_tree_out,
-            focal_areas_histories_file,
+            histories_file,
             ):
         if focal_areas_tree_out is not None:
             focal_areas_tree = self.phylogeny.extract_focal_areas_tree()
@@ -422,7 +422,7 @@ class ArchipelagoSimulator(object):
                     out=all_areas_tree_out,
                     tree=self.phylogeny,
                     )
-        if focal_areas_histories_file is not None:
+        if histories_file is not None:
             if self.is_encode_nodes:
                 labelf = lambda x: x.encode_lineage(
                         set_label=False,
@@ -430,8 +430,8 @@ class ArchipelagoSimulator(object):
                         exclude_supplemental_areas=True)
             else:
                 labelf = ArchipelagoSimulator.simple_node_label_function
-            self.event_log.write_focal_areas_histories(
-                    out=focal_areas_histories_file,
+            self.event_log.write_histories(
+                    out=histories_file,
                     tree=self.phylogeny,
                     node_label_fn=labelf)
 
@@ -586,15 +586,15 @@ def repeat_run(
         config_d["focal_areas_trees_file"] = open(ArchipelagoSimulator.compose_focal_areas_trees_filepath(output_prefix), "w")
     if config_d.get("store_all_areas_trees", True) and "all_areas_trees_file" not in config_d:
         config_d["all_areas_trees_file"] = open(ArchipelagoSimulator.compose_all_areas_trees_filepath(output_prefix), "w")
-    if config_d.get("store_focal_area_histories", False) and "focal_areas_histories_file" not in config_d:
-        config_d["focal_areas_histories_file"] = open(ArchipelagoSimulator.compose_focal_areas_histories_filepath(output_prefix), "w")
-    if "focal_areas_histories_file" in config_d:
-        config_d["focal_areas_histories_file"].write("[\n")
+    if config_d.get("store_histories", False) and "areas_histories_file" not in config_d:
+        config_d["histories_file"] = open(ArchipelagoSimulator.compose_histories_filepath(output_prefix), "w")
+    if "histories_file" in config_d:
+        config_d["histories_file"].write("[\n")
     try:
         current_rep = 0
         while current_rep < nreps:
-            if current_rep > 0 and "focal_areas_histories_file" in config_d:
-                config_d["focal_areas_histories_file"].write(",\n")
+            if current_rep > 0 and "histories_file" in config_d:
+                config_d["histories_file"].write(",\n")
             simulation_name="Run{}".format((current_rep+1))
             run_output_prefix = "{}.R{:04d}".format(output_prefix, current_rep+1)
             run_logger.info("-archipelago- Replicate {} of {}: Starting".format(current_rep+1, nreps))
@@ -633,12 +633,12 @@ def repeat_run(
                     run_logger.info("-archipelago- Replicate {} of {}: Completed to termination condition at t = {}".format(current_rep+1, nreps, archipelago_simulator.elapsed_time))
                     num_restarts = 0
                     break
-            if "focal_areas_histories_file" in config_d:
-                config_d["focal_areas_histories_file"].flush()
+            if "histories_file" in config_d:
+                config_d["histories_file"].flush()
             current_rep += 1
     except KeyboardInterrupt:
         pass
-    if "focal_areas_histories_file" in config_d:
-        config_d["focal_areas_histories_file"].write("\n]\n")
-        config_d["focal_areas_histories_file"].flush()
-        config_d["focal_areas_histories_file"].close()
+    if "histories_file" in config_d:
+        config_d["histories_file"].write("\n]\n")
+        config_d["histories_file"].flush()
+        config_d["histories_file"].close()

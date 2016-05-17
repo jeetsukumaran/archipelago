@@ -40,7 +40,7 @@ class EventLog(object):
     def log_lineage_extinction(self, lineage):
         del self.lineage_events[lineage]
 
-    def write_focal_areas_histories(self,
+    def write_histories(self,
             out,
             tree,
             node_label_fn):
@@ -112,8 +112,8 @@ class EventLog(object):
         events = []
         for lineage in self.lineage_events:
             for event in self.lineage_events[lineage]:
-                if event["event_type"].startswith("geography") and not event["event_subtype"].startswith("focal"):
-                    continue
+                # if event["event_type"].startswith("geography") and not event["event_subtype"].startswith("focal"):
+                #     continue
                 if lineage.parent_node:
                     assert event["event_time"] >= lineage.parent_node.time
                 assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])

@@ -410,12 +410,16 @@ class Lineage(dendropy.Node):
         if self.log_event is not None:
             self.starting_distribution_bitstring = None # used for history logging
             self.ending_distribution_bitstring = None # used for history logging
+            self.starting_focal_area_distribution_bitstring = None # used for history logging
+            self.ending_focal_area_distribution_bitstring = None # used for history logging
 
-    def register_current_distribution_as_starting_distribution(self, exclude_supplemental_areas=True):
-        self.starting_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=exclude_supplemental_areas)
+    def register_current_distribution_as_starting_distribution(self):
+        self.starting_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=False)
+        self.starting_focal_area_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=True)
 
-    def register_current_distribution_as_ending_distribution(self, exclude_supplemental_areas=True):
-        self.ending_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=exclude_supplemental_areas)
+    def register_current_distribution_as_ending_distribution(self):
+        self.ending_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=False)
+        self.ending_focal_area_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=True)
 
     def copy_areas(self, other):
         for area in self.geography.areas:
@@ -436,14 +440,6 @@ class Lineage(dendropy.Node):
                     state_idx=area.index,
                     child0_lineage=None,
                     child1_lineage=None)
-            if not area.is_supplemental:
-                self.log_event(
-                        lineage=self,
-                        event_type="geography_anagenesis",
-                        event_subtype="focal_area_gain",
-                        state_idx=area.focal_area_index,
-                        child0_lineage=None,
-                        child1_lineage=None)
 
     def add_areas(self, areas, is_log_event=False):
         for area in areas:
@@ -461,14 +457,6 @@ class Lineage(dendropy.Node):
                     state_idx=area.index,
                     child0_lineage=None,
                     child1_lineage=None)
-            if not area.is_supplemental:
-                self.log_event(
-                        lineage=self,
-                        event_type="geography_anagenesis",
-                        event_subtype="focal_area_loss",
-                        state_idx=area.focal_area_index,
-                        child0_lineage=None,
-                        child1_lineage=None)
         if len(self.areas) == 0:
             raise Lineage.NullDistributionException(self)
 
