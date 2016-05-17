@@ -431,11 +431,19 @@ class Lineage(dendropy.Node):
         if is_log_event and self.log_event is not None:
             self.log_event(
                     lineage=self,
-                    event_type="anagenesis",
+                    event_type="geography_anagenesis",
                     event_subtype="area_gain",
-                    state_idx=area.focal_area_index,
+                    state_idx=area.index,
                     child0_lineage=None,
                     child1_lineage=None)
+            if not area.is_supplemental:
+                self.log_event(
+                        lineage=self,
+                        event_type="geography_anagenesis",
+                        event_subtype="focal_area_gain",
+                        state_idx=area.focal_area_index,
+                        child0_lineage=None,
+                        child1_lineage=None)
 
     def add_areas(self, areas, is_log_event=False):
         for area in areas:
@@ -448,11 +456,19 @@ class Lineage(dendropy.Node):
         if is_log_event and self.log_event is not None:
             self.log_event(
                     lineage=self,
-                    event_type="anagenesis",
+                    event_type="geography_anagenesis",
                     event_subtype="area_loss",
-                    state_idx=area.focal_area_index,
+                    state_idx=area.index,
                     child0_lineage=None,
                     child1_lineage=None)
+            if not area.is_supplemental:
+                self.log_event(
+                        lineage=self,
+                        event_type="geography_anagenesis",
+                        event_subtype="focal_area_loss",
+                        state_idx=area.focal_area_index,
+                        child0_lineage=None,
+                        child1_lineage=None)
         if len(self.areas) == 0:
             raise Lineage.NullDistributionException(self)
 

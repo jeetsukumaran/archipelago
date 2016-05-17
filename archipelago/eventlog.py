@@ -63,7 +63,7 @@ class EventLog(object):
             if nd.parent_node:
                 nd.time = nd.parent_node.time + nd.edge.length
             else:
-                nd.time = 0
+                nd.time = nd.edge.length
             if nd.is_leaf():
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
@@ -112,6 +112,8 @@ class EventLog(object):
         events = []
         for lineage in self.lineage_events:
             for event in self.lineage_events[lineage]:
+                if event["event_type"].startswith("geography") and not event["event_subtype"].startswith("focal"):
+                    continue
                 if lineage.parent_node:
                     assert event["event_time"] >= lineage.parent_node.time
                 assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
