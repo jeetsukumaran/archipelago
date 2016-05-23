@@ -101,7 +101,8 @@ class EventLog(object):
                     ("lineage_start_time", nd.parent_node.time if nd.parent_node else -1.0),
                     ("lineage_end_time", nd.time),
                     ("lineage_start_distribution_bitstring", nd.starting_distribution_bitstring),
-                    ("lineage_end_distribution_bitstring", nd.ending_distribution_bitstring if nd._child_nodes else nd.distribution_bitstring(exclude_supplemental_areas=True)),
+                    # ("lineage_end_distribution_bitstring", nd.ending_distribution_bitstring if nd._child_nodes else nd.distribution_bitstring(exclude_supplemental_areas=False)),
+                    ("lineage_end_distribution_bitstring", nd.ending_distribution_bitstring if nd._child_nodes else nd.distribution_bitstring(exclude_supplemental_areas=False)),
                     ("is_seed_node", nd.parent_node is None),
                     ("is_leaf", len(nd._child_nodes) == 0),
             ])
