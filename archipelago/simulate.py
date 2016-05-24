@@ -72,6 +72,7 @@ class Snapshot(object):
             for lineage_d in history_d["lineages"]:
                 if lineage_d["is_leaf"]:
                     lineage_d["lineage_end_time"] += time_to_add
+                    lineage_d["lineage_duration"] = lineage_d["lineage_end_time"] - lineage_d["lineage_start_time"]
             rvals.append(json.dumps(history_d, indent=4, separators=(',', ': ')))
         return rvals
 
