@@ -489,6 +489,16 @@ class ArchipelagoSimulator(object):
         assert diff is not None
         time_to_add = (selected_snapshot.end_time + rnd) - selected_snapshot.start_time
         assert time_to_add >= 0
+        self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {}: selecting snapshot with {} lineages in focal areas (snapshot {} of {}), at time {} (out of {} to {}) and terminating".format(
+            self.model.gsa_termination_focal_area_lineages,
+            self.elapsed_time,
+            self.model.target_focal_area_lineages,
+            i+1,
+            len(self.snapshots),
+            selected_snapshot.start_time + time_to_add,
+            selected_snapshot.start_time,
+            selected_snapshot.end_time,
+            ))
         focal_areas_tree_str, all_areas_tree_str, histories_str = selected_snapshot.compose_snapshot(time_to_add=time_to_add)
         if focal_areas_tree_str and self.focal_areas_trees_file is not None:
             self.focal_areas_trees_file.write(focal_areas_tree_str)
