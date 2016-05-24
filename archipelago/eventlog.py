@@ -10,6 +10,7 @@ class EventLog(object):
     def __init__(self):
         self.lineage_events = {}
         self.max_event_time = None
+        self.lineages_on_tree = set()
 
     def register_event(self,
             lineage,
@@ -39,7 +40,10 @@ class EventLog(object):
             self.max_event_time = event_time if self.max_event_time is None else max(self.max_event_time, event_time)
 
     def log_lineage_extinction(self, lineage):
-        del self.lineage_events[lineage]
+        try:
+            del self.lineage_events[lineage]
+        except KeyError:
+            pass
 
     def write_histories(self,
             out,
@@ -60,6 +64,7 @@ class EventLog(object):
     def _prepare_tree_for_event_serialization(self, tree, node_label_fn):
         old_taxon_namespace = tree.taxon_namespace
         tree.taxon_namespace = dendropy.TaxonNamespace()
+        self.lineages_on_tree = set()
         for nd in tree:
             if nd.parent_node:
                 nd.time = nd.parent_node.time + nd.edge.length
@@ -68,6 +73,7 @@ class EventLog(object):
             if nd.is_leaf():
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
+            self.lineages_on_tree.add(nd)
         tree.is_rooted = True
         tree.encode_bipartitions()
         # for nd in tree:
@@ -114,6 +120,8 @@ class EventLog(object):
     def _compose_event_entries(self):
         events = []
         for lineage in self.lineage_events:
+            if lineage not in self.lineages_on_tree:
+                continue
             for event in self.lineage_events[lineage]:
                 # if event["event_type"].startswith("geography") and not event["event_subtype"].startswith("focal"):
                 #     continue
