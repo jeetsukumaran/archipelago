@@ -22,6 +22,59 @@ from archipelago import model
 from archipelago import utility
 from archipelago import error
 
+class Snapshot(object):
+
+    def __init__(self, simulator):
+        self.start_time = simulator.elapsed_time
+        self.end_time = None
+        self.duration = None
+        focal_areas_tree_sio = StringIO()
+        all_areas_tree_sio = StringIO()
+        histories_sio = StringIO()
+        simulator.store_sample(
+                focal_areas_tree_out=focal_areas_tree_sio,
+                all_areas_tree_out=all_areas_tree_sio,
+                histories_out=histories_sio)
+        self.focal_areas_tree_str = focal_areas_tree_sio.getvalue()
+        self.all_areas_tree_str = all_areas_tree_sio.getvalue()
+        if simulator.event_log:
+            self.histories_str = histories_sio.getvalue()
+        else:
+            self.histories_str = None
+
+    def close(self, end_time):
+        self.end_time = end_time
+        self.duration = self.end_time - self.start_time
+
+    def compose_snapshot(self, time_to_add):
+        rvals = []
+
+        for tree_str in (self.focal_areas_tree_str, self.all_areas_tree_str):
+            if not tree_str:
+                rvals.append(None)
+                continue
+            tree = dendropy.Tree.get(
+                    data=tree_str,
+                    schema="newick",
+                    rooting="force-rooted",
+                    suppress_internal_node_taxa=True,
+                    suppress_external_node_taxa=True,
+                    )
+            for nd in tree.leaf_node_iter():
+                nd.edge.length += time_to_add
+            rvals.append(tree.as_string("newick", suppress_leaf_node_labels=False))
+
+        if not self.histories_str:
+            rvals.append(None)
+        else:
+            history_d = json.loads(self.histories_str)
+            history_d["tree"]["seed_node_age"] += time_to_add
+            for lineage_d in history_d["lineages"]:
+                if lineage_d["is_leaf"]:
+                    lineage_d["lineage_end_time"] += time_to_add
+            rvals.append(json.dumps(history_d, indent=4, separators=(',', ': ')))
+        return rvals
+
 class ArchipelagoSimulator(object):
 
     @staticmethod
@@ -73,13 +126,17 @@ class ArchipelagoSimulator(object):
                 model=self.model,
                 geography=self.geography,
                 rng=self.rng,
-                log_event=self.log_event,
+                log_event=self.log_event if self.event_log is not None else None,
                 debug_mode=self.debug_mode,
                 run_logger=self.run_logger,
                 )
+        self.phylogeny.bootstrap()
 
         # begin logging generations
         self.run_logger.system = self
+
+        # gsa snapshots
+        self.snapshots = []
 
     def configure_simulator(self, config_d, verbose=True):
 
@@ -222,6 +279,9 @@ class ArchipelagoSimulator(object):
         ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
         ntips = len(self.phylogeny.current_lineages)
 
+        ### Keep track of snapshot for GSA termination condition
+        current_snapshot = None
+
         while True:
 
             ### DEBUG
@@ -263,7 +323,7 @@ class ArchipelagoSimulator(object):
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
-                    histories_file=self.histories_file,
+                    histories_out=self.histories_file,
                     )
                 break
             else:
@@ -294,19 +354,28 @@ class ArchipelagoSimulator(object):
 
             ntips_in_focal_areas = self.phylogeny.num_focal_area_lineages()
             ntips = len(self.phylogeny.current_lineages)
-            if self.model.gsa_termination_focal_area_lineages and ntips_in_focal_areas >= self.model.gsa_termination_focal_area_lineages:
-                # select/process one of the previously stored snapshots, write to final results file,
-                # and then break
-                raise NotImplementedError
-            elif self.model.gsa_termination_focal_area_lineages and ntips_in_focal_areas == self.target_focal_area_lineages:
-                # store snapshot in log, but do not break
-                raise NotImplementedError
+            if self.model.gsa_termination_focal_area_lineages:
+                if ntips_in_focal_areas >= self.model.gsa_termination_focal_area_lineages:
+                    # select/process one of the previously stored snapshots, write to final results file,
+                    # and then break
+                    if current_snapshot is not None:
+                        current_snapshot.close(end_time=self.elapsed_time)
+                    self.select_and_save_gsa_snapshot()
+                    break
+                elif ntips_in_focal_areas == self.model.target_focal_area_lineages:
+                    if current_snapshot is not None:
+                        current_snapshot.close(end_time=self.elapsed_time)
+                    current_snapshot = Snapshot(self)
+                    self.snapshots.append(current_snapshot)
+                elif current_snapshot is not None and ntips_in_focal_areas != self.model.gsa_termination_focal_area_lineages:
+                    current_snapshot.close(end_time=self.elapsed_time)
+                    current_snapshot = None
             elif self.model.target_focal_area_lineages and ntips_in_focal_areas >= self.model.target_focal_area_lineages:
                 self.run_logger.info("Termination condition of {} lineages in focal areas reached at t = {}: storing results and terminating".format(self.model.target_focal_area_lineages, self.elapsed_time))
                 self.store_sample(
                     focal_areas_tree_out=self.focal_areas_trees_file,
                     all_areas_tree_out=self.all_areas_trees_file,
-                    histories_file=self.histories_file,
+                    histories_out=self.histories_file,
                     )
                 break
 
@@ -403,10 +472,34 @@ class ArchipelagoSimulator(object):
 
         return master_event_calls, master_event_rates
 
+    def select_and_save_gsa_snapshot(self):
+        if not self.snapshots:
+            raise error.FailedToMeetFocalAreaLineageTargetException("Did not generate required number of target lineages in focal areas")
+        weights = [s.duration for s in self.snapshots]
+        sum_of_weights = sum(weights)
+        rnd = self.rng.uniform(0, 1) * sum_of_weights
+        diff = None
+        for i, w in enumerate(weights):
+            rnd -= w
+            if rnd < 0:
+                diff = rnd
+                break
+        selected_snapshot = self.snapshots[i]
+        assert diff is not None
+        time_to_add = (selected_snapshot.end_time + rnd) - selected_snapshot.start_time
+        assert time_to_add >= 0
+        focal_areas_tree_str, all_areas_tree_str, histories_str = selected_snapshot.compose_snapshot(time_to_add=time_to_add)
+        if focal_areas_tree_str and self.focal_areas_trees_file is not None:
+            self.focal_areas_trees_file.write(focal_areas_tree_str)
+        if all_areas_tree_str and self.all_areas_trees_file is not None:
+            self.all_areas_trees_file.write(all_areas_tree_str)
+        if histories_str and self.histories_file is not None:
+            self.histories_file.write(histories_str)
+
     def store_sample(self,
             focal_areas_tree_out,
             all_areas_tree_out,
-            histories_file,
+            histories_out,
             ):
         if focal_areas_tree_out is not None:
             focal_areas_tree = self.phylogeny.extract_focal_areas_tree()
@@ -422,7 +515,11 @@ class ArchipelagoSimulator(object):
                     out=all_areas_tree_out,
                     tree=self.phylogeny,
                     )
-        if histories_file is not None:
+        if histories_out is not None and self.event_log is not None:
+            self.write_histories(out=histories_out,
+                    tree=self.phylogeny)
+
+    def write_histories(self, out, tree):
             if self.is_encode_nodes:
                 labelf = lambda x: x.encode_lineage(
                         set_label=False,
@@ -431,7 +528,7 @@ class ArchipelagoSimulator(object):
             else:
                 labelf = ArchipelagoSimulator.simple_node_label_function
             self.event_log.write_histories(
-                    out=histories_file,
+                    out=out,
                     tree=self.phylogeny,
                     node_label_fn=labelf)
 

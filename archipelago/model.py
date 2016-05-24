@@ -546,14 +546,14 @@ class Phylogeny(dendropy.Tree):
     node_factory = classmethod(node_factory)
 
     def __init__(self, *args, **kwargs):
-        self.model = kwargs.pop("model")
-        self.geography = kwargs.pop("geography")
+        self.model = kwargs.pop("model", None)
+        self.geography = kwargs.pop("geography", None)
         self.model_id = self.model.model_id
         self.annotations.add_bound_attribute("model_id")
-        self.rng = kwargs.pop("rng")
+        self.rng = kwargs.pop("rng", None)
         self.log_event = kwargs.pop("log_event", None)
-        self.debug_mode = kwargs.pop("debug_mode")
-        self.run_logger = kwargs.pop("run_logger")
+        self.debug_mode = kwargs.pop("debug_mode", None)
+        self.run_logger = kwargs.pop("run_logger", None)
         self.lineage_indexer = utility.IndexGenerator(0)
         assert "seed_node" not in kwargs
         seed_node = self.node_factory(
@@ -562,14 +562,16 @@ class Phylogeny(dendropy.Tree):
                 geography=self.geography,
                 log_event=self.log_event,
                 )
-        for trait_idx in range(len(self.model.trait_types)):
-            trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
-            seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
-        initial_area = self.rng.choice(self.geography.areas)
-        seed_node.add_area(initial_area, is_log_event=True)
         kwargs["seed_node"] = seed_node
         dendropy.Tree.__init__(self, *args, **kwargs)
         self.is_rooted = True
+
+    def bootstrap(self):
+        for trait_idx in range(len(self.model.trait_types)):
+            trait_states = [i for i in range(self.model.trait_types[trait_idx].nstates)]
+            self.seed_node.traits_vector[trait_idx] = self.rng.choice(trait_states)
+        initial_area = self.rng.choice(self.geography.areas)
+        self.seed_node.add_area(initial_area, is_log_event=True)
         self.current_lineages = set([self.seed_node])
         if self.log_event:
             self.seed_node.register_current_distribution_as_starting_distribution()
@@ -794,8 +796,34 @@ class Phylogeny(dendropy.Tree):
 
     def extract_focal_areas_tree(self):
         # tcopy = Phylogeny(self)
-        tcopy = copy.deepcopy(self)
-        focal_area_lineages = tcopy.focal_area_lineages()
+        # tcopy = copy.deepcopy(self)
+        tree_factory = lambda **kwargs: Phylogeny(
+                model=self.model,
+                geography=self.geography,
+                rng=None,
+                **kwargs
+                )
+        node_factory = lambda: Lineage(index=None, model=self.model, geography=self.geography, log_event=None)
+        tcopy = self.extract_tree(
+                tree_factory=tree_factory,
+                node_factory=node_factory)
+        focal_area_lineages = set()
+        for nd in tcopy:
+            nd.index = nd.extraction_source.index
+            nd.areas = set(nd.extraction_source.areas)
+            if nd.extraction_source.distribution_vector:
+                nd.distribution_vector = nd.extraction_source.distribution_vector.clone()
+            if nd.extraction_source.traits_vector:
+                nd.traits_vector = nd.extraction_source.traits_vector.clone()
+            if self.log_event:
+                nd.starting_distribution_bitstring = nd.extraction_source.starting_distribution_bitstring
+                nd.ending_distribution_bitstring = nd.extraction_source.ending_distribution_bitstring
+                nd.starting_focal_area_distribution_bitstring = nd.extraction_source.starting_focal_area_distribution_bitstring
+                nd.ending_focal_area_distribution_bitstring = nd.extraction_source.ending_focal_area_distribution_bitstring
+            for area in self.geography.focal_areas:
+                if area in nd.areas:
+                    focal_area_lineages.add(nd)
+                    break
         if len(focal_area_lineages) < 2:
             raise error.InsufficientFocalAreaLineagesSimulationException("insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
         try:

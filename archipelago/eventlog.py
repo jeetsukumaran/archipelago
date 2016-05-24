@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env pythorvals
 
 from decimal import Decimal
 import collections
