@@ -460,17 +460,9 @@ class Lineage(dendropy.Node):
         if len(self.areas) == 0:
             raise Lineage.NullDistributionException(self)
 
-    def extinguish(self, is_extinction):
+    def clear(self):
         self.clear_areas()
         self.is_extant = False
-        if is_extinction and self.log_event is not None:
-            self.log_event(
-                    lineage=self,
-                    event_type="extinction",
-                    event_subtype=None,
-                    state_idx=None,
-                    child0_lineage=None,
-                    child1_lineage=None)
 
     def clear_areas(self):
         for area in self.areas:
@@ -611,7 +603,7 @@ class Phylogeny(dendropy.Tree):
             c1.register_current_distribution_as_starting_distribution()
             c2.register_current_distribution_as_starting_distribution()
             lineage.register_current_distribution_as_ending_distribution()
-        lineage.extinguish(is_extinction=False)
+        lineage.clear()
         self.current_lineages.remove(lineage)
         lineage.add_child(c1)
         lineage.add_child(c2)
@@ -619,7 +611,41 @@ class Phylogeny(dendropy.Tree):
         self.current_lineages.add(c2)
 
     def extinguish_lineage(self, lineage):
-        self._make_lineage_extinct_on_phylogeny(lineage)
+        # assert not lineage._child_nodes
+        if len(self.current_lineages) == 1:
+            self.total_extinction_exception("No extant lineages remaining")
+        if lineage is not self.seed_node:
+            s = lineage.parent_node._child_nodes
+            assert len(s) > 1
+            if s[0] is lineage:
+                lineage_to_inherit = s[1]
+            else:
+                lineage_to_inherit = s[0]
+        else:
+            lineage_to_inherit = None
+        # if self.log_event is not None:
+        #     if lineage is not self.seed_node:
+        #         s = lineage.parent_node._child_nodes
+        #         assert len(s) > 1
+        #         if s[0] is lineage:
+        #             lineage_inheriting_events = s[1]
+        #         else:
+        #             lineage_inheriting_events = s[0]
+        #     self.log_event(
+        #             lineage=lineage,
+        #             event_type="extinction",
+        #             lineage_inheriting_events=lineage_inheriting_events,
+        #             )
+        lineage.clear()
+        self.current_lineages.remove(lineage)
+        self.prune_subtree(lineage, suppress_unifurcations=False, update_bipartitions=False)
+        remapped_nodes = self.suppress_unifurcations(update_bipartitions=False)
+        if lineage_to_inherit is not None:
+            remapped_nodes.insert( 0, (lineage, lineage_to_inherit))
+        self.log_event(
+                lineage=lineage,
+                event_type="extinction",
+                remapped_nodes=remapped_nodes)
 
     def _set_daughter_distributions(self, parent, child1, child2, speciation_area):
         # speciation modes
@@ -762,13 +788,6 @@ class Phylogeny(dendropy.Tree):
             assert len(child1.areas) > 0
             assert len(child2.areas) > 0
         return speciation_mode
-
-    def _make_lineage_extinct_on_phylogeny(self, lineage):
-        if len(self.current_lineages) == 1:
-            self.total_extinction_exception("no extant lineages remaining")
-        lineage.extinguish(is_extinction=True)
-        self.current_lineages.remove(lineage)
-        self.prune_subtree(lineage)
 
     def total_extinction_exception(self, msg):
         # self.run_logger.info("Total extinction: {}".format(msg))

@@ -16,22 +16,20 @@ class EventLog(object):
             lineage,
             event_time,
             event_type,
-            event_subtype,
-            state_idx,
-            child0_lineage,
-            child1_lineage,
+            **kwargs
             ):
         if event_type == "extinction":
-            self.log_lineage_extinction(lineage)
+            for nd1, nd2 in kwargs.pop("remapped_nodes"):
+                self.map_to_new_lineage(old_lineage=nd1, new_lineage=nd2)
         else:
             ev = {
                 "lineage": lineage,
                 "event_time": event_time,
                 "event_type": event_type,
-                "event_subtype": event_subtype,
-                "state_idx": state_idx,
-                "child0_lineage": child0_lineage,
-                "child1_lineage": child1_lineage,
+                "event_subtype": kwargs.pop("event_subtype"),
+                "state_idx": kwargs.pop("state_idx"),
+                "child0_lineage": kwargs.pop("child0_lineage"),
+                "child1_lineage": kwargs.pop("child1_lineage"),
                 }
             try:
                 self.lineage_events[lineage].append(ev)
@@ -39,11 +37,21 @@ class EventLog(object):
                 self.lineage_events[lineage] = [ev]
             self.max_event_time = event_time if self.max_event_time is None else max(self.max_event_time, event_time)
 
-    def log_lineage_extinction(self, lineage):
-        try:
-            del self.lineage_events[lineage]
-        except KeyError:
-            pass
+    def map_to_new_lineage(self, old_lineage, new_lineage):
+        if old_lineage in self.lineage_events:
+            events = self.lineage_events[old_lineage]
+            if new_lineage not in self.lineage_events:
+                self.lineage_events[new_lineage] = []
+            for event in events:
+                event["lineage"] = new_lineage
+                self.lineage_events[new_lineage].append(event)
+            del self.lineage_events[old_lineage]
+        for events in self.lineage_events.values():
+            for event in events:
+                assert event["lineage"] is not old_lineage
+                for k, v in event.items():
+                    if event[k] is old_lineage:
+                        event[k] = new_lineage
 
     def write_histories(self,
             out,
@@ -120,8 +128,7 @@ class EventLog(object):
     def _compose_event_entries(self):
         events = []
         for lineage in self.lineage_events:
-            if lineage not in self.lineages_on_tree:
-                continue
+            assert lineage in self.lineages_on_tree, lineage.index
             for event in self.lineage_events[lineage]:
                 # if event["event_type"].startswith("geography") and not event["event_subtype"].startswith("focal"):
                 #     continue
@@ -131,6 +138,10 @@ class EventLog(object):
                 ev_t = Decimal("{:0.8}".format(event["event_time"]))
                 ln_t = Decimal("{:0.8}".format(lineage.time))
                 assert ev_t <= ln_t, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
+                if event["child0_lineage"] is not None:
+                    assert event["child0_lineage"] in self.lineages_on_tree, event["child0_lineage"].index
+                if event["child1_lineage"] is not None:
+                    assert event["child1_lineage"] in self.lineages_on_tree, event["child1_lineage"].index
                 d = collections.OrderedDict([
                     ("event_time", event["event_time"]),
                     ("lineage_id", int(event["lineage"].bipartition)),
