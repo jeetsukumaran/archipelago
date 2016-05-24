@@ -460,10 +460,10 @@ class Lineage(dendropy.Node):
         if len(self.areas) == 0:
             raise Lineage.NullDistributionException(self)
 
-    def extinguish(self):
+    def extinguish(self, is_extinction):
         self.clear_areas()
         self.is_extant = False
-        if self.log_event is not None:
+        if is_extinction and self.log_event is not None:
             self.log_event(
                     lineage=self,
                     event_type="extinction",
@@ -609,7 +609,7 @@ class Phylogeny(dendropy.Tree):
             c1.register_current_distribution_as_starting_distribution()
             c2.register_current_distribution_as_starting_distribution()
             lineage.register_current_distribution_as_ending_distribution()
-        lineage.extinguish()
+        lineage.extinguish(is_extinction=False)
         self.current_lineages.remove(lineage)
         lineage.add_child(c1)
         lineage.add_child(c2)
@@ -764,7 +764,7 @@ class Phylogeny(dendropy.Tree):
     def _make_lineage_extinct_on_phylogeny(self, lineage):
         if len(self.current_lineages) == 1:
             self.total_extinction_exception("no extant lineages remaining")
-        lineage.extinguish()
+        lineage.extinguish(is_extinction=True)
         self.current_lineages.remove(lineage)
         self.prune_subtree(lineage)
 

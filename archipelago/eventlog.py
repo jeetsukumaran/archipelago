@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+from decimal import Decimal
 import collections
 import json
 import dendropy
@@ -117,7 +118,10 @@ class EventLog(object):
                 #     continue
                 if lineage.parent_node:
                     assert event["event_time"] >= lineage.parent_node.time
-                assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
+                # assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
+                ev_t = Decimal("{:0.8}".format(event["event_time"]))
+                ln_t = Decimal("{:0.8}".format(lineage.time))
+                assert ev_t <= ln_t, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
                 d = collections.OrderedDict([
                     ("event_time", event["event_time"]),
                     ("lineage_id", int(event["lineage"].bipartition)),
