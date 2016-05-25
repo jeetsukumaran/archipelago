@@ -413,6 +413,9 @@ class Lineage(dendropy.Node):
             self.starting_focal_area_distribution_bitstring = None # used for history logging
             self.ending_focal_area_distribution_bitstring = None # used for history logging
 
+    def __str__(self):
+        return "<{} with index {} (root: {}, children: {})>".format(self.__class__.__name__, self.index, self.parent_node is None, len(self._child_nodes) == 0)
+
     def register_current_distribution_as_starting_distribution(self):
         self.starting_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=False)
         self.starting_focal_area_distribution_bitstring = self.distribution_bitstring(exclude_supplemental_areas=True)
@@ -460,7 +463,7 @@ class Lineage(dendropy.Node):
         if len(self.areas) == 0:
             raise Lineage.NullDistributionException(self)
 
-    def clear(self):
+    def deactivate(self):
         self.clear_areas()
         self.is_extant = False
 
@@ -603,14 +606,28 @@ class Phylogeny(dendropy.Tree):
             c1.register_current_distribution_as_starting_distribution()
             c2.register_current_distribution_as_starting_distribution()
             lineage.register_current_distribution_as_ending_distribution()
-        lineage.clear()
+        lineage.deactivate()
         self.current_lineages.remove(lineage)
         lineage.add_child(c1)
         lineage.add_child(c2)
         self.current_lineages.add(c1)
         self.current_lineages.add(c2)
 
-    def extinguish_lineage(self, lineage):
+    def extinguish_lineage(self, lineage, extinction_type):
+        # assert not lineage._child_nodes
+        lineage.deactivate()
+        self.current_lineages.remove(lineage)
+        if self.log_event:
+            self.log_event(
+                    lineage=lineage,
+                    event_type="extinction",
+                    event_subtype=extinction_type,
+                    state_idx=None,
+                    child0_lineage=None,
+                    child1_lineage=None,
+                    )
+
+    def extinguish_lineage_OLD(self, lineage, event_type):
         # assert not lineage._child_nodes
         if len(self.current_lineages) == 1:
             self.total_extinction_exception("No extant lineages remaining")
@@ -636,7 +653,7 @@ class Phylogeny(dendropy.Tree):
         #             event_type="extinction",
         #             lineage_inheriting_events=lineage_inheriting_events,
         #             )
-        lineage.clear()
+        lineage.deactivate()
         self.current_lineages.remove(lineage)
         self.prune_subtree(lineage, suppress_unifurcations=False, update_bipartitions=False)
         remapped_nodes = self.suppress_unifurcations(update_bipartitions=False)
@@ -813,43 +830,148 @@ class Phylogeny(dendropy.Tree):
     def num_focal_area_lineages(self):
         return len(self.focal_area_lineages())
 
-    def extract_focal_areas_tree(self):
-        # tcopy = Phylogeny(self)
-        # tcopy = copy.deepcopy(self)
-        tree_factory = lambda **kwargs: Phylogeny(
-                model=self.model,
-                geography=self.geography,
-                rng=None,
-                **kwargs
+    def _compose_tree_string(self,
+            tree,
+            node_label_compose_fn,
+            is_suppress_internal_node_labels,
+            ):
+        s = StringIO()
+        tree.write_to_stream(
+                s,
+                schema="newick",
+                suppress_annotations=False,
+                node_label_compose_fn=node_label_compose_fn,
+                suppress_internal_node_labels=is_suppress_internal_node_labels,
                 )
-        node_factory = lambda: Lineage(index=None, model=self.model, geography=self.geography, log_event=None)
-        tcopy = self.extract_tree(
-                tree_factory=tree_factory,
-                node_factory=node_factory)
+        return s.getvalue()
+
+    def generate_tree_strings_for_serialization(self,
+            is_encode_nodes,
+            is_annotate_nodes,
+            is_suppress_internal_node_labels,
+            ):
+
+        # storage
+        results = {}
+
+        # prep
+        all_areas_node_labels = {}
+        all_areas_node_annotations = {}
+        focal_areas_node_labels = {}
+        focal_areas_node_annotations = {}
+        if is_encode_nodes:
+            all_areas_labelf = lambda x: x.encode_lineage(
+                    set_label=False,
+                    add_annotation=is_annotate_nodes,
+                    exclude_supplemental_areas=False)
+            focal_areas_labelf = lambda x: x.encode_lineage(
+                    set_label=False,
+                    add_annotation=is_annotate_nodes,
+                    exclude_supplemental_areas=True)
+        else:
+            all_areas_labelf = ArchipelagoSimulator.simple_node_label_function
         focal_area_lineages = set()
-        for nd in tcopy:
-            nd.index = nd.extraction_source.index
-            nd.areas = set(nd.extraction_source.areas)
-            if nd.extraction_source.distribution_vector:
-                nd.distribution_vector = nd.extraction_source.distribution_vector.clone()
-            if nd.extraction_source.traits_vector:
-                nd.traits_vector = nd.extraction_source.traits_vector.clone()
-            if self.log_event:
-                nd.starting_distribution_bitstring = nd.extraction_source.starting_distribution_bitstring
-                nd.ending_distribution_bitstring = nd.extraction_source.ending_distribution_bitstring
-                nd.starting_focal_area_distribution_bitstring = nd.extraction_source.starting_focal_area_distribution_bitstring
-                nd.ending_focal_area_distribution_bitstring = nd.extraction_source.ending_focal_area_distribution_bitstring
+        extinct_lineages = set()
+        for nd in self:
+            focal_areas_node_labels[nd] = focal_areas_labelf(nd)
+            focal_areas_node_annotations[nd] = dendropy.AnnotationSet(nd.annotations)
+            all_areas_node_labels[nd] = all_areas_labelf(nd)
+            all_areas_node_annotations[nd] = dendropy.AnnotationSet(nd.annotations)
+            if nd.is_leaf() and not nd.is_extant:
+                extinct_lineages.add(nd)
             for area in self.geography.focal_areas:
                 if area in nd.areas:
                     focal_area_lineages.add(nd)
                     break
-        if len(focal_area_lineages) < 2:
-            raise error.InsufficientFocalAreaLineagesSimulationException("insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
-        try:
-            tcopy.filter_leaf_nodes(filter_fn=lambda x: x in focal_area_lineages)
-        except dendropy.SeedNodeDeletionException:
-            raise error.InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
-        return tcopy
+
+        # all areas, complete
+        results["all-areas.complete"] = self._compose_tree_string(
+                tree=self,
+                node_label_compose_fn=lambda nd: all_areas_node_labels[nd],
+                is_suppress_internal_node_labels=is_suppress_internal_node_labels,
+                )
+
+        # all areas, extant only
+        all_areas_extant_only_tree = self.extract_tree(
+                node_filter_fn=lambda x: x not in extinct_lineages,
+                tree_factory=dendropy.Tree,
+                node_factory=dendropy.Node,
+                )
+        for nd in all_areas_extant_only_tree:
+            nd.annotations = all_areas_node_annotations[nd.extraction_source]
+        results["all-areas.extant"] = self._compose_tree_string(
+                tree=all_areas_extant_only_tree,
+                node_label_compose_fn=lambda nd: all_areas_node_labels[nd.extraction_source],
+                is_suppress_internal_node_labels=is_suppress_internal_node_labels,
+                )
+
+        # focal areas, complete
+        focal_areas_complete_tree = self.extract_tree(
+                node_filter_fn=lambda x: x in focal_area_lineages,
+                tree_factory=dendropy.Tree,
+                node_factory=dendropy.Node,
+                )
+        for nd in focal_areas_complete_tree:
+            nd.annotations = focal_areas_node_annotations[nd.extraction_source]
+        results["focal-areas.complete"] = self._compose_tree_string(
+                tree=focal_areas_complete_tree,
+                node_label_compose_fn=lambda nd: focal_areas_node_labels[nd.extraction_source],
+                is_suppress_internal_node_labels=is_suppress_internal_node_labels,
+                )
+
+        # focal areas, extant only
+        focal_areas_extant_only_tree = self.extract_tree(
+                node_filter_fn=lambda x: x not in extinct_lineages and x in focal_area_lineages,
+                tree_factory=dendropy.Tree,
+                node_factory=dendropy.Node,
+                )
+        for nd in focal_areas_extant_only_tree:
+            nd.annotations = nd.extraction_source.annotations
+        results["focal-areas.extant"] = self._compose_tree_string(
+                tree=focal_areas_extant_only_tree,
+                node_label_compose_fn=lambda nd: focal_areas_node_labels[nd.extraction_source],
+                is_suppress_internal_node_labels=is_suppress_internal_node_labels,
+                )
+
+        return results
+
+    # def extract_focal_areas_tree(self):
+        # # tcopy = Phylogeny(self)
+        # # tcopy = copy.deepcopy(self)
+        # tree_factory = lambda **kwargs: Phylogeny(
+        #         model=self.model,
+        #         geography=self.geography,
+        #         rng=None,
+        #         **kwargs
+        #         )
+        # node_factory = lambda: Lineage(index=None, model=self.model, geography=self.geography, log_event=None)
+        # tcopy = self.extract_tree(
+        #         tree_factory=tree_factory,
+        #         node_factory=node_factory)
+        # focal_area_lineages = set()
+        # for nd in tcopy:
+        #     nd.index = nd.extraction_source.index
+        #     nd.areas = set(nd.extraction_source.areas)
+        #     if nd.extraction_source.distribution_vector:
+        #         nd.distribution_vector = nd.extraction_source.distribution_vector.clone()
+        #     if nd.extraction_source.traits_vector:
+        #         nd.traits_vector = nd.extraction_source.traits_vector.clone()
+        #     if self.log_event:
+        #         nd.starting_distribution_bitstring = nd.extraction_source.starting_distribution_bitstring
+        #         nd.ending_distribution_bitstring = nd.extraction_source.ending_distribution_bitstring
+        #         nd.starting_focal_area_distribution_bitstring = nd.extraction_source.starting_focal_area_distribution_bitstring
+        #         nd.ending_focal_area_distribution_bitstring = nd.extraction_source.ending_focal_area_distribution_bitstring
+        #     for area in self.geography.focal_areas:
+        #         if area in nd.areas:
+        #             focal_area_lineages.add(nd)
+        #             break
+        # if len(focal_area_lineages) < 2:
+        #     raise error.InsufficientFocalAreaLineagesSimulationException("insufficient lineages in focal area at termination".format(len(focal_area_lineages)))
+        # try:
+        #     tcopy.filter_leaf_nodes(filter_fn=lambda x: x in focal_area_lineages)
+        # except dendropy.SeedNodeDeletionException:
+        #     raise error.InsufficientFocalAreaLineagesSimulationException("no extant lineages in focal area at termination".format(len(focal_area_lineages)))
+        # return tcopy
 
     def __deepcopy__(self, memo=None):
         if memo is None:

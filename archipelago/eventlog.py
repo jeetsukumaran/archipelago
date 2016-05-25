@@ -18,24 +18,20 @@ class EventLog(object):
             event_type,
             **kwargs
             ):
-        if event_type == "extinction":
-            for nd1, nd2 in kwargs.pop("remapped_nodes"):
-                self.map_to_new_lineage(old_lineage=nd1, new_lineage=nd2)
-        else:
-            ev = {
-                "lineage": lineage,
-                "event_time": event_time,
-                "event_type": event_type,
-                "event_subtype": kwargs.pop("event_subtype"),
-                "state_idx": kwargs.pop("state_idx"),
-                "child0_lineage": kwargs.pop("child0_lineage"),
-                "child1_lineage": kwargs.pop("child1_lineage"),
-                }
-            try:
-                self.lineage_events[lineage].append(ev)
-            except KeyError:
-                self.lineage_events[lineage] = [ev]
-            self.max_event_time = event_time if self.max_event_time is None else max(self.max_event_time, event_time)
+        ev = {
+            "lineage": lineage,
+            "event_time": event_time,
+            "event_type": event_type,
+            "event_subtype": kwargs.pop("event_subtype"),
+            "state_idx": kwargs.pop("state_idx"),
+            "child0_lineage": kwargs.pop("child0_lineage"),
+            "child1_lineage": kwargs.pop("child1_lineage"),
+            }
+        try:
+            self.lineage_events[lineage].append(ev)
+        except KeyError:
+            self.lineage_events[lineage] = [ev]
+        self.max_event_time = event_time if self.max_event_time is None else max(self.max_event_time, event_time)
 
     def map_to_new_lineage(self, old_lineage, new_lineage):
         if old_lineage in self.lineage_events:
@@ -81,11 +77,14 @@ class EventLog(object):
             if nd.is_leaf():
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
+            else:
+                nd.label = node_label_fn(nd)
             self.lineages_on_tree.add(nd)
         tree.is_rooted = True
         tree.encode_bipartitions()
         # for nd in tree:
         #     nd.annotations["lineage_id"] = str(int(nd.bipartition))
+        print(tree.as_string("newick", suppress_internal_node_labels=False))
         return old_taxon_namespace
 
     def _restore_tree_from_event_serialization(self, tree, old_taxon_namespace):
@@ -137,7 +136,12 @@ class EventLog(object):
                 # assert event["event_time"] <= lineage.time, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
                 ev_t = Decimal("{:0.8}".format(event["event_time"]))
                 ln_t = Decimal("{:0.8}".format(lineage.time))
-                assert ev_t <= ln_t, "{}, {}, {} ({})".format(event["event_time"], lineage.time, lineage, event["event_type"])
+                assert ev_t <= ln_t, "{} <= {}: False, for event {} on lineage {}".format(
+                        event["event_time"],
+                        lineage.time,
+                        event["event_type"],
+                        lineage,
+                        )
                 if event["child0_lineage"] is not None:
                     assert event["child0_lineage"] in self.lineages_on_tree, event["child0_lineage"].index
                 if event["child1_lineage"] is not None:
