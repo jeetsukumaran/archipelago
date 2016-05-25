@@ -1,5 +1,6 @@
 #! /usr/bin/env pythorvals
 
+import math
 from decimal import Decimal
 import collections
 import json
@@ -52,11 +53,8 @@ class EventLog(object):
     def write_histories(self,
             out,
             tree,
-            node_label_fn):
-        old_taxon_namespace = self._prepare_tree_for_event_serialization(
-                tree=tree,
-                node_label_fn=node_label_fn)
-        tree.calc_node_ages()
+            ):
+        old_taxon_namespace = self._prepare_tree_for_event_serialization(tree=tree)
         history_data = collections.OrderedDict()
         history_data["tree"] = self._compose_tree_data(tree=tree)
         history_data["leaf_labels"] = self._compose_taxon_namespace(tree=tree)
@@ -65,10 +63,15 @@ class EventLog(object):
         json.dump(history_data, out, indent=4, separators=(',', ': '))
         self._restore_tree_from_event_serialization(tree=tree, old_taxon_namespace=old_taxon_namespace)
 
-    def _prepare_tree_for_event_serialization(self, tree, node_label_fn):
+    def _prepare_tree_for_event_serialization(self, tree):
         old_taxon_namespace = tree.taxon_namespace
         tree.taxon_namespace = dendropy.TaxonNamespace()
+        node_label_fn = lambda x: x.encode_lineage(
+                set_label=False,
+                add_annotation=False,
+                exclude_supplemental_areas=False)
         self.lineages_on_tree = set()
+        max_node_time = None
         for nd in tree:
             if nd.parent_node:
                 nd.time = nd.parent_node.time + nd.edge.length
@@ -77,14 +80,21 @@ class EventLog(object):
             if nd.is_leaf():
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
-            else:
-                nd.label = node_label_fn(nd)
+            if max_node_time is None or max_node_time < nd.time:
+                max_node_time = nd.time
             self.lineages_on_tree.add(nd)
+        for nd in tree:
+            nd.age = max(max_node_time - nd.time, 0)
+            if nd.is_extant:
+                assert abs(nd.age) < 1e-6
+            nd.annotations["is_extant"] = nd.is_extant
+            nd.annotations["age"] = nd.age
+            nd.annotations["time"] = nd.time
         tree.is_rooted = True
         tree.encode_bipartitions()
         # for nd in tree:
         #     nd.annotations["lineage_id"] = str(int(nd.bipartition))
-        print(tree.as_string("newick", suppress_internal_node_labels=False))
+        # print(tree.as_string("newick", suppress_internal_node_labels=False))
         return old_taxon_namespace
 
     def _restore_tree_from_event_serialization(self, tree, old_taxon_namespace):
@@ -120,6 +130,8 @@ class EventLog(object):
                     ("lineage_end_distribution_bitstring", nd.ending_distribution_bitstring if nd._child_nodes else nd.distribution_bitstring(exclude_supplemental_areas=False)),
                     ("is_seed_node", nd.parent_node is None),
                     ("is_leaf", len(nd._child_nodes) == 0),
+                    ("is_extant", nd.is_extant),
+                    ("age", nd.age),
             ])
             lineage_defs.append(lineage_definition)
         return lineage_defs

@@ -543,6 +543,10 @@ class ArchipelagoSimulator(object):
             all_areas_extant_tree_out.write(results["all-areas.extant"])
         if focal_areas_tree_out is not None:
             focal_areas_tree_out.write(results["focal-areas"])
+        if histories_out and self.event_log:
+            self.event_log.write_histories(
+                    out=histories_out,
+                    tree=self.phylogeny,)
         return
 
 #         if focal_areas_tree_out is not None:
