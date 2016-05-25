@@ -29,21 +29,18 @@ class Snapshot(object):
         self.end_time = None
         self.duration = None
         all_areas_complete_tree_sio = StringIO()
-        focal_areas_complete_tree_sio = StringIO()
         all_areas_extant_tree_sio = StringIO()
-        focal_areas_extant_tree_sio = StringIO()
+        focal_areas_tree_sio = StringIO()
         histories_sio = StringIO()
         simulator.store_sample(
                 all_areas_complete_tree_out=all_areas_complete_tree_sio,
                 all_areas_extant_tree_out=all_areas_extant_tree_sio,
-                focal_areas_complete_tree_out=focal_areas_complete_tree_sio,
-                focal_areas_extant_tree_out=focal_areas_extant_tree_sio,
+                focal_areas_tree_out=focal_areas_tree_sio,
                 histories_out=histories_sio,
                 )
         self.all_areas_complete_tree_str = all_areas_complete_tree_sio.getvalue()
         self.all_areas_extant_tree_str = all_areas_extant_tree_sio.getvalue()
-        self.focal_areas_complete_tree_str = focal_areas_complete_tree_sio.getvalue()
-        self.focal_areas_extant_tree_str = focal_areas_extant_tree_sio.getvalue()
+        self.focal_areas_tree_str = focal_areas_tree_sio.getvalue()
         if simulator.event_log:
             self.histories_str = histories_sio.getvalue()
         else:
@@ -101,12 +98,8 @@ class ArchipelagoSimulator(object):
         return output_prefix + ".all-areas.extant.trees"
 
     @staticmethod
-    def compose_focal_areas_complete_trees_filepath(output_prefix):
-        return output_prefix + ".focal-areas.complete.trees"
-
-    @staticmethod
-    def compose_focal_areas_extant_trees_filepath(output_prefix):
-        return output_prefix + ".focal-areas.extant.trees"
+    def compose_focal_areas_trees_filepath(output_prefix):
+        return output_prefix + ".focal-areas.trees"
 
     @staticmethod
     def compose_histories_filepath(output_prefix):
@@ -176,17 +169,6 @@ class ArchipelagoSimulator(object):
         if verbose:
             self.run_logger.info("Configuring simulation '{}'".format(self.name))
 
-        if config_d.pop("store_focal_areas_complete_trees", True):
-            self.focal_areas_complete_trees_file = config_d.pop("focal_areas_complete_trees_file", None)
-            if self.focal_areas_complete_trees_file is None:
-                self.focal_areas_complete_trees_file = open(ArchipelagoSimulator.compose_focal_areas_complete_trees_filepath(self.output_prefix), "w")
-            if verbose:
-                self.run_logger.info("Focal area complete trees filepath: {}".format(self.focal_areas_complete_trees_file.name))
-        else:
-            self.focal_areas_complete_trees_file = None
-            if verbose:
-                self.run_logger.info("Focal area complete trees will not be stored")
-
         if config_d.pop("store_all_areas_complete_trees", True):
             self.all_areas_complete_trees_file = config_d.pop("all_areas_complete_trees_file", None)
             if self.all_areas_complete_trees_file is None:
@@ -198,17 +180,6 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("All areas complete trees will not be stored")
 
-        if config_d.pop("store_focal_areas_extant_trees", True):
-            self.focal_areas_extant_trees_file = config_d.pop("focal_areas_extant_trees_file", None)
-            if self.focal_areas_extant_trees_file is None:
-                self.focal_areas_extant_trees_file = open(ArchipelagoSimulator.compose_focal_areas_extant_trees_filepath(self.output_prefix), "w")
-            if verbose:
-                self.run_logger.info("Focal area extant lineage trees filepath: {}".format(self.focal_areas_extant_trees_file.name))
-        else:
-            self.focal_areas_extant_trees_file = None
-            if verbose:
-                self.run_logger.info("Focal area extant lineage trees will not be stored")
-
         if config_d.pop("store_all_areas_extant_trees", True):
             self.all_areas_extant_trees_file = config_d.pop("all_areas_extant_trees_file", None)
             if self.all_areas_extant_trees_file is None:
@@ -219,6 +190,17 @@ class ArchipelagoSimulator(object):
             self.all_areas_extant_trees_file = None
             if verbose:
                 self.run_logger.info("All areas extantlineage trees will not be stored")
+
+        if config_d.pop("store_focal_areas_trees", True):
+            self.focal_areas_trees_file = config_d.pop("focal_areas_trees_file", None)
+            if self.focal_areas_trees_file is None:
+                self.focal_areas_trees_file = open(ArchipelagoSimulator.compose_focal_areas_trees_filepath(self.output_prefix), "w")
+            if verbose:
+                self.run_logger.info("Focal area extant lineage trees filepath: {}".format(self.focal_areas_trees_file.name))
+        else:
+            self.focal_areas_trees_file = None
+            if verbose:
+                self.run_logger.info("Focal area extant lineage trees will not be stored")
 
         if config_d.pop("store_histories", False):
             self.is_store_histories = True
@@ -359,8 +341,7 @@ class ArchipelagoSimulator(object):
                 self.store_sample(
                     all_areas_complete_tree_out=self.all_areas_complete_trees_file,
                     all_areas_extant_tree_out=self.all_areas_extant_trees_file,
-                    focal_areas_complete_tree_out=self.focal_areas_complete_trees_file,
-                    focal_areas_extant_tree_out=self.focal_areas_extant_trees_file,
+                    focal_areas_tree_out=self.focal_areas_trees_file,
                     histories_out=self.histories_file,
                     )
                 break
@@ -413,8 +394,7 @@ class ArchipelagoSimulator(object):
                 self.store_sample(
                     all_areas_complete_tree_out=self.all_areas_complete_trees_file,
                     all_areas_extant_tree_out=self.all_areas_extant_trees_file,
-                    focal_areas_complete_tree_out=self.focal_areas_complete_trees_file,
-                    focal_areas_extant_tree_out=self.focal_areas_extant_trees_file,
+                    focal_areas_tree_out=self.focal_areas_trees_file,
                     histories_out=self.histories_file,
                     )
                 break
@@ -549,8 +529,7 @@ class ArchipelagoSimulator(object):
     def store_sample(self,
             all_areas_complete_tree_out,
             all_areas_extant_tree_out,
-            focal_areas_complete_tree_out,
-            focal_areas_extant_tree_out,
+            focal_areas_tree_out,
             histories_out,
             ):
         results = self.phylogeny.generate_tree_strings_for_serialization(
@@ -562,10 +541,8 @@ class ArchipelagoSimulator(object):
             all_areas_complete_tree_out.write(results["all-areas.complete"])
         if all_areas_extant_tree_out is not None:
             all_areas_extant_tree_out.write(results["all-areas.extant"])
-        if focal_areas_complete_tree_out is not None:
-            focal_areas_complete_tree_out.write(results["focal-areas.complete"])
-        if focal_areas_extant_tree_out is not None:
-            focal_areas_extant_tree_out.write(results["focal-areas.extant"])
+        if focal_areas_tree_out is not None:
+            focal_areas_tree_out.write(results["focal-areas"])
         return
 
 #         if focal_areas_tree_out is not None:
@@ -751,10 +728,8 @@ def repeat_run(
         config_d["all_areas_complete_trees_file"] = open(ArchipelagoSimulator.compose_all_areas_complete_trees_filepath(output_prefix), "w")
     if config_d.get("store_all_areas_extant_trees", True) and "all_areas_extant_trees_file" not in config_d:
         config_d["all_areas_extant_trees_file"] = open(ArchipelagoSimulator.compose_all_areas_extant_trees_filepath(output_prefix), "w")
-    if config_d.get("store_focal_areas_complete_trees", True) and "focal_areas_complete_trees_file" not in config_d:
-        config_d["focal_areas_complete_trees_file"] = open(ArchipelagoSimulator.compose_focal_areas_complete_trees_filepath(output_prefix), "w")
-    if config_d.get("store_focal_areas_extant_trees", True) and "focal_areas_extant_trees_file" not in config_d:
-        config_d["focal_areas_extant_trees_file"] = open(ArchipelagoSimulator.compose_focal_areas_extant_trees_filepath(output_prefix), "w")
+    if config_d.get("store_focal_areas_trees", True) and "focal_areas_trees_file" not in config_d:
+        config_d["focal_areas_trees_file"] = open(ArchipelagoSimulator.compose_focal_areas_trees_filepath(output_prefix), "w")
 
     if config_d.get("store_histories", False) and "areas_histories_file" not in config_d:
         config_d["histories_file"] = open(ArchipelagoSimulator.compose_histories_filepath(output_prefix), "w")

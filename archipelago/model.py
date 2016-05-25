@@ -614,7 +614,8 @@ class Phylogeny(dendropy.Tree):
         self.current_lineages.add(c2)
 
     def extinguish_lineage(self, lineage, extinction_type):
-        # assert not lineage._child_nodes
+        if len(self.current_lineages) == 1:
+            self.total_extinction_exception("No extant lineages remaining")
         lineage.deactivate()
         self.current_lineages.remove(lineage)
         if self.log_event:
@@ -905,21 +906,7 @@ class Phylogeny(dendropy.Tree):
                 is_suppress_internal_node_labels=is_suppress_internal_node_labels,
                 )
 
-        # focal areas, complete
-        focal_areas_complete_tree = self.extract_tree(
-                node_filter_fn=lambda x: x in focal_area_lineages,
-                tree_factory=dendropy.Tree,
-                node_factory=dendropy.Node,
-                )
-        for nd in focal_areas_complete_tree:
-            nd.annotations = focal_areas_node_annotations[nd.extraction_source]
-        results["focal-areas.complete"] = self._compose_tree_string(
-                tree=focal_areas_complete_tree,
-                node_label_compose_fn=lambda nd: focal_areas_node_labels[nd.extraction_source],
-                is_suppress_internal_node_labels=is_suppress_internal_node_labels,
-                )
-
-        # focal areas, extant only
+        # focal areas
         focal_areas_extant_only_tree = self.extract_tree(
                 node_filter_fn=lambda x: x not in extinct_lineages and x in focal_area_lineages,
                 tree_factory=dendropy.Tree,
@@ -927,7 +914,7 @@ class Phylogeny(dendropy.Tree):
                 )
         for nd in focal_areas_extant_only_tree:
             nd.annotations = nd.extraction_source.annotations
-        results["focal-areas.extant"] = self._compose_tree_string(
+        results["focal-areas"] = self._compose_tree_string(
                 tree=focal_areas_extant_only_tree,
                 node_label_compose_fn=lambda nd: focal_areas_node_labels[nd.extraction_source],
                 is_suppress_internal_node_labels=is_suppress_internal_node_labels,
