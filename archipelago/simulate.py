@@ -71,7 +71,10 @@ class Snapshot(object):
                 all_areas_complete_tree,
                 time_to_add_to_extant_tips=time_to_add,
                 is_set_taxa=False)
-        results["all-areas.complete"] = all_areas_complete_tree.as_string("newick")
+        results["all-areas.complete"] = all_areas_complete_tree.as_string("newick",
+                suppress_internal_node_labels=False,
+                suppress_leaf_node_labels=False,
+                )
 
         for tree_desc, tree_str in (
                 ("all-areas.extant", self.all_areas_extant_tree_str,),
@@ -86,7 +89,10 @@ class Snapshot(object):
                     )
             for nd in tree.leaf_node_iter():
                 nd.edge.length += time_to_add
-            results[tree_desc] = tree.as_string("newick", suppress_internal_node_labels=False)
+            results[tree_desc] = tree.as_string("newick",
+                    suppress_internal_node_labels=False,
+                    suppress_leaf_node_labels=False,
+                    )
 
         if not self.history_d:
             rvals.append(None)
