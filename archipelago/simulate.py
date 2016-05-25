@@ -71,7 +71,6 @@ class Snapshot(object):
                 all_areas_complete_tree,
                 time_to_add_to_extant_tips=time_to_add,
                 is_set_taxa=False)
-        model.set_node_times_ages_extancy(tree=all_areas_complete_tree, is_set_age=True, is_annotate=True)
         results["all-areas.complete"] = all_areas_complete_tree.as_string("newick")
 
         for tree_desc, tree_str in (
@@ -87,7 +86,7 @@ class Snapshot(object):
                     )
             for nd in tree.leaf_node_iter():
                 nd.edge.length += time_to_add
-            results[tree_desc] = tree.as_string("newick", is_suppress_internal_node_labels=False)
+            results[tree_desc] = tree.as_string("newick", suppress_internal_node_labels=False)
 
         if not self.history_d:
             rvals.append(None)
