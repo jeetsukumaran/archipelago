@@ -58,7 +58,9 @@ def weighted_index_choice(weights, sum_of_weights, rng):
 
 def set_node_times_ages_extancy(tree,
         is_set_age=True,
-        is_annotate=True,):
+        is_annotate=True,
+        time_to_add_to_extant_tips=0,
+        ):
     max_node_time = None
     for nd in tree:
         if nd.parent_node:
@@ -69,11 +71,24 @@ def set_node_times_ages_extancy(tree,
             max_node_time = nd.time
     for nd in tree:
         age = max(max_node_time - nd.time, 0)
-        if hasattr(nd, "is_extant") and nd.is_extant:
-            a = abs(age)
-            assert a < 1e-8, a
-            nd.time = max_node_time
-            age = 0.0
+        if hasattr(nd, "is_extant"):
+            if nd.is_extant:
+                a = abs(age)
+                assert a < 1e-8, a
+                nd.time = max_node_time + time_to_add_to_extant_tips
+                nd.edge.length += time_to_add_to_extant_tips
+                age = 0.0
+            else:
+                age += time_to_add_to_extant_tips
+        else:
+            if abs(age) < 1e-8:
+                nd.is_extant = True
+                nd.time = max_node_time + time_to_add_to_extant_tips
+                nd.edge.length += time_to_add_to_extant_tips
+                age = 0.0
+            else:
+                nd.is_extant = False
+                age += time_to_add_to_extant_tips
         if is_set_age:
             nd.age = age
         if is_annotate:

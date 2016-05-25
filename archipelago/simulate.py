@@ -42,21 +42,42 @@ class Snapshot(object):
         self.all_areas_extant_tree_str = all_areas_extant_tree_sio.getvalue()
         self.focal_areas_tree_str = focal_areas_tree_sio.getvalue()
         if simulator.event_log:
-            self.histories_str = histories_sio.getvalue()
+            histories_str = histories_sio.getvalue()
+            self.history_d = json.loads(histories_str)
         else:
-            self.histories_str = None
+            self.history_d = None
 
     def close(self, end_time):
         self.end_time = end_time
         self.duration = self.end_time - self.start_time
 
     def compose_snapshot(self, time_to_add):
-        rvals = []
+        # This must be some of the ugliest code I've ever written
+        # Basically, just to add some time to the frozen histories
+        results = {}
+        if self.history_d:
+            taxon_namespace = dendropy.TaxonNamespace(self.history_d["leaf_labels"])
+        else:
+            taxon_namespace = dendropy.TaxoNamespace()
+        all_areas_complete_tree = dendropy.Tree.get(
+                data=self.all_areas_complete_tree_str,
+                schema="newick",
+                taxon_namespace=taxon_namespace,
+                rooting="force-rooted",
+                suppress_internal_node_taxa=True,
+                suppress_external_node_taxa=True,
+                )
+        eventlog.EventLog.prepare_tree_for_event_serialization(
+                all_areas_complete_tree,
+                time_to_add_to_extant_tips=time_to_add,
+                is_set_taxa=False)
+        model.set_node_times_ages_extancy(tree=all_areas_complete_tree, is_set_age=True, is_annotate=True)
+        results["all-areas.complete"] = all_areas_complete_tree.as_string("newick")
 
-        for tree_str in (self.focal_areas_tree_str, self.all_areas_tree_str):
-            if not tree_str:
-                rvals.append(None)
-                continue
+        for tree_desc, tree_str in (
+                ("all-areas.extant", self.all_areas_extant_tree_str,),
+                ("focal-areas", self.focal_areas_tree_str,),
+                ):
             tree = dendropy.Tree.get(
                     data=tree_str,
                     schema="newick",
@@ -66,20 +87,22 @@ class Snapshot(object):
                     )
             for nd in tree.leaf_node_iter():
                 nd.edge.length += time_to_add
-            rvals.append(tree.as_string("newick", suppress_leaf_node_labels=False))
+            results[tree_desc] = tree.as_string("newick", is_suppress_internal_node_labels=False)
 
-        if not self.histories_str:
+        if not self.history_d:
             rvals.append(None)
         else:
-            history_d = json.loads(self.histories_str)
-            history_d["tree"]["seed_node_age"] += time_to_add
-            history_d["tree"]["max_event_time"] += time_to_add
-            for lineage_d in history_d["lineages"]:
+            self.history_d["tree"] = eventlog.EventLog.compose_tree_data(
+                    tree=all_areas_complete_tree,
+                    max_event_time=self.history_d["tree"]["max_event_time"])
+            # self.history_d["lineages"] = eventlog.EventLog.compose_lineage_definitions(tree=all_areas_complete_tree)
+            # assert len(self.history_d["leaf_labels"]) == len(all_areas_complete_tree.taxon_namespace)
+            for lineage_d in self.history_d["lineages"]:
                 if lineage_d["is_leaf"]:
                     lineage_d["lineage_end_time"] += time_to_add
                     lineage_d["lineage_duration"] = lineage_d["lineage_end_time"] - lineage_d["lineage_start_time"]
-            rvals.append(json.dumps(history_d, indent=4, separators=(',', ': ')))
-        return rvals
+            results["history"] = json.dumps(self.history_d, indent=4, separators=(',', ': '))
+        return results
 
 class ArchipelagoSimulator(object):
 
@@ -518,13 +541,15 @@ class ArchipelagoSimulator(object):
             selected_snapshot.end_time,
             selected_snapshot.start_time + time_to_add,
             ))
-        focal_areas_tree_str, all_areas_tree_str, histories_str = selected_snapshot.compose_snapshot(time_to_add=time_to_add)
-        if focal_areas_tree_str and self.focal_areas_trees_file is not None:
-            self.focal_areas_trees_file.write(focal_areas_tree_str)
-        if all_areas_tree_str and self.all_areas_trees_file is not None:
-            self.all_areas_trees_file.write(all_areas_tree_str)
-        if histories_str and self.histories_file is not None:
-            self.histories_file.write(histories_str)
+        results = selected_snapshot.compose_snapshot(time_to_add=time_to_add)
+        if self.all_areas_complete_trees_file is not None:
+            self.all_areas_complete_trees_file.write(results["all-areas.complete"])
+        if self.all_areas_extant_trees_file is not None:
+            self.all_areas_extant_trees_file.write(results["all-areas.extant"])
+        if self.focal_areas_trees_file is not None:
+            self.focal_areas_trees_file.write(results["focal-areas"])
+        if self.histories_file is not None:
+            self.histories_file.write(results["history"])
 
     def store_sample(self,
             all_areas_complete_tree_out,
