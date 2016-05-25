@@ -56,6 +56,34 @@ def weighted_index_choice(weights, sum_of_weights, rng):
         if rnd < 0:
             return i
 
+def set_node_times_ages_extancy(tree,
+        is_set_age=True,
+        is_annotate=True,):
+    max_node_time = None
+    for nd in tree:
+        if nd.parent_node:
+            nd.time = nd.parent_node.time + nd.edge.length
+        else:
+            nd.time = nd.edge.length
+        if max_node_time is None or max_node_time < nd.time:
+            max_node_time = nd.time
+    for nd in tree:
+        age = max(max_node_time - nd.time, 0)
+        if hasattr(nd, "is_extant") and nd.is_extant:
+            a = abs(age)
+            assert a < 1e-8, a
+            nd.time = max_node_time
+            age = 0.0
+        if is_set_age:
+            nd.age = age
+        if is_annotate:
+            nd.annotations["is_extant"] = nd.is_extant
+            nd.annotations["time"] = nd.time
+            if is_set_age:
+                nd.annotations["age"] = nd.age
+    tree.max_node_time = max_node_time
+
+
 class StatesVector(object):
     """
     A vector in which each element is an integer represents the state of a
@@ -464,8 +492,8 @@ class Lineage(dendropy.Node):
             raise Lineage.NullDistributionException(self)
 
     def deactivate(self):
-        self.clear_areas()
         self.is_extant = False
+        self.clear_areas()
 
     def clear_areas(self):
         for area in self.areas:

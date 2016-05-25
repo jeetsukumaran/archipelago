@@ -5,6 +5,7 @@ from decimal import Decimal
 import collections
 import json
 import dendropy
+from archipelago import model
 
 class EventLog(object):
 
@@ -71,25 +72,14 @@ class EventLog(object):
                 add_annotation=False,
                 exclude_supplemental_areas=False)
         self.lineages_on_tree = set()
-        max_node_time = None
+        model.set_node_times_ages_extancy(
+                tree=tree,
+                is_set_age=True,
+                is_annotate=True)
         for nd in tree:
-            if nd.parent_node:
-                nd.time = nd.parent_node.time + nd.edge.length
-            else:
-                nd.time = nd.edge.length
-            if nd.is_leaf():
+                self.lineages_on_tree.add(nd)
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
-            if max_node_time is None or max_node_time < nd.time:
-                max_node_time = nd.time
-            self.lineages_on_tree.add(nd)
-        for nd in tree:
-            nd.age = max(max_node_time - nd.time, 0)
-            if nd.is_extant:
-                assert abs(nd.age) < 1e-6
-            nd.annotations["is_extant"] = nd.is_extant
-            nd.annotations["age"] = nd.age
-            nd.annotations["time"] = nd.time
         tree.is_rooted = True
         tree.encode_bipartitions()
         # for nd in tree:
@@ -126,7 +116,6 @@ class EventLog(object):
                     ("lineage_end_time", nd.time),
                     ("lineage_duration", nd.time - nd.parent_node.time if nd.parent_node else -1.0),
                     ("lineage_start_distribution_bitstring", nd.starting_distribution_bitstring),
-                    # ("lineage_end_distribution_bitstring", nd.ending_distribution_bitstring if nd._child_nodes else nd.distribution_bitstring(exclude_supplemental_areas=False)),
                     ("lineage_end_distribution_bitstring", nd.ending_distribution_bitstring if nd._child_nodes else nd.distribution_bitstring(exclude_supplemental_areas=False)),
                     ("is_seed_node", nd.parent_node is None),
                     ("is_leaf", len(nd._child_nodes) == 0),
