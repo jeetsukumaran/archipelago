@@ -44,6 +44,7 @@ class EventLog(object):
     def compose_lineage_definitions(tree):
         lineage_defs = []
         for nd in tree.preorder_node_iter():
+            is_leaf = len(nd._child_nodes) == 0
             lineage_definition = collections.OrderedDict([
                     ("lineage_id", int(nd.bipartition)),
                     ("lineage_parent_id", int(nd.parent_node.bipartition) if nd.parent_node is not None else None),
@@ -55,8 +56,8 @@ class EventLog(object):
                     ("lineage_start_distribution_bitstring", nd.starting_distribution_bitstring),
                     ("lineage_end_distribution_bitstring", nd.ending_distribution_bitstring if nd._child_nodes else nd.distribution_bitstring(exclude_supplemental_areas=False)),
                     ("is_seed_node", nd.parent_node is None),
-                    ("is_leaf", len(nd._child_nodes) == 0),
-                    ("is_extant", nd.is_extant),
+                    ("is_leaf", is_leaf),
+                    ("is_extant_leaf", nd.is_extant and is_leaf),
                     ("age", nd.age),
             ])
             lineage_defs.append(lineage_definition)
@@ -65,7 +66,10 @@ class EventLog(object):
     @staticmethod
     def compose_tree_data(tree, max_event_time):
         tree_data = collections.OrderedDict()
-        tree_data["newick"] = tree.as_string("newick")
+        tree_data["newick"] = tree.as_string("newick",
+                suppress_internal_node_labels=True,
+                suppress_leaf_node_labels=False,
+                )
         tree_data["seed_node_age"] = tree.seed_node.age
         tree_data["max_event_time"] = max_event_time
         tree_data["end_time"] = max(max_event_time, tree.seed_node.age)

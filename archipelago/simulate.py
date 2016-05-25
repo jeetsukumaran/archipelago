@@ -72,7 +72,7 @@ class Snapshot(object):
                 time_to_add_to_extant_tips=time_to_add,
                 is_set_taxa=False)
         results["all-areas.complete"] = all_areas_complete_tree.as_string("newick",
-                suppress_internal_node_labels=False,
+                suppress_internal_node_labels=True,
                 suppress_leaf_node_labels=False,
                 )
 
@@ -243,7 +243,7 @@ class ArchipelagoSimulator(object):
             if verbose:
                 self.run_logger.info("Event histories will not be written out")
 
-        self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", False)
+        self.is_suppress_internal_node_labels = config_d.pop("suppress_internal_node_labels", True)
         if verbose:
             self.run_logger.info("Internal node labels will{} be written on trees".format(" not" if self.is_suppress_internal_node_labels else ""))
 
