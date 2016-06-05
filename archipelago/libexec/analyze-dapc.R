@@ -108,6 +108,7 @@ calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficien
     rv <- list(
               dapc.result=dapc.result,
               var.contr=var.contr,
+              pca.loadings=dapc.result$pca.loadings,
               model.prefs=model.prefs,
               # true.model.posterior.mean=true.model.posterior.mean,
               # mean.count.correct.model.preferred=mean.count.correct.model.preferred,
