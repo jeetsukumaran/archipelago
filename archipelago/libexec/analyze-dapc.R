@@ -64,6 +64,8 @@ extractPredictors <- function(summary.df) {
 # In the same way, correct.assigns.prop["unconstrained"] is the proportion of
 # times the "unconstrained" model was correctly classified.
 calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficient.groups=F) {
+    # write.csv(predictors, "predictors.csv", row.names=F)
+    # write.csv(group, "group.csv", row.names=F)
     num.groups <- length(unique(group))
     if (num.groups < 2) {
         if (verbose.on.insufficient.groups) {
@@ -72,9 +74,13 @@ calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficien
         return(NULL)
     }
     dapc.result <- dapc(predictors, group, n.pca=n.pca, n.da=n.da)
-    var.contr <- data.frame(var=rownames(dapc.result$var.contr),
-                        LD1=as.vector(dapc.result$var.contr)
-                        )
+    var.names = rownames(dapc.result$var.contr)
+    if (length(var.names) == 0) {
+        var.names = dapc.result$var.contr
+    }
+    var.contr <- data.frame(var=var.names,
+                            LD1=as.vector(dapc.result$var.contr)
+                            )
     var.contr <- var.contr[order(-var.contr$LD1),]
     model.prefs <- data.frame(
                              group=group,                        # correct model
@@ -101,7 +107,7 @@ calculateDAPC <- function(predictors, group, n.pca, n.da, verbose.on.insufficien
 
     rv <- list(
               dapc.result=dapc.result,
-              var.contr=var.contr,
+              # var.contr=var.contr,
               model.prefs=model.prefs,
               # true.model.posterior.mean=true.model.posterior.mean,
               # mean.count.correct.model.preferred=mean.count.correct.model.preferred,

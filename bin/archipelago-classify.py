@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import sys
 import os
 import collections
 import argparse
@@ -192,7 +193,6 @@ def main():
         r_commands.append("sink('{}')".format(args.describe_trained_model))
         r_commands.append("print(results$trained.model)")
         r_commands.append("sink()")
-
 
     returncode, stdout, stderr = rstats.call(r_commands)
     # assert os.path.exists(r_script_path)
