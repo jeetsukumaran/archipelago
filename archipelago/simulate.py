@@ -58,7 +58,7 @@ class Snapshot(object):
         if self.history_d:
             taxon_namespace = dendropy.TaxonNamespace(self.history_d["leaf_labels"])
         else:
-            taxon_namespace = dendropy.TaxoNamespace()
+            taxon_namespace = dendropy.TaxonNamespace()
         all_areas_complete_tree = dendropy.Tree.get(
                 data=self.all_areas_complete_tree_str,
                 schema="newick",
@@ -95,7 +95,7 @@ class Snapshot(object):
                     )
 
         if not self.history_d:
-            rvals.append(None)
+            results["history"] = None
         else:
             self.history_d["tree"] = eventlog.EventLog.compose_tree_data(
                     tree=all_areas_complete_tree,
