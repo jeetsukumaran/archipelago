@@ -47,6 +47,7 @@ class EventLog(object):
             is_leaf = len(nd._child_nodes) == 0
             lineage_definition = collections.OrderedDict([
                     ("lineage_id", int(nd.bipartition)),
+                    ("lineage_label", nd.taxon.label),
                     ("lineage_parent_id", int(nd.parent_node.bipartition) if nd.parent_node is not None else None),
                     ("leafset_bitstring", nd.bipartition.leafset_as_bitstring()),
                     ("split_bitstring", nd.bipartition.split_as_bitstring()),
