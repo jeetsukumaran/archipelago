@@ -821,7 +821,7 @@ class Phylogeny(dendropy.Tree):
                 assert n2 > 0
                 sample1 = set(self.rng.sample(parent.areas, n1))
                 # assert len(sample1) < len(self.geography.areas)
-                for s_area in self.geography.areas:
+                for s_area in parent.areas:
                     if s_area in sample1:
                         child1.add_area(s_area)
                     else:
