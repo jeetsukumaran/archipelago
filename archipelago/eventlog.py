@@ -21,6 +21,7 @@ class EventLog(object):
                 is_set_age=True,
                 is_annotate=True,
                 time_to_add_to_extant_tips=time_to_add_to_extant_tips)
+        tree.is_rooted = True
         if is_set_taxa:
             node_label_fn = lambda x: x.encode_lineage(
                     set_label=False,
@@ -31,7 +32,6 @@ class EventLog(object):
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
             tree.encode_bipartitions()
-        tree.is_rooted = True
         return old_taxon_namespace, lineages_on_tree
 
     @staticmethod
