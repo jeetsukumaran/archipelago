@@ -24,6 +24,26 @@ getGroupingFieldName <- function(summary.df) {
 
 # Core Analytical Functions {{{1
 
+
+## Given a training data set and test data set, ensures that all predictors are in the range of 0 to 1
+normalize.summary.stats = function(target.summary.stats, training.summary.stats, is.include.target.summary.stats.data.in.normalization.range=T) {
+    predictor.fields = colnames(training.summary.stats)[grepl('^predictor', names(training.summary.stats))]
+    for (fieldname in predictor.fields) {
+        if (is.include.target.summary.stats.data.in.normalization.range) {
+            min_x = min(training.summary.stats[fieldname], target.summary.stats[fieldname])
+            max_x = max(training.summary.stats[fieldname], target.summary.stats[fieldname])
+        } else {
+            min_x = min(training.summary.stats[fieldname])
+            max_x = max(training.summary.stats[fieldname])
+        }
+        value_range = max_x - min_x
+        training.summary.stats[fieldname] = (training.summary.stats[fieldname] - min_x) / value_range
+        target.summary.stats[fieldname] = (target.summary.stats[fieldname] - min_x) / value_range
+    }
+    return(list(training.summary.stats=training.summary.stats, target.summary.stats=target.summary.stats))
+}
+
+
 # Given a data.frame, returns a list with two named elements:
 #   `group`: data.frame
 #       A data.frame consisting of a single-column, the grouping variable
@@ -275,8 +295,20 @@ classifyData <- function(target.summary.stats,
                          training.summary.stats,
                          n.pca,
                          n.da=NULL,
-                         n.pca.optimization.penalty.weight=1.0
+                         n.pca.optimization.penalty.weight=1.0,
+                         is.normalize.summary.stats=T,
+                         is.include.target.summary.stats.data.in.normalization.range=T
                          ) {
+    if (is.normalize.summary.stats) {
+        rv = normalize.summary.stats(
+                target.summary.stats=target.summary.stats,
+                training.summary.stats=training.summary.stats,
+                is.include.target.summary.stats.data.in.normalization.range=is.include.target.summary.stats.data.in.normalization.range)
+        target.summary.stats = rv$target.summary.stats
+        write.csv(target.summary.stats, file="normalized-target.csv", row.names=F)
+        training.summary.stats = rv$training.summary.stats
+        write.csv(training.summary.stats, file="normalized-training.csv", row.names=F)
+    }
     training.data <- extractGroupAndPredictors(training.summary.stats)
     predictors <- training.data$predictors
     group <- training.data$group
