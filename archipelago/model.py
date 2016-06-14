@@ -826,6 +826,11 @@ class Phylogeny(dendropy.Tree):
                         child1.add_area(s_area)
                     else:
                         child2.add_area(s_area)
+                assert len(child1.areas) + len(child2.areas) == len(parent.areas)
+                # print("---")
+                # print([a.index for a in parent.areas])
+                # print([a.index for a in child1.areas])
+                # print([a.index for a in child2.areas])
         elif speciation_mode == 4:
             child1.copy_areas(parent)
             jump_target_idx = weighted_index_choice(
