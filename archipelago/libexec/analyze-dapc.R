@@ -305,9 +305,7 @@ classifyData <- function(target.summary.stats,
                 training.summary.stats=training.summary.stats,
                 is.include.target.summary.stats.data.in.normalization.range=is.include.target.summary.stats.data.in.normalization.range)
         target.summary.stats = rv$target.summary.stats
-        write.csv(target.summary.stats, file="normalized-target.csv", row.names=F)
         training.summary.stats = rv$training.summary.stats
-        write.csv(training.summary.stats, file="normalized-training.csv", row.names=F)
     }
     training.data <- extractGroupAndPredictors(training.summary.stats)
     predictors <- training.data$predictors
