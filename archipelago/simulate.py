@@ -67,10 +67,11 @@ class Snapshot(object):
                 suppress_internal_node_taxa=True,
                 suppress_external_node_taxa=True,
                 )
-        eventlog.EventLog.prepare_tree_for_event_serialization(
+        old_taxon_namespace, lineages_on_tree = eventlog.EventLog.prepare_tree_for_event_serialization(
                 all_areas_complete_tree,
                 time_to_add_to_extant_tips=time_to_add,
-                is_set_taxa=False)
+                is_set_taxa=False,
+                )
         results["all-areas.complete"] = all_areas_complete_tree.as_string("newick",
                 suppress_internal_node_labels=True,
                 suppress_leaf_node_labels=False,
@@ -88,7 +89,8 @@ class Snapshot(object):
                     suppress_external_node_taxa=True,
                     )
             for nd in tree.leaf_node_iter():
-                nd.edge.length += time_to_add
+                if nd.annotations["is_extant"] == True:
+                    nd.edge.length += time_to_add
             results[tree_desc] = tree.as_string("newick",
                     suppress_internal_node_labels=False,
                     suppress_leaf_node_labels=False,
@@ -103,10 +105,11 @@ class Snapshot(object):
             # self.history_d["lineages"] = eventlog.EventLog.compose_lineage_definitions(tree=all_areas_complete_tree)
             # assert len(self.history_d["leaf_labels"]) == len(all_areas_complete_tree.taxon_namespace)
             for lineage_d in self.history_d["lineages"]:
-                if lineage_d["is_leaf"]:
+                if lineage_d["is_extant_leaf"]:
                     lineage_d["lineage_end_time"] += time_to_add
                     lineage_d["lineage_duration"] = lineage_d["lineage_end_time"] - lineage_d["lineage_start_time"]
             results["history"] = json.dumps(self.history_d, indent=4, separators=(',', ': '))
+        # eventlog.EventLog.restore_tree_from_event_serialization(all_areas_complete_tree, old_taxon_namespace)
         return results
 
 class ArchipelagoSimulator(object):

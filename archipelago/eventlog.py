@@ -32,12 +32,15 @@ class EventLog(object):
                 assert nd.taxon is None
                 nd.taxon = tree.taxon_namespace.require_taxon(label=node_label_fn(nd))
             tree.encode_bipartitions()
+            for nd in tree:
+                nd.annotations["lineage_id"] = int(nd.bipartition)
         return old_taxon_namespace, lineages_on_tree
 
     @staticmethod
     def restore_tree_from_event_serialization(tree, old_taxon_namespace):
         for nd in tree:
             nd.taxon = None
+            nd.annotations.drop()
         tree.taxon_namespace = old_taxon_namespace
 
     @staticmethod
@@ -70,6 +73,7 @@ class EventLog(object):
         tree_data["newick"] = tree.as_string("newick",
                 suppress_internal_node_labels=True,
                 suppress_leaf_node_labels=False,
+                suppress_annotations=False,
                 )
         tree_data["seed_node_age"] = tree.seed_node.age
         tree_data["max_event_time"] = max_event_time
@@ -131,8 +135,9 @@ class EventLog(object):
         json.dump(history_data, out, indent=4, separators=(',', ': '))
         EventLog.restore_tree_from_event_serialization(tree=tree, old_taxon_namespace=old_taxon_namespace)
 
-    def compose_tree_string(self, tree):
-        return tree.as_string("newick")
+#     ### not used???
+#     def compose_tree_string(self, tree):
+#         return tree.as_string("newick")
 
     def _compose_taxon_namespace(self, tree):
         return [t.label for t in tree.taxon_namespace]
