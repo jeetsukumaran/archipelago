@@ -946,6 +946,8 @@ class Phylogeny(dendropy.Tree):
                 tree_factory=dendropy.Tree,
                 node_factory=dendropy.Node,
                 )
+        for annotation in self.annotations:
+            all_areas_extant_only_tree.annotations[annotation.name] = annotation.value
         for nd in all_areas_extant_only_tree:
             nd.annotations = all_areas_node_annotations[nd.extraction_source]
         results["all-areas.extant"] = self._compose_tree_string(
@@ -960,6 +962,8 @@ class Phylogeny(dendropy.Tree):
                 tree_factory=dendropy.Tree,
                 node_factory=dendropy.Node,
                 )
+        for annotation in self.annotations:
+            focal_areas_extant_only_tree.annotations[annotation.name] = annotation.value
         for nd in focal_areas_extant_only_tree:
             nd.annotations = nd.extraction_source.annotations
         results["focal-areas"] = self._compose_tree_string(
