@@ -55,7 +55,7 @@ extractGroupAndPredictors <- function(summary.df) {
     }
     summary.df <- na.omit(summary.df)
     group <- summary.df[[getGroupingFieldName(summary.df)]]
-    predictors <- extractPredictors(summary.df)
+    predictors <- extractPredictors(summary.df=summary.df, is.omit.na=F)
     rv <- list(
         group=group,
         predictors=predictors
@@ -66,12 +66,14 @@ extractGroupAndPredictors <- function(summary.df) {
 # Given a data.frame, returns a list with two named elements:
 #   `predictors`: data.frame
 #       A data.frame consisting of (just) the predictor variables.
-extractPredictors <- function(summary.df) {
+extractPredictors <- function(summary.df, is.omit.na=F) {
     if (is.null(summary.df)) {
         return(NULL)
     }
-    summary.df <- na.omit(summary.df)
     predictors <- summary.df[, grepl('^predictor', names(summary.df))]
+    if (is.omit.na) {
+        predictors <- na.omit(predictors)
+    }
     return(predictors)
 }
 
@@ -342,7 +344,7 @@ classifyData <- function(target.summary.stats,
             group,
             n.pca=n.pca,
             n.da=n.da)
-    target.predictors <- extractPredictors(target.summary.stats)
+    target.predictors <- extractPredictors(target.summary.stats, is.omit.na=F)
     pred.sup <- predict.dapc(trained.model$dapc.result, newdata=target.predictors)
     classification.results <- data.frame(pred.sup)
     classification.results$n.pca <- n.pca
