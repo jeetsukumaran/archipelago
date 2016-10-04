@@ -9,6 +9,10 @@ import csv
 import re
 import itertools
 try:
+    from itertools import ifilter as xfilter
+except ImportError:
+    from itertools import filter as xfilter # Python 3
+try:
     from StringIO import StringIO # Python 2 legacy support: StringIO in this module is the one needed (not io)
 except ImportError:
     from io import StringIO # Python 3
@@ -144,7 +148,7 @@ def main():
     training_summary_stats_paths = "c({})".format(",".join("'{}'".format(f) for f in args.training_summary_stats))
 
     optimization_penalty_factor = ""
-    num_chosen = len(list(itertools.ifilter(lambda x: x is not None, [args.set_npca, args.optimize_npca, args.maximize_npca])))
+    num_chosen = len(list(xfilter(lambda x: x is not None, [args.set_npca, args.optimize_npca, args.maximize_npca])))
     if num_chosen == 0:
         sys.exit("Must specify one of: '--set-npca', '--optimize-npca', or '--maximize-npca'")
     elif num_chosen > 1:
