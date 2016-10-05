@@ -59,7 +59,8 @@ extractGroupAndPredictors <- function(summary.df) {
     predictors <- extractPredictors(summary.df=summary.df, is.omit.na=F)
     na.rows = which(is.na(predictors), arr.ind=T)[,1]
     if (length(na.rows) > 0) {
-        group <- group[-na.rows,]
+        # group <- group[-na.rows,]
+        group <- group[-na.rows]
         predictors <- predictors[-na.rows,]
     }
 
